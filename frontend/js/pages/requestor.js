@@ -1,6 +1,4 @@
 const app = {
-    _procSpecFile: null, // { name, size, type, dataUrl }
-
     state: {
         departments: [],
         resourceCatalog: [],
@@ -17,104 +15,58 @@ const app = {
             return;
         }
         await this.refreshData();
-        
-        // Update UI with user info
-        document.querySelector('.user-name').textContent = user.name;
-        document.querySelector('.user-role').textContent = 'Requestor - ' + user.department;
 
         this.populateDepartmentDropdowns();
         this.bindNav();
         this.renderDashboard();
         this.renderRequests();
         this.renderResources();
-        this.renderProcurements();
         this.renderProcurementStatus();
-        this.initFileUpload();
-    },
 
-    initFileUpload: function() {
-        const zone = document.getElementById('proc-file-zone');
-        if (!zone) return;
+        // React (Lab 2): Sidebar nav and the Procurement Request feature are React
+        // components under frontend/react/. They're loaded and mounted last, once all
+        // the vanilla-rendered sections and this page's own data are ready, since they
+        // reuse app.switchView/getDepartments/getDeptResources and the real logged-in user.
+        if (window.RX && window.RX.loadComponents) {
+            await window.RX.loadComponents([
+                '../react/sidebar/NavItem.jsx',
+                '../react/sidebar/NavMenu.jsx',
+                '../react/sidebar/UserProfileWidget.jsx',
+                '../react/sidebar/Sidebar.jsx',
+                '../react/sidebar/mount.jsx',
+                '../react/procurement/FileUploadZone.jsx',
+                '../react/procurement/ProcurementForm.jsx',
+                '../react/procurement/ProcurementHistoryTable.jsx',
+                '../react/procurement/ProcurementView.jsx',
+                '../react/procurement/mount.jsx',
+            ]);
 
-        // Drag-and-drop handlers
-        zone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            zone.classList.add('dragover');
-        });
-        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-        zone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            zone.classList.remove('dragover');
-            const file = e.dataTransfer?.files[0];
-            if (file) this._readProcFile(file);
-        });
-    },
+            window.RX.mountSidebar({
+                items: [
+                    { target: 'dashboard-view', icon: 'dashboard', label: 'Dashboard' },
+                    { target: 'request-view', icon: 'add_circle', label: 'Request Resource' },
+                    { target: 'my-requests-view', icon: 'list_alt', label: 'My Requests' },
+                    { target: 'my-resources-view', icon: 'inventory_2', label: 'My Resources' },
+                    { target: 'procurement-view', icon: 'shopping_cart', label: 'Procurement' },
+                ],
+                initialActive: 'dashboard-view',
+                user: {
+                    name: user.name,
+                    role: 'Requestor - ' + user.department,
+                    initial: user.name.charAt(0),
+                },
+                onNavigate: (target) => this.switchView(target),
+            });
 
-    onProcFileSelected: function(event) {
-        const file = event.target.files[0];
-        if (file) this._readProcFile(file);
-        // Reset input so same file can be re-selected
-        event.target.value = '';
-    },
-
-    _readProcFile: function(file) {
-        const ALLOWED = ['application/pdf', 'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/png', 'image/jpeg'];
-        const MAX_MB = 5;
-
-        if (!ALLOWED.includes(file.type)) {
-            Store.showToast('❌ Unsupported file type. Please upload PDF, DOC, DOCX, PNG or JPG.', 'error');
-            return;
+            window.RX.mountProcurementView({
+                getDepartments: () => this.getDepartments(),
+                getDeptResources: (dept) => this.getDeptResources(dept),
+                onAfterSubmit: async () => {
+                    await this.refreshData();
+                    this.renderProcurementStatus();
+                },
+            });
         }
-        if (file.size > MAX_MB * 1024 * 1024) {
-            Store.showToast(`❌ File too large. Maximum size is ${MAX_MB} MB.`, 'error');
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this._procSpecFile = {
-                name: file.name,
-                size: file.size,
-                type: file.type,
-                dataUrl: e.target.result
-            };
-            // Clear any warning border
-            const zone = document.getElementById('proc-file-zone');
-            if (zone) zone.style.borderColor = '';
-            this._showProcFilePreview();
-        };
-        reader.readAsDataURL(file);
-    },
-
-    _showProcFilePreview: function() {
-        const zone = document.getElementById('proc-file-zone');
-        const preview = document.getElementById('proc-file-preview');
-        const nameEl = document.getElementById('proc-file-name');
-        const sizeEl = document.getElementById('proc-file-size');
-
-        if (!this._procSpecFile || !zone || !preview) return;
-
-        zone.style.display = 'none';
-        preview.style.display = 'block';
-        if (nameEl) nameEl.textContent = this._procSpecFile.name;
-        if (sizeEl) {
-            const kb = (this._procSpecFile.size / 1024).toFixed(1);
-            sizeEl.textContent = kb < 1024 ? `${kb} KB` : `${(kb / 1024).toFixed(2)} MB`;
-        }
-    },
-
-    removeProcFile: function() {
-        this._procSpecFile = null;
-        const zone = document.getElementById('proc-file-zone');
-        const preview = document.getElementById('proc-file-preview');
-        if (zone) zone.style.display = '';
-        if (preview) preview.style.display = 'none';
-    },
-
-    previewSpecFile: function(procId) {
-        Store.previewProcurementFile(procId, 'spec');
     },
 
     previewInvoiceFile: function(procId) {
@@ -171,7 +123,7 @@ const app = {
 
     populateDepartmentDropdowns: function() {
         const departments = this.getDepartments();
-        ['req-dept', 'proc-dept'].forEach((id) => {
+        ['req-dept'].forEach((id) => {
             const select = document.getElementById(id);
             if (!select) return;
 
@@ -220,25 +172,6 @@ const app = {
         }
         
         this.updateResourceCount();
-    },
-
-    updateProcurementTypeDropdown: function() {
-        const dept = document.getElementById('proc-dept').value;
-        const typeSelect = document.getElementById('proc-type');
-        if (!typeSelect) return;
-
-        const types = this.getDeptResources(dept);
-        if (types.length === 0) {
-            typeSelect.innerHTML = '<option value="" disabled selected>No Catalog Configured for Department</option>';
-        } else {
-            typeSelect.innerHTML = '<option value="" disabled selected>Select Resource Type</option>';
-            types.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type;
-                option.textContent = type;
-                typeSelect.appendChild(option);
-            });
-        }
     },
 
     updateResourceCount: async function() {
@@ -316,78 +249,9 @@ const app = {
         this.renderDashboard();
         this.renderRequests();
         this.switchView('my-requests-view');
-        
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelector('.nav-item[data-target="my-requests-view"]').classList.add('active');
+
+        if (window.RX && window.RX.setSidebarActive) window.RX.setSidebarActive('my-requests-view');
     },
-
-    submitProcurement: async function(e) {
-        e.preventDefault();
-        const dept = document.getElementById('proc-dept').value;
-        const type = document.getElementById('proc-type').value;
-        const qty = parseInt(document.getElementById('proc-qty').value);
-        const reason = document.getElementById('proc-reason').value;
-        const user = Store.getCurrentUser();
-
-        if (!dept || !type.trim() || isNaN(qty) || qty < 1 || !reason.trim()) {
-            Store.showToast("Please fill in all fields correctly before submitting.", "error");
-            return;
-        }
-
-        // Spec file is required
-        if (!this._procSpecFile) {
-            Store.showToast("⚠️ Please attach a Resource Specification / Intent File before submitting.", "warning");
-            document.getElementById('proc-file-zone').style.borderColor = '#f59e0b';
-            return;
-        }
-
-        // Fix 2: Validate quantity > available inventory (procurement only needed when stock is insufficient)
-        const availability = await Store.fetchResourceAvailability(dept, type);
-        const availableCount = Number(availability?.availableCount || 0);
-
-        if (qty <= availableCount) {
-            Store.showToast(
-                `❌ Procurement not needed — ${availableCount} unit(s) of "${type}" already available in inventory. Use "Request Resource" instead.`,
-                "error"
-            );
-            return;
-        }
-
-        const newId = `PRC-${Math.floor(1000 + Math.random() * 9000)}`;
-        const dateStr = new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year:'numeric'});
-
-        const procPayload = {
-            id: newId,
-            item: type,
-            resourceType: type,
-            department: dept,
-            requester: user.name,
-            requestedById: user.id,
-            requesterRole: user.role,
-            quantity: qty,
-            status: "Pending Approval",
-            priority: "Normal",
-            date: dateStr,
-            justification: reason,
-            specFileName: this._procSpecFile.name,
-            specFileType: this._procSpecFile.type,
-            specFileDataUrl: this._procSpecFile.dataUrl
-        };
-
-        try {
-            await Store.createProcurement(procPayload);
-            await this.refreshData();
-
-            Store.showToast("Procurement Request Submitted Successfully! ID: " + newId, "success");
-            document.getElementById('procurementForm').reset();
-            this.removeProcFile();
-            this.renderProcurements();
-        } catch (err) {
-            console.error('Procurement submit error:', err);
-            Store.showToast("❌ Failed to submit: " + (err.message || "Unknown error. Please try again."), "error");
-        }
-    },
-
 
     renderDashboard: function() {
         const user = Store.getCurrentUser();
@@ -498,42 +362,6 @@ const app = {
         });
     },
 
-    renderProcurements: function() {
-        const tbody = document.getElementById('procurements-tbody');
-        if(!tbody) return;
-        tbody.innerHTML = '';
-
-        const user = Store.getCurrentUser();
-        const myProcs = this.state.procurements.filter(p => p.requester === user.name || p.requestedById === user.id);
-
-        myProcs.forEach(proc => {
-            let statusBadge = `<span class="badge" style="background:#cbd5e1; color:#0f172a">${proc.status}</span>`;
-            if (proc.status === 'Approved' || proc.status === 'Completed') statusBadge = `<span class="badge" style="background:#dcfce7; color:#166534">${proc.status}</span>`;
-            else if (proc.status === 'Pending Approval') statusBadge = `<span class="badge pending">${proc.status}</span>`;
-            else if (proc.status === 'Rejected') statusBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c">${proc.status}</span>`;
-
-            const specCell = proc.specFileName
-                ? `<a href="javascript:void(0)" class="spec-file-link" onclick="app.previewSpecFile('${proc.id}')"><span class="material-symbols-outlined" style="font-size:1rem">visibility</span>${proc.specFileName}</a>`
-                : `<span style="color:#cbd5e1; font-size:0.78rem">—</span>`;
-
-            const invoiceCell = proc.invoiceFileName
-                ? `<a href="javascript:void(0)" class="spec-file-link" onclick="app.previewInvoiceFile('${proc.id}')"><span class="material-symbols-outlined" style="font-size:1rem">visibility</span>${proc.invoiceFileName}</a>`
-                : `<span style="color:#cbd5e1; font-size:0.78rem">—</span>`;
-
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="td-id">${proc.id}</td>
-                <td>${proc.item}</td>
-                <td>${String(proc.quantity).padStart(2, '0')}</td>
-                <td>${proc.date}</td>
-                <td>${statusBadge}</td>
-                <td>${specCell}</td>
-                <td>${invoiceCell}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-    },
-
     renderProcurementStatus: function() {
         const tbody = document.getElementById('procurement-status-tbody');
         if (!tbody) return;
@@ -598,8 +426,8 @@ const app = {
         this.renderRequests();
         this.renderResources();
         this.switchView('my-resources-view');
-        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-        document.querySelector('.nav-item[data-target="my-resources-view"]').classList.add('active');
+
+        if (window.RX && window.RX.setSidebarActive) window.RX.setSidebarActive('my-resources-view');
     },
 
     renderResources: function() {
