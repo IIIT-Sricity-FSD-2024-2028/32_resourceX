@@ -386,7 +386,7 @@ const app = {
 
         try {
             await Store.createProcurement(procPayload);
-            await this.refreshData();
+            await this.syncStateFromStore();
 
             Store.showToast("Procurement Request Submitted Successfully! ID: " + newId, "success");
             document.getElementById('procurementForm').reset();
