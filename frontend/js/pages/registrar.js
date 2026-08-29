@@ -40,6 +40,21 @@ const regApp = {
         };
     },
 
+    // Used after a single action instead of refreshData(): the Store method just called
+    // already refreshed exactly the collection(s) it changed (see store.js), so this reads
+    // that already-fresh data straight from Store's cache — no extra network calls — and
+    // only re-fetches the one thing Store never caches itself: the registrar summary.
+    syncStateFromStore: async function() {
+        const data = Store.getData();
+        this.state = {
+            ...this.state,
+            requests: data.requests || [],
+            procurements: data.procurements || [],
+            resources: data.resources || [],
+        };
+        this.state.summary = (await Store.fetchRegistrarSummary()) || null;
+    },
+
     // 0. Dashboard Overview
     renderDashboard: function() {
         const summary = this.state.summary || {};
@@ -181,7 +196,7 @@ const regApp = {
 
     acceptProcurement: async function(id) {
         await Store.approveRegistrarProcurement(id);
-        await this.refreshData();
+        await this.syncStateFromStore();
         alert('Procurement Approved. Task passed to Staff for fulfillment.');
         this.renderProcurementApprovals();
         this.renderDashboard();
@@ -190,7 +205,7 @@ const regApp = {
     rejectProcurement: async function(id) {
         if(confirm("Reject this procurement request?")) {
             await Store.rejectRegistrarProcurement(id);
-            await this.refreshData();
+            await this.syncStateFromStore();
             this.renderProcurementApprovals();
             this.renderDashboard();
         }

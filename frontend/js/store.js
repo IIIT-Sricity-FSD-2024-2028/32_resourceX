@@ -160,8 +160,12 @@ class DataStore {
         return contentType.includes('application/json') ? res.json() : null;
     }
 
-    async sync() {
-        const collections = {
+    // Single source of truth for collection name -> API path, shared by sync() (full
+    // refresh, used on login when every collection genuinely needs loading) and
+    // _refreshCollections() (partial refresh, used by mutating methods below so an
+    // action only re-fetches the collection(s) it actually changed).
+    _collectionPaths() {
+        return {
             users: '/users',
             departments: '/departments',
             requests: '/requests',
@@ -173,6 +177,10 @@ class DataStore {
             stockThresholds: '/analytics/stock',
             resourceCatalog: '/resources/catalog'
         };
+    }
+
+    async sync() {
+        const collections = this._collectionPaths();
         const currentUser = this.getCurrentUser();
         const next = { ...this.getData() };
 
@@ -187,6 +195,27 @@ class DataStore {
         next.currentUser = currentUser;
         this.saveData(next);
         return next;
+    }
+
+    // Refreshes only the named collections instead of sync()'s full sweep. Each call
+    // site below passes exactly the collection(s) its backend action actually changes
+    // (verified against the corresponding NestJS service method), so a single action —
+    // e.g. submitting a maintenance request — no longer re-fetches every unrelated
+    // collection (users, notifications, procurements, ...) along with it.
+    async _refreshCollections(names) {
+        const paths = this._collectionPaths();
+        const data = this.getData();
+        for (const name of names) {
+            const path = paths[name];
+            if (!path) continue;
+            try {
+                data[name] = await this.api(path);
+            } catch (error) {
+                console.error(`Failed to refresh ${name}:`, error);
+            }
+        }
+        this.saveData(data);
+        return data;
     }
 
     async login(email, password) {
@@ -244,19 +273,19 @@ class DataStore {
 
     async createUser(payload) {
         const result = await this.api('/users', { method: 'POST', body: payload });
-        await this.sync();
+        await this._refreshCollections(['users']);
         return result;
     }
 
     async updateUser(id, payload) {
         const result = await this.api(`/users/${id}`, { method: 'PATCH', body: payload });
-        await this.sync();
+        await this._refreshCollections(['users']);
         return result;
     }
 
     async deactivateUser(id) {
         const result = await this.api(`/users/${id}`, { method: 'DELETE' });
-        await this.sync();
+        await this._refreshCollections(['users']);
         return result;
     }
 
@@ -266,19 +295,19 @@ class DataStore {
 
     async createDepartment(payload) {
         const result = await this.api('/departments', { method: 'POST', body: payload });
-        await this.sync();
+        await this._refreshCollections(['departments']);
         return result;
     }
 
     async updateDepartment(id, payload) {
         const result = await this.api(`/departments/${id}`, { method: 'PATCH', body: payload });
-        await this.sync();
+        await this._refreshCollections(['departments']);
         return result;
     }
 
     async deleteDepartment(id) {
         const result = await this.api(`/departments/${id}`, { method: 'DELETE' });
-        await this.sync();
+        await this._refreshCollections(['departments']);
         return result;
     }
 
@@ -288,7 +317,7 @@ class DataStore {
 
     async createRequest(payload) {
         const result = await this.api('/requests', { method: 'POST', body: payload });
-        await this.sync();
+        await this._refreshCollections(['requests']);
         return result;
     }
 
@@ -314,7 +343,7 @@ class DataStore {
             method: 'POST',
             body: { department, resourceTypes }
         });
-        await this.sync();
+        await this._refreshCollections(['resourceCatalog']);
         return result;
     }
 
@@ -338,19 +367,19 @@ class DataStore {
 
     async createResource(payload) {
         const result = await this.api('/resources', { method: 'POST', body: payload });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async updateResource(id, payload) {
         const result = await this.api(`/resources/${id}`, { method: 'PATCH', body: payload });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async scrapResource(id) {
         const result = await this.api(`/resources/${id}/scrap`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
@@ -389,7 +418,7 @@ class DataStore {
 
     async updateNotification(id, payload) {
         const result = await this.api(`/notifications/${id}`, { method: 'PATCH', body: payload });
-        await this.sync();
+        await this._refreshCollections(['notifications']);
         return result;
     }
 
@@ -424,7 +453,7 @@ class DataStore {
         this.saveData(data);
 
         this.api(`/${collection}`, { method: 'POST', body: item })
-            .then(() => this.sync())
+            .then(() => this._refreshCollections([collection]))
             .catch(err => console.error('API Error:', err));
 
         return item;
@@ -440,7 +469,7 @@ class DataStore {
         }
 
         this.api(`/${collection}/${id}`, { method: 'PATCH', body: updates })
-            .then(() => this.sync())
+            .then(() => this._refreshCollections([collection]))
             .catch(err => console.error('API Error:', err));
 
         return index > -1 ? items[index] : null;
@@ -452,19 +481,19 @@ class DataStore {
         this.saveData(data);
 
         this.api(`/${collection}/${id}`, { method: 'DELETE' })
-            .then(() => this.sync())
+            .then(() => this._refreshCollections([collection]))
             .catch(err => console.error('API Error:', err));
     }
 
     async approveRequest(id) {
         const result = await this.api(`/requests/${id}/approve`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['requests']);
         return result;
     }
 
     async rejectRequest(id) {
         const result = await this.api(`/requests/${id}/reject`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['requests']);
         return result;
     }
 
@@ -473,55 +502,58 @@ class DataStore {
             method: 'POST',
             body: { resourceIds }
         });
-        await this.sync();
+        // Allocating moves the request to "Allocated" AND flips each chosen resource's
+        // own status/assignment — both collections change (verified in
+        // RequestsService.allocate()).
+        await this._refreshCollections(['requests', 'resources']);
         return result;
     }
 
     async confirmReceipt(id) {
         const result = await this.api(`/requests/${id}/receipt`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['requests']);
         return result;
     }
 
     async requestMaintenance(id) {
         const result = await this.api(`/resources/${id}/maintenance-request`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async initiateReturn(id) {
         const result = await this.api(`/resources/${id}/initiate-return`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async confirmRepairedAllocation(id) {
         const result = await this.api(`/resources/${id}/confirm-repaired`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async approveDeptProcurement(id) {
         const result = await this.api(`/procurements/${id}/department-approve`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['procurements']);
         return result;
     }
 
     async rejectDeptProcurement(id) {
         const result = await this.api(`/procurements/${id}/department-reject`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['procurements']);
         return result;
     }
 
     async approveRegistrarProcurement(id) {
         const result = await this.api(`/procurements/${id}/registrar-approve`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['procurements']);
         return result;
     }
 
     async rejectRegistrarProcurement(id) {
         const result = await this.api(`/procurements/${id}/registrar-reject`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['procurements']);
         return result;
     }
 
@@ -545,7 +577,7 @@ class DataStore {
             method: 'POST',
             body
         });
-        await this.sync();
+        await this._refreshCollections(['procurements']);
         return result;
     }
 
@@ -554,25 +586,29 @@ class DataStore {
             method: 'POST',
             body: { resources }
         });
-        await this.sync();
+        // Registering both marks the procurement "Registered" and inserts the newly
+        // received resources into inventory (verified in ProcurementsService.register()).
+        await this._refreshCollections(['procurements', 'resources']);
         return result;
     }
 
     async acceptMaintenance(id) {
         const result = await this.api(`/maintenance/${id}/accept`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources']);
         return result;
     }
 
     async repairMaintenance(id) {
         const result = await this.api(`/maintenance/${id}/repair`, { method: 'POST' });
-        await this.sync();
+        // Repairing updates the resource itself AND logs a maintenanceHistory entry
+        // (verified in MaintenanceService's private resolve()).
+        await this._refreshCollections(['resources', 'maintenanceHistory']);
         return result;
     }
 
     async scrapMaintenance(id) {
         const result = await this.api(`/maintenance/${id}/scrap`, { method: 'POST' });
-        await this.sync();
+        await this._refreshCollections(['resources', 'maintenanceHistory']);
         return result;
     }
 
@@ -581,7 +617,9 @@ class DataStore {
             method: 'POST',
             body: { condition }
         });
-        await this.sync();
+        // Processing a return updates the resource itself AND logs a returnHistory entry
+        // (verified in ReturnsService.process()).
+        await this._refreshCollections(['resources', 'returnHistory']);
         return result;
     }
 
@@ -589,7 +627,7 @@ class DataStore {
         const result = await this.api(`/analytics/stock-thresholds/${id}/${level}`, {
             method: 'PATCH'
         });
-        await this.sync();
+        await this._refreshCollections(['stockThresholds']);
         return result;
     }
 
@@ -601,7 +639,7 @@ class DataStore {
         const result = await this.api('/profile/me', { method: 'PATCH', body: payload });
         const current = this.getCurrentUser();
         this.setCurrentUser({ ...current, ...result });
-        await this.sync();
+        await this._refreshCollections(['users']);
         return result;
     }
 

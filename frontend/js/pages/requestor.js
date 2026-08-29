@@ -100,6 +100,24 @@ const app = {
         };
     },
 
+    // Used after a single action instead of refreshData(): the Store method just called
+    // already refreshed exactly the collection(s) it changed (see store.js), so this reads
+    // that already-fresh data straight from Store's cache — no extra network calls — and
+    // only re-fetches the one thing Store never caches itself: the dashboard summary.
+    syncStateFromStore: async function() {
+        const data = Store.getData();
+        this.state = {
+            ...this.state,
+            departments: data.departments || [],
+            resourceCatalog: data.resourceCatalog || [],
+            stock: data.stockThresholds || [],
+            requests: data.requests || [],
+            resources: data.resources || [],
+            procurements: data.procurements || [],
+        };
+        this.state.summary = (await Store.fetchRequestorSummary()) || null;
+    },
+
     bindNav: function() {
         const items = document.querySelectorAll('.nav-item');
         items.forEach(item => {
@@ -246,7 +264,7 @@ const app = {
             date: dateStr,
             justification: reason
         });
-        await this.refreshData();
+        await this.syncStateFromStore();
 
         Store.showToast("Request Submitted Successfully! ID: " + newId, "success");
         document.getElementById('requestForm').reset();
@@ -425,7 +443,7 @@ const app = {
 
     confirmReceipt: async function(reqId) {
         await Store.confirmReceipt(reqId);
-        await this.refreshData();
+        await this.syncStateFromStore();
         alert('Item successfully received and confirmed.');
         this.renderDashboard();
         this.renderRequests();
@@ -484,7 +502,7 @@ const app = {
     requestMaintenance: async function(resId) {
         if(confirm("Submit maintenance request for this resource?")) {
             await Store.requestMaintenance(resId);
-            await this.refreshData();
+            await this.syncStateFromStore();
             this.renderResources();
         }
     },
@@ -492,15 +510,15 @@ const app = {
     returnResource: async function(resId) {
         if(confirm("Are you sure you want to return this resource? It will be sent to Staff for Verification.")) {
             await Store.initiateReturn(resId);
-            await this.refreshData();
+            await this.syncStateFromStore();
             alert("Resource returned successfully. Status moved to Returned.");
             this.renderResources();
         }
     },
-    
+
     confirmRepairedAllocation: async function(resId) {
         await Store.confirmRepairedAllocation(resId);
-        await this.refreshData();
+        await this.syncStateFromStore();
         this.renderResources();
     },
     
