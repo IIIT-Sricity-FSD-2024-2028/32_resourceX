@@ -20,24 +20,22 @@ RX.ProcurementView = function ProcurementView({ getDepartments, getDeptResources
         }
     }, []);
 
+    // Reads from Store's already-synced local cache instead of hitting the network again.
+    // Store.createProcurement() below already runs a full Store.sync() (which re-fetches
+    // procurements among everything else), so an extra fetchProcurements() call right after
+    // would just be re-requesting data the cache already has.
+    const procurementsFromCache = () => {
+        const all = Store.getData().procurements || [];
+        const user = Store.getCurrentUser();
+        return all.filter((p) => p.requester === user.name || p.requestedById === user.id);
+    };
+
     React.useEffect(() => {
         loadProcurements();
     }, [loadProcurements]);
 
     const handleSubmit = async ({ dept, type, qty, reason, file }) => {
         const user = Store.getCurrentUser();
-
-        // Procurement is only meaningful when inventory can't already cover the request.
-        const availability = await Store.fetchResourceAvailability(dept, type);
-        const availableCount = Number((availability && availability.availableCount) || 0);
-
-        if (qty <= availableCount) {
-            Store.showToast(
-                `❌ Procurement not needed — ${availableCount} unit(s) of "${type}" already available in inventory. Use "Request Resource" instead.`,
-                'error'
-            );
-            return false;
-        }
 
         const newId = `PRC-${Math.floor(1000 + Math.random() * 9000)}`;
         const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -64,8 +62,8 @@ RX.ProcurementView = function ProcurementView({ getDepartments, getDeptResources
         try {
             await Store.createProcurement(payload);
             Store.showToast('Procurement Request Submitted Successfully! ID: ' + newId, 'success');
-            await loadProcurements();
-            if (onAfterSubmit) await onAfterSubmit();
+            setProcurements(procurementsFromCache());
+            if (onAfterSubmit) onAfterSubmit();
             return true;
         } catch (err) {
             console.error('Procurement submit error:', err);
