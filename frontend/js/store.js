@@ -373,7 +373,13 @@ class DataStore {
             body = formData;
         }
         const result = await this.api('/procurements', { method: 'POST', body });
-        await this.sync();
+        // Creating a procurement only ever inserts a procurement record — the backend's
+        // ProcurementsService.create() has no other side effects — so only that collection
+        // needs refreshing here, instead of the app-wide sync() that re-fetches everything.
+        const procurements = await this.fetchProcurements();
+        const data = this.getData();
+        data.procurements = procurements;
+        this.saveData(data);
         return result;
     }
 
