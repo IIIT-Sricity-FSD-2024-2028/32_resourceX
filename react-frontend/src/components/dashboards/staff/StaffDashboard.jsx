@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
-import { getCurrentUser } from '../../../services/auth';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function StaffDashboard({ onLogout }) {
   const navigate = useNavigate();
-  const currentUser = getCurrentUser();
+  const { user: currentUser, logout } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
 
   const customNav = [
@@ -29,7 +29,7 @@ export default function StaffDashboard({ onLogout }) {
         <AppHeader
           userName={currentUser?.name || 'Staff Member'}
           userRole="Staff"
-          onLogout={onLogout}
+          onLogout={onLogout || logout}
         />
 
         <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>

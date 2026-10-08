@@ -5,7 +5,7 @@ import {
   fetchAdminAnnouncements,
   replyToAnnouncement
 } from '../../../../services/admin';
-import { getCurrentUser } from '../../../../services/auth';
+import { useAuth } from '../../../../context/AuthContext';
 
 /**
  * Exact replica of announcements-view from admin.html and admin.js
@@ -13,7 +13,7 @@ import { getCurrentUser } from '../../../../services/auth';
 export default function AdminAnnouncements() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useAuth();
 
   const [announcements, setAnnouncements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

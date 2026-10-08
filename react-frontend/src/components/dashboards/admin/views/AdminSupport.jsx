@@ -5,7 +5,7 @@ import {
   fetchAdminSupportTickets,
   createAdminSupportTicket
 } from '../../../../services/admin';
-import { getCurrentUser } from '../../../../services/auth';
+import { useAuth } from '../../../../context/AuthContext';
 
 /**
  * Exact replica of support-query-view from admin.html and admin.js
@@ -13,7 +13,7 @@ import { getCurrentUser } from '../../../../services/auth';
 export default function AdminSupport() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useAuth();
 
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

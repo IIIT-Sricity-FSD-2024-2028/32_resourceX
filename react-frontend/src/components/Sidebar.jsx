@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getCurrentUser } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 import { fetchAdminSupportTickets, fetchAdminAnnouncements } from '../services/admin';
 
 /**
@@ -10,13 +10,13 @@ import { fetchAdminSupportTickets, fetchAdminAnnouncements } from '../services/a
 export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, annCount: propAnnCount }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = getCurrentUser();
+  const { user } = useAuth();
 
   const [openTickets, setOpenTickets] = useState(propOpenTickets || 0);
   const [announcements, setAnnouncements] = useState(propAnnCount || 0);
 
-  const name = currentUser?.name || 'yashwath';
-  const role = userRole || currentUser?.role || 'Administrator';
+  const name = user?.name || 'yashwath';
+  const role = userRole || user?.role || 'Administrator';
   const initial = name ? name.charAt(0).toUpperCase() : 'A';
   const isAdmin = role === 'System Admin' || role === 'Administrator';
 
@@ -29,7 +29,7 @@ export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, a
     if (isAdmin && propOpenTickets === undefined) {
       const loadCounts = async () => {
         try {
-          const myOrgId = currentUser?.organizationId;
+          const myOrgId = user?.organizationId;
           const [tData, aData] = await Promise.all([
             fetchAdminSupportTickets().catch(() => []),
             fetchAdminAnnouncements().catch(() => [])
@@ -48,7 +48,7 @@ export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, a
       };
       loadCounts();
     }
-  }, [isAdmin, currentUser?.organizationId, propOpenTickets]);
+  }, [isAdmin, user?.organizationId, propOpenTickets]);
 
   const path = location.pathname;
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import RoleSelector from './RoleSelector';
 import OrgSelector from './OrgSelector';
 import CredentialsForm from './CredentialsForm';
-import { loginUser } from '../../services/auth';
+import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
 /**
@@ -19,6 +19,7 @@ import './Login.css';
  */
 export default function Login({ onLoginSuccess, onNavigateHome }) {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [step, setStep] = useState('role'); // 'role' | 'org' | 'credentials'
   const [selectedRole, setSelectedRole] = useState(null);
   const [isPlatformRole, setIsPlatformRole] = useState(false);
@@ -53,7 +54,7 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
     setAuthError(null);
 
     try {
-      const user = await loginUser(email, password, selectedOrg?.id);
+      const user = await login(email, password, selectedOrg?.id);
       if (onLoginSuccess) {
         onLoginSuccess(user);
       } else {

@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, logoutUser } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Exact replica of the original AppHeader component from app-header.js
  */
 export default function AppHeader({ userName, userRole, onLogout }) {
   const navigate = useNavigate();
-  const currentUser = getCurrentUser();
+  const { user, logout } = useAuth();
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [searchValue, setSearchValue] = useState('');
 
-  const name = userName || currentUser?.name || 'yashwath';
-  const role = userRole || currentUser?.role || 'Administrator';
+  const name = userName || user?.name || 'yashwath';
+  const role = userRole || user?.role || 'Administrator';
 
   const handleLogout = (e) => {
     e.preventDefault();
-    logoutUser();
     if (onLogout) {
       onLogout();
     } else {
+      logout();
       navigate('/login');
     }
   };

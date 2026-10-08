@@ -7,6 +7,7 @@ import AccountInfo from './AccountInfo';
 import Preferences from './Preferences';
 import SecuritySettings from './SecuritySettings';
 import { fetchProfile, updateProfile, updatePassword } from '../../services/profile';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Self-contained Profile Component
@@ -14,6 +15,7 @@ import { fetchProfile, updateProfile, updatePassword } from '../../services/prof
  */
 export default function Profile({ onLogout, onNavigate }) {
   const navigate = useNavigate();
+  const { updateUser, logout } = useAuth();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,6 +47,7 @@ export default function Profile({ onLogout, onNavigate }) {
             if (onLogout) {
               onLogout();
             } else {
+              logout();
               navigate('/login');
             }
             return;
@@ -93,6 +96,7 @@ export default function Profile({ onLogout, onNavigate }) {
     try {
       const updatedUser = await updateProfile(user);
       setUser(updatedUser);
+      updateUser(updatedUser);
       addToast("Profile changes saved successfully! ✅", "success");
     } catch (e) {
       addToast(`Save failed: ${e.message} ❌`, "error");
@@ -124,8 +128,12 @@ export default function Profile({ onLogout, onNavigate }) {
               type="button"
               className="btn-secondary"
               onClick={() => {
-                if (onLogout) onLogout();
-                else navigate('/login');
+                if (onLogout) {
+                  onLogout();
+                } else {
+                  logout();
+                  navigate('/login');
+                }
               }}
               style={{ padding: '0.6rem 1.2rem', borderRadius: '8px', cursor: 'pointer' }}
             >

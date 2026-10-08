@@ -22,7 +22,7 @@ import RegistrarDashboard from './components/dashboards/registrar/RegistrarDashb
 import OwnerDashboard from './components/dashboards/owner/OwnerDashboard';
 import EmployeeDashboard from './components/dashboards/employee/EmployeeDashboard';
 
-import { getCurrentUser, logoutUser } from './services/auth';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 /**
  * Maps a user's system role to their designated dashboard route.
@@ -52,7 +52,7 @@ const getRoleDashboardPath = (role) => {
  * Route Guard: Redirects authenticated users directly to their dashboard.
  */
 function PublicOnlyRoute({ children }) {
-  const user = getCurrentUser();
+  const { user } = useAuth();
   if (user) {
     return <Navigate to={getRoleDashboardPath(user.role)} replace />;
   }
@@ -63,7 +63,7 @@ function PublicOnlyRoute({ children }) {
  * Route Guard: Protects private dashboard routes, ensuring session exists.
  */
 function ProtectedRoute({ children }) {
-  const user = getCurrentUser();
+  const { user } = useAuth();
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -75,7 +75,7 @@ function ProtectedRoute({ children }) {
  * Automatically routes the logged-in user to their respective role dashboard.
  */
 function DashboardDispatcher() {
-  const user = getCurrentUser();
+  const { user } = useAuth();
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -110,9 +110,10 @@ function LoginPage() {
  */
 function ProfilePage() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    logoutUser();
+    logout();
     navigate('/login');
   };
 
@@ -133,11 +134,12 @@ function ProfilePage() {
  */
 export default function App() {
   return (
-    <BrowserRouter>
-      <div className="app-root" style={{ minHeight: '100vh', width: '100%' }}>
-        <Routes>
-          {/* Public Landing Page */}
-          <Route path="/" element={<LandingPage />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <div className="app-root" style={{ minHeight: '100vh', width: '100%' }}>
+          <Routes>
+            {/* Public Landing Page */}
+            <Route path="/" element={<LandingPage />} />
 
           {/* Public Login Route (Guard: if logged in -> role dashboard) */}
           <Route
@@ -256,5 +258,6 @@ export default function App() {
         </Routes>
       </div>
     </BrowserRouter>
-  );
+  </AuthProvider>
+);
 }

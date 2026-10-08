@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { getCurrentUser } from "../../services/auth";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * Landing Page Navbar Component
@@ -10,7 +10,7 @@ import { getCurrentUser } from "../../services/auth";
  *  - onNavClick: callback when section link is clicked
  */
 export default function Navbar({ navLinks, activeSection, onNavClick }) {
-  const currentUser = getCurrentUser();
+  const { user } = useAuth();
 
   return (
     <nav className="landing-nav">
@@ -38,7 +38,7 @@ export default function Navbar({ navLinks, activeSection, onNavClick }) {
       </ul>
 
       <div className="landing-actions" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        {currentUser ? (
+        {user ? (
           <>
             <Link
               to="/profile"
@@ -53,7 +53,7 @@ export default function Navbar({ navLinks, activeSection, onNavClick }) {
               }}
             >
               <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>account_circle</span>
-              {currentUser.name?.split(' ')[0] || 'Profile'}
+              {user?.name?.split(' ')[0] || 'Profile'}
             </Link>
             <Link to="/dashboard" className="custom-signin-btn">
               Go to Dashboard &rarr;

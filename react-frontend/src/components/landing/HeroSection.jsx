@@ -1,14 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import heroDashboard from "../../assets/images/hero_dashboard_v2.png";
-import { getCurrentUser } from "../../services/auth";
+import { useAuth } from "../../context/AuthContext";
 
 /**
  * HeroSection Component
  * Props: tag, title, titleHighlight, subtitle, onExploreClick
  */
 export default function HeroSection({ tag, title, titleHighlight, subtitle, onExploreClick }) {
-  const currentUser = getCurrentUser();
+  const { user } = useAuth();
 
   return (
     <section id="dashboard" className="hero-section">
@@ -22,7 +22,7 @@ export default function HeroSection({ tag, title, titleHighlight, subtitle, onEx
           <button className="custom-explore-btn" onClick={onExploreClick}>
             Explore Features
           </button>
-          {currentUser ? (
+          {user ? (
             <Link
               to="/dashboard"
               className="custom-signin-btn"
