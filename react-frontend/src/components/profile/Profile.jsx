@@ -172,15 +172,11 @@ export default function Profile({ onLogout, onNavigate }) {
   return (
     <div className="app-container" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Sidebar Navigation */}
-      <Sidebar userRole={user.role} />
+      <Sidebar />
 
       <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Top Header */}
-        <AppHeader
-          userName={user.name}
-          userRole={user.role}
-          onLogout={onLogout}
-        />
+        <AppHeader />
 
         <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '2rem' }}>
           <div className="profile-container" style={{ maxWidth: '800px', margin: '0 auto', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden' }}>

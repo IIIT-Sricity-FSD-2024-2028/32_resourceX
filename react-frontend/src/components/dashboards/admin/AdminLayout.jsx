@@ -3,14 +3,12 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import AdminToast from './components/AdminToast';
-import { useAuth } from '../../../context/AuthContext';
 
 /**
  * Exact layout shell from admin.html
  * Hosting Sidebar, Top Header, and sub-routes rendered in content-area
  */
-export default function AdminLayout({ onLogout }) {
-  const { user, logout } = useAuth();
+export default function AdminLayout() {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'success') => {
@@ -24,16 +22,12 @@ export default function AdminLayout({ onLogout }) {
   return (
     <div className="app-container">
       {/* Universal Sidebar */}
-      <Sidebar userRole="System Admin" />
+      <Sidebar />
 
       {/* Main Wrapper */}
       <div className="main-wrapper">
         {/* Top Header */}
-        <AppHeader
-          userName={user?.name || 'yashwath'}
-          userRole="System Admin"
-          onLogout={onLogout || logout}
-        />
+        <AppHeader />
 
         {/* Content Area */}
         <main className="content-area">

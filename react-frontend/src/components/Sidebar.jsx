@@ -1,99 +1,100 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { fetchAdminSupportTickets, fetchAdminAnnouncements } from '../services/admin';
 
 /**
- * Exact replica of the original AppSidebar component from admin.html
- * Fully dynamic for System Admin and other system roles.
+ * Universal Navigation Map
+ * Every role gets its dedicated first-class menu structure equally.
  */
-export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, annCount: propAnnCount }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { user } = useAuth();
-
-  const [openTickets, setOpenTickets] = useState(propOpenTickets || 0);
-  const [announcements, setAnnouncements] = useState(propAnnCount || 0);
-
-  const name = user?.name || 'yashwath';
-  const role = userRole || user?.role || 'Administrator';
-  const initial = name ? name.charAt(0).toUpperCase() : 'A';
-  const isAdmin = role === 'System Admin' || role === 'Administrator';
-
-  useEffect(() => {
-    if (propOpenTickets !== undefined) setOpenTickets(propOpenTickets);
-    if (propAnnCount !== undefined) setAnnouncements(propAnnCount);
-  }, [propOpenTickets, propAnnCount]);
-
-  useEffect(() => {
-    if (isAdmin && propOpenTickets === undefined) {
-      const loadCounts = async () => {
-        try {
-          const myOrgId = user?.organizationId;
-          const [tData, aData] = await Promise.all([
-            fetchAdminSupportTickets().catch(() => []),
-            fetchAdminAnnouncements().catch(() => [])
-          ]);
-          const myTickets = myOrgId ? (tData || []).filter((t) => t.organizationId === myOrgId) : tData || [];
-          const open = myTickets.filter((t) => t.status === 'Open').length;
-          setOpenTickets(open);
-
-          const myAnn = (aData || []).filter(
-            (a) => a.targetOrgId === myOrgId || a.targetOrgId === 'ALL' || !a.targetOrgId
-          );
-          setAnnouncements(myAnn.length);
-        } catch {
-          // silently handle
-        }
-      };
-      loadCounts();
-    }
-  }, [isAdmin, user?.organizationId, propOpenTickets]);
-
-  const path = location.pathname;
-
-  // Exact nav items from admin.html
-  const adminNavItems = [
+const ROLE_NAV_ITEMS = {
+  'System Admin': [
     { target: '/dashboard/admin', label: 'Dashboard', icon: 'dashboard', isDefault: true },
     { target: '/dashboard/admin/users', label: 'User Management', icon: 'group' },
     { target: '/dashboard/admin/departments', label: 'Department Configuration', icon: 'domain' },
     { target: '/dashboard/admin/subscription', label: 'Subscription Management', icon: 'subscriptions' },
-    {
-      target: '/dashboard/admin/support',
-      label: 'Support Queries',
-      icon: 'support_agent',
-      badgeId: 'adminOpenTicketsBadge',
-      badgeCount: openTickets,
-      badgeClass: 'badge bg-warning text-dark'
-    },
-    {
-      target: '/dashboard/admin/announcements',
-      label: 'Announcements',
-      icon: 'campaign',
-      badgeId: 'adminAnnBadge',
-      badgeCount: announcements,
-      badgeClass: 'badge bg-primary'
-    }
-  ];
+    { target: '/dashboard/admin/support', label: 'Support Queries', icon: 'support_agent' },
+    { target: '/dashboard/admin/announcements', label: 'Announcements', icon: 'campaign' },
+    
+  ],
+  'Dept Head': [
+    { id: 'overview', label: 'Department Overview', icon: 'dashboard' },
+    { id: 'approvals', label: 'Pending Approvals', icon: 'fact_check' },
+    { id: 'budget', label: 'Budget & Allocation', icon: 'account_balance' }
+  ],
+  'Requestor': [
+    { id: 'overview', label: 'My Workspace', icon: 'dashboard' },
+    { id: 'requests', label: 'My Requisitions', icon: 'shopping_cart' },
+    { id: 'assets', label: 'Allocated Equipment', icon: 'devices' },
+    { id: 'repairs', label: 'Maintenance Tickets', icon: 'build' }
+  ],
+  'Staff': [
+    { id: 'overview', label: 'Warehouse Overview', icon: 'dashboard' },
+    { id: 'dispatches', label: 'Allocation Dispatch', icon: 'local_shipping' },
+    { id: 'stock', label: 'Stock Monitoring', icon: 'inventory' },
+    { id: 'repairs', label: 'Maintenance Bench', icon: 'build' }
+  ],
+  'Registrar': [
+    { id: 'overview', label: 'Registrar Overview', icon: 'dashboard' },
+    { id: 'procurements', label: 'Procurements & Invoices', icon: 'receipt_long' },
+    { id: 'tagging', label: 'RFID Asset Tagging', icon: 'qr_code_scanner' },
+    { id: 'catalog', label: 'Master Catalog', icon: 'menu_book' }
+  ],
+  'Owner': [
+    { id: 'overview', label: 'Platform Metrics', icon: 'monitoring' },
+    { id: 'organizations', label: 'Tenants & Orgs', icon: 'corporate_fare' },
+    { id: 'revenue', label: 'Billing & Plans', icon: 'payments' },
+    { id: 'employees', label: 'Platform Staff', icon: 'badge' }
+  ],
+  'Employee': [
+    { id: 'overview', label: 'Support Queue', icon: 'support_agent' },
+    { id: 'announcements', label: 'Tenant Broadcasts', icon: 'campaign' },
+    { id: 'tickets', label: 'Assigned Tickets', icon: 'confirmation_number' },
+    { id: 'tenants', label: 'Assigned Tenants', icon: 'apartment' }
+  ]
+};
 
-  // Generic nav items for other roles
-  const otherNavItems = [
-    { target: `/dashboard/${role.toLowerCase().replace(/\s+/g, '-')}`, label: 'Dashboard', icon: 'dashboard', isDefault: true },
+/**
+ * Universal, Reusable Sidebar Navigation Component
+ * Treats all 7 roles equally, dynamically loading their menu from AuthContext.
+ */
+export default function Sidebar({ customNavItems, activeTab, onTabChange } = {}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+
+  const name = user?.name || 'User';
+  const role = user?.role || 'Member';
+  const initial = name ? name.charAt(0).toUpperCase() : 'U';
+
+  // All roles treated equally from the map
+  const items = customNavItems || ROLE_NAV_ITEMS[role] || [
+    { target: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { target: '/profile', label: 'My Profile', icon: 'manage_accounts' }
   ];
 
-  const items = isAdmin ? adminNavItems : otherNavItems;
+  const path = location.pathname;
 
   const isActive = (item) => {
+    if (activeTab && item.id) {
+      return activeTab === item.id;
+    }
     if (item.isDefault && (path === '/dashboard/admin' || path === '/dashboard/admin/' || path === '/dashboard/admin/dashboard')) {
       return true;
     }
     return path === item.target;
   };
 
+  const handleItemClick = (item) => {
+    if (item.id && onTabChange) {
+      onTabChange(item.id);
+    } else if (item.target) {
+      navigate(item.target);
+    }
+  };
+
   return (
     <aside className="sidebar">
-      {/* Brand logo container identical to original layout */}
+      {/* Brand logo container */}
       <div
         className="logo-container"
         style={{ cursor: 'pointer' }}
@@ -104,30 +105,21 @@ export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, a
         <div className="logo-text">ResourceX</div>
       </div>
 
-      {/* Nav Menu identical to original HTML */}
+      {/* Nav Menu */}
       <ul className="nav-menu">
         {items.map((item) => (
           <li
-            key={item.target}
+            key={item.target || item.id}
             className={`nav-item ${isActive(item) ? 'active' : ''}`}
-            onClick={() => navigate(item.target)}
+            onClick={() => handleItemClick(item)}
           >
             <span className="material-symbols-outlined">{item.icon}</span>
             <span>{item.label}</span>
-            {item.badgeCount > 0 && (
-              <span
-                id={item.badgeId}
-                className={item.badgeClass}
-                style={{ marginLeft: 'auto', display: 'inline-block' }}
-              >
-                {item.badgeCount}
-              </span>
-            )}
           </li>
         ))}
       </ul>
 
-      {/* User profile widget identical to original HTML */}
+      {/* User profile widget */}
       <div
         className="user-profile-widget"
         onClick={() => navigate('/profile')}
@@ -152,7 +144,8 @@ export default function Sidebar({ userRole, openTicketsCount: propOpenTickets, a
         </div>
         <div className="user-info">
           <span className="user-name">{name}</span>
-          <span className="user-role">{role === 'System Admin' ? 'Administrator' : role}</span>
+          {/* Real role for every user */}
+          <span className="user-role">{role}</span>
         </div>
       </div>
     </aside>

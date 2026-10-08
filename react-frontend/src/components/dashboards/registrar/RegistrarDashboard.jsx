@@ -22,15 +22,10 @@ export default function RegistrarDashboard({ onLogout }) {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         customNavItems={customNav}
-        userRole="Registrar"
       />
 
       <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
-        <AppHeader
-          userName={currentUser?.name || 'Registrar'}
-          userRole="Registrar"
-          onLogout={onLogout || logout}
-        />
+        <AppHeader />
 
         <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
