@@ -1,0 +1,417 @@
+/* -----------------------------------------------
+   ResourceX – Global CSS
+   Copied from the original frontend/css/main.css
+   and frontend/css/pages/landing.css
+----------------------------------------------- */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* CSS Variables */
+:root {
+  --primary-color: #0F386E;
+  --primary-hover: #1c4b8b;
+  --bg-color: #f8fafc;
+  --sidebar-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  text-decoration: none;
+  color: var(--primary-color);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* -----------------------------------------------
+   Landing Body
+----------------------------------------------- */
+.landing-body {
+  background-color: #f8fafc;
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  scroll-padding-top: 80px;
+}
+
+/* -----------------------------------------------
+   Navbar
+----------------------------------------------- */
+.landing-nav {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 4rem;
+}
+
+.logo-container {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background-color: var(--primary-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+}
+
+.logo-text {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.landing-nav-links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.landing-nav-links a {
+  transition: all 0.2s;
+  text-decoration: none;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.landing-nav-links a:hover {
+  color: var(--primary-color);
+}
+
+.landing-nav-links a.active {
+  color: var(--primary-color);
+  font-weight: 700;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 0.25rem;
+}
+
+.landing-actions {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.custom-signin-btn {
+  padding: 0.5rem 1.25rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+  color: #1e40af;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.custom-signin-btn:hover {
+  background: linear-gradient(135deg, #c7d2fe, #a5b4fc);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.15);
+}
+
+/* -----------------------------------------------
+   Hero Section
+----------------------------------------------- */
+.hero-section {
+  display: flex;
+  padding: 4rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  align-items: center;
+  gap: 4rem;
+  padding-top: 4rem;
+  margin-bottom: 2rem;
+}
+
+.hero-content {
+  flex: 1;
+}
+
+.hero-tag {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  line-height: 1.1;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.hero-title span {
+  color: var(--primary-color);
+}
+
+.hero-subtitle {
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  margin-bottom: 2rem;
+  max-width: 480px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.hero-visual {
+  flex: 1;
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+}
+
+.hero-visual img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.custom-explore-btn {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  padding: 0.75rem 2rem;
+  border-radius: 30px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4);
+  font-size: 1.1rem;
+  font-family: inherit;
+}
+
+.custom-explore-btn:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 15px 20px -5px rgba(16, 185, 129, 0.5);
+}
+
+/* -----------------------------------------------
+   Partners Section
+----------------------------------------------- */
+.partners-section {
+  background-color: #f1f5f9;
+  padding: 4rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.partners-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.partners-grid {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.partner-box {
+  width: 200px;
+  height: 100px;
+  background: #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-weight: bold;
+}
+
+/* -----------------------------------------------
+   Content Sections (Departments, Users, Resources)
+----------------------------------------------- */
+.content-section {
+  padding: 5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.content-section:last-of-type {
+  border-bottom: none;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.section-header h2 {
+  font-size: 2.5rem;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.section-header p {
+  font-size: 1.125rem;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* -----------------------------------------------
+   Feature Cards Grid
+----------------------------------------------- */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.feature-card {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+
+.feature-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.feature-desc {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* -----------------------------------------------
+   Users Section Roles List
+----------------------------------------------- */
+.roles-list {
+  list-style: none;
+  padding: 0;
+}
+
+.role-item {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1rem;
+}
+
+.role-name {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.role-desc {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.users-layout {
+  display: flex;
+  gap: 3rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.users-roles-col {
+  flex: 1;
+  min-width: 300px;
+}
+
+.users-avatar-col {
+  flex: 1;
+  min-width: 300px;
+  text-align: center;
+}
+
+.users-avatar-col img {
+  border-radius: 50%;
+  box-shadow: 0 10px 25px rgba(15, 56, 110, 0.3);
+}
+
+/* -----------------------------------------------
+   Footer
+----------------------------------------------- */
+.landing-footer {
+  padding: 2rem 4rem;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-color);
+  background: transparent;
+  align-items: center;
+  margin-top: auto;
+}
+
+.footer-brand {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.footer-brand strong {
+  color: var(--text-main);
+}
+
+.footer-links a {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-left: 1.5rem;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--text-main);
+}
