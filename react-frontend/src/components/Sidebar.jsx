@@ -17,9 +17,8 @@ const ROLE_NAV_ITEMS = {
     
   ],
   'Dept Head': [
-    { id: 'overview', label: 'Department Overview', icon: 'dashboard' },
-    { id: 'approvals', label: 'Pending Approvals', icon: 'fact_check' },
-    { id: 'budget', label: 'Budget & Allocation', icon: 'account_balance' }
+    { target: '/dashboard/dept-head/incoming-requests', label: 'Incoming Requests', icon: 'move_to_inbox' },
+    { target: '/dashboard/dept-head/stock-monitoring', label: 'Stock Monitoring', icon: 'bar_chart' }
   ],
   'Requestor': [
     { id: 'overview', label: 'My Workspace', icon: 'dashboard' },
