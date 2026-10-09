@@ -4,15 +4,8 @@ import LandingPage from './components/landing/LandingPage';
 import Login from './components/login';
 import Profile from './components/profile';
 
-// Admin Modular Layout & Sub-route views
-import AdminLayout from './components/dashboards/admin/AdminLayout';
-import AdminOverview from './components/dashboards/admin/views/AdminOverview';
-import AdminUsers from './components/dashboards/admin/views/AdminUsers';
-import AdminDepartments from './components/dashboards/admin/views/AdminDepartments';
-import AdminResources from './components/dashboards/admin/views/AdminResources';
-import AdminSupport from './components/dashboards/admin/views/AdminSupport';
-import AdminSubscription from './components/dashboards/admin/views/AdminSubscription';
-import AdminAnnouncements from './components/dashboards/admin/views/AdminAnnouncements';
+// Role Dashboards (Each dashboard self-contains its views and subroutes)
+import AdminDashboard from './components/dashboards/admin/AdminDashboard';
 
 // Role Skeleton Dashboards
 import DeptHeadDashboard from './components/dashboards/dept-head/DeptHeadDashboard';
@@ -171,31 +164,22 @@ export default function App() {
             }
           />
 
-          {/* System Admin Dashboard (Modular Layout with Sub-Routes) */}
+          {/* System Admin Dashboard */}
           <Route
-            path="/dashboard/admin"
+            path="/dashboard/admin/*"
             element={
               <ProtectedRoute>
-                <AdminLayout />
+                <AdminDashboard />
               </ProtectedRoute>
             }
-          >
-            <Route index element={<AdminOverview />} />
-            <Route path="overview" element={<AdminOverview />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="departments" element={<AdminDepartments />} />
-            <Route path="resources" element={<AdminResources />} />
-            <Route path="support" element={<AdminSupport />} />
-            <Route path="subscription" element={<AdminSubscription />} />
-            <Route path="announcements" element={<AdminAnnouncements />} />
-          </Route>
+          />
 
           {/* Alias for system-admin path */}
           <Route path="/dashboard/system-admin/*" element={<Navigate to="/dashboard/admin" replace />} />
 
-          {/* Department Head Dashboard (Skeleton) */}
+          {/* Department Head Dashboard */}
           <Route
-            path="/dashboard/dept-head"
+            path="/dashboard/dept-head/*"
             element={
               <ProtectedRoute>
                 <DeptHeadDashboard />
@@ -203,9 +187,9 @@ export default function App() {
             }
           />
 
-          {/* Requestor Dashboard (Skeleton) */}
+          {/* Requestor Dashboard */}
           <Route
-            path="/dashboard/requestor"
+            path="/dashboard/requestor/*"
             element={
               <ProtectedRoute>
                 <RequestorDashboard />
@@ -213,9 +197,9 @@ export default function App() {
             }
           />
 
-          {/* Warehouse & Staff Dashboard (Skeleton) */}
+          {/* Warehouse & Staff Dashboard */}
           <Route
-            path="/dashboard/staff"
+            path="/dashboard/staff/*"
             element={
               <ProtectedRoute>
                 <StaffDashboard />
@@ -223,9 +207,9 @@ export default function App() {
             }
           />
 
-          {/* Registrar Dashboard (Skeleton) */}
+          {/* Registrar Dashboard */}
           <Route
-            path="/dashboard/registrar"
+            path="/dashboard/registrar/*"
             element={
               <ProtectedRoute>
                 <RegistrarDashboard />
@@ -233,9 +217,9 @@ export default function App() {
             }
           />
 
-          {/* Platform Owner Dashboard (Skeleton) */}
+          {/* Platform Owner Dashboard */}
           <Route
-            path="/dashboard/owner"
+            path="/dashboard/owner/*"
             element={
               <ProtectedRoute>
                 <OwnerDashboard />
@@ -243,9 +227,9 @@ export default function App() {
             }
           />
 
-          {/* Platform Employee Dashboard (Skeleton) */}
+          {/* Platform Employee Dashboard */}
           <Route
-            path="/dashboard/employee"
+            path="/dashboard/employee/*"
             element={
               <ProtectedRoute>
                 <EmployeeDashboard />

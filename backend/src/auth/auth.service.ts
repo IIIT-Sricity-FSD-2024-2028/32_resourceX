@@ -15,6 +15,14 @@ export class AuthService {
     if (user?.password !== loginDto.password) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    if (user.status === 'Inactive') {
+      throw new UnauthorizedException('Your account has been deactivated. Please contact your administrator.');
+    }
+
+    if (user.status === 'Suspended') {
+      throw new UnauthorizedException('Your account has been suspended. Please contact your administrator.');
+    }
     
     // In our new multi-tenant architecture, the owner and employees might be scoped to 'PLATFORM'
     const payload = { 
