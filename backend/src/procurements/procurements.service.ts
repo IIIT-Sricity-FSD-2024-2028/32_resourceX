@@ -54,10 +54,11 @@ export class ProcurementsService {
   }
 
   create(payload: CreateProcurementDto, context: RequestContext): ProcurementRecord {
-    const user = getActingUser(this.dataService, context);
+    const user = ensureActor(this.dataService, context);
     const department = payload.department || user?.department || 'Unassigned';
     const resourceType = payload.resourceType || payload.item;
 
+    ensureDepartmentScoped(this.dataService, context, department);
     ensureValidDepartmentResourceType(this.dataService, department, resourceType, context.organizationId);
 
     const procurement: ProcurementRecord = {
@@ -82,7 +83,17 @@ export class ProcurementsService {
     return this.dataService.insertProcurement(procurement);
   }
 
-  update(id: string, payload: UpdateProcurementDto): ProcurementRecord {
+  update(id: string, payload: UpdateProcurementDto, context?: RequestContext): ProcurementRecord {
+    if (context) {
+      const procurement = this.dataService.getProcurementById(id);
+      if (!procurement) {
+        throw new NotFoundException(`Procurement with ID ${id} not found.`);
+      }
+      ensureDepartmentScoped(this.dataService, context, procurement.department);
+      if (payload.department) {
+        ensureDepartmentScoped(this.dataService, context, payload.department);
+      }
+    }
     return this.dataService.updateProcurement(id, payload);
   }
 

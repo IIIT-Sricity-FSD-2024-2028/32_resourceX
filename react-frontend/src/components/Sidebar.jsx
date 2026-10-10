@@ -17,9 +17,12 @@ const ROLE_NAV_ITEMS = {
     
   ],
   'Dept Head': [
-    { id: 'overview', label: 'Department Overview', icon: 'dashboard' },
-    { id: 'approvals', label: 'Pending Approvals', icon: 'fact_check' },
-    { id: 'budget', label: 'Budget & Allocation', icon: 'account_balance' }
+    { target: '/dashboard/dept-head', label: 'Dashboard', icon: 'dashboard', isDefault: true },
+    { target: '/dashboard/dept-head/requests', label: 'Incoming Requests', icon: 'move_to_inbox' },
+    { target: '/dashboard/dept-head/resources', label: 'Dept Resources', icon: 'corporate_fare' },
+    { target: '/dashboard/dept-head/procurement', label: 'Procurement', icon: 'shopping_cart' },
+    { target: '/dashboard/dept-head/stock', label: 'Stock Monitoring', icon: 'bar_chart' },
+    { target: '/dashboard/dept-head/analytics', label: 'Analytics', icon: 'analytics' }
   ],
   'Requestor': [
     { id: 'overview', label: 'My Workspace', icon: 'dashboard' },
@@ -78,8 +81,12 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
     if (activeTab && item.id) {
       return activeTab === item.id;
     }
-    if (item.isDefault && (path === '/dashboard/admin' || path === '/dashboard/admin/' || path === '/dashboard/admin/dashboard')) {
-      return true;
+    // Default (index) item stays active on the role's base path, e.g. /dashboard/admin or /dashboard/dept-head
+    if (item.isDefault && item.target) {
+      const base = item.target.replace(/\/$/, '');
+      if (path === base || path === `${base}/` || path === `${base}/dashboard` || path === `${base}/overview`) {
+        return true;
+      }
     }
     return path === item.target;
   };
@@ -145,7 +152,7 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
         <div className="user-info">
           <span className="user-name">{name}</span>
           {/* Real role for every user */}
-          <span className="user-role">{role}</span>
+          <span className="user-role">{role === 'Dept Head' && user?.department ? `${user.department} Head` : role}</span>
         </div>
       </div>
     </aside>

@@ -77,18 +77,31 @@ export class RequestsService {
     return this.dataService.updateRequest(id, payload);
   }
 
-  approve(id: string): RequestRecord {
+  approve(id: string, context?: RequestContext): RequestRecord {
     const request = this.dataService.getRequestById(id);
     if (!request) {
       throw new NotFoundException(`Request with ID ${id} not found.`);
     }
+    if (context) {
+      // Dept Heads may only act on requests from their own department
+      ensureDepartmentScoped(this.dataService, context, request.department);
+    }
+    if (request.status !== 'Pending') {
+      throw new BadRequestException('Can only approve pending requests.');
+    }
     return this.dataService.updateRequest(id, { status: 'Approved' });
   }
 
-  reject(id: string): RequestRecord {
+  reject(id: string, context?: RequestContext): RequestRecord {
     const request = this.dataService.getRequestById(id);
     if (!request) {
       throw new NotFoundException(`Request with ID ${id} not found.`);
+    }
+    if (context) {
+      ensureDepartmentScoped(this.dataService, context, request.department);
+    }
+    if (request.status !== 'Pending') {
+      throw new BadRequestException('Can only reject pending requests.');
     }
     return this.dataService.updateRequest(id, { status: 'Rejected' });
   }

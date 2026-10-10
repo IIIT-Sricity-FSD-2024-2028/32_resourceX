@@ -48,8 +48,8 @@ export class RequestsController {
   @ApiOperation({ summary: 'Approve a request' })
   @ApiParam({ name: 'id', example: 'REQ-102' })
   @ApiOkResponse({ description: 'Request approved successfully.', type: RequestResponseDto })
-  approve(@Param('id') id: string) {
-    return this.requestsService.approve(id);
+  approve(@Param('id') id: string, @Req() req: any) {
+    return this.requestsService.approve(id, req.context);
   }
 
   @Post(':id/reject')
@@ -57,8 +57,8 @@ export class RequestsController {
   @ApiOperation({ summary: 'Reject a request' })
   @ApiParam({ name: 'id', example: 'REQ-103' })
   @ApiOkResponse({ description: 'Request rejected successfully.', type: RequestResponseDto })
-  reject(@Param('id') id: string) {
-    return this.requestsService.reject(id);
+  reject(@Param('id') id: string, @Req() req: any) {
+    return this.requestsService.reject(id, req.context);
   }
 
   @Post(':id/allocate')

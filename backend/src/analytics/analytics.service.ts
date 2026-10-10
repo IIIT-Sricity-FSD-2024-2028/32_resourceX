@@ -124,6 +124,11 @@ export class AnalyticsService {
       thresholds = thresholds.filter((t) => !t.organizationId || t.organizationId === context.organizationId);
       resources = resources.filter((r) => r.organizationId === context.organizationId);
     }
+    // Department scoping — Dept Head / Staff only see thresholds for their own department
+    if (context.role === 'Dept Head' || context.role === 'Staff') {
+      const user = getActingUser(this.dataService, context);
+      thresholds = thresholds.filter((t) => t.department === user?.department);
+    }
     return thresholds.map((threshold) => {
       const currentQuantity = resources.filter(
         (resource) =>

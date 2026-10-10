@@ -1,0 +1,205 @@
+/* =========================================================================
+   Department Head Portal styles
+   Ported from frontend/pages/department_head.html (<style> block) and
+   frontend/css/components/stock-monitoring.css
+   ========================================================================= */
+
+/* --- File Upload Zone --- */
+.file-upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #f8fafc;
+  position: relative;
+}
+.file-upload-zone:hover, .file-upload-zone.dragover {
+  border-color: var(--primary-color, #3b82f6);
+  background: #eff6ff;
+}
+.file-upload-zone.warning { border-color: #f59e0b; }
+.file-upload-zone .upload-icon { font-size: 2rem; color: #94a3b8; display: block; margin-bottom: 0.4rem; }
+.file-upload-zone p { margin: 0; font-size: 0.82rem; color: #64748b; }
+.file-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-top: 0.5rem;
+}
+.file-preview-box .file-icon { font-size: 1.5rem; color: #16a34a; }
+.file-preview-box .file-info { flex: 1; text-align: left; }
+.file-preview-box .file-name { font-size: 0.82rem; font-weight: 600; color: #0f172a; }
+.file-preview-box .file-size { font-size: 0.72rem; color: #64748b; }
+.file-remove-btn { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 1.1rem; padding: 0.2rem 0.4rem; border-radius: 4px; }
+.file-remove-btn:hover { color: #dc2626; background: #fee2e2; }
+.spec-file-link { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: #2563eb; text-decoration: none; font-weight: 500; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.spec-file-link:hover { text-decoration: underline; }
+
+/* --- Layout helpers --- */
+.td-id { font-weight: 600; color: var(--primary-color); white-space: nowrap; }
+.dh-two-col { display: flex; gap: 1.5rem; align-items: flex-start; }
+.dh-two-col > * { flex: 1; min-width: 0; }
+.dh-proc-layout { display: flex; gap: 2rem; align-items: flex-start; }
+.form-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+}
+.dh-low-stock-alert {
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.btn-approve { background: #16a34a !important; font-size: 0.75rem !important; padding: 0.35rem 0.8rem !important; margin-right: 0.4rem; }
+.btn-approve:hover { background: #15803d !important; }
+.btn-reject-sm { font-size: 0.75rem !important; padding: 0.35rem 0.8rem !important; }
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@media (max-width: 1100px) {
+  .dh-two-col, .dh-proc-layout { flex-direction: column; align-items: stretch; }
+  .dh-stats-5 { grid-template-columns: repeat(2, 1fr) !important; }
+  .dh-stats-3 { grid-template-columns: 1fr !important; }
+}
+
+/* --- Stock Monitoring (stock-monitoring.css) --- */
+.stat-card.stock-safe { background: #f0fdf4; border: 1px solid #bbf7d0; }
+.stat-card.stock-safe .stat-title,
+.stat-card.stock-safe .stat-value,
+.stat-card.stock-safe .material-symbols-outlined { color: #16a34a; }
+.stat-card.stock-near { background: #fefce8; border: 1px solid #fef08a; }
+.stat-card.stock-near .stat-title,
+.stat-card.stock-near .stat-value,
+.stat-card.stock-near .material-symbols-outlined { color: #ca8a04; }
+.stat-card.stock-low { background: #fef2f2; border: 1px solid #fecaca; }
+.stat-card.stock-low .stat-title,
+.stat-card.stock-low .stat-value,
+.stat-card.stock-low .material-symbols-outlined { color: #dc2626; }
+
+.badge.badge-stock-safe { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.badge.badge-stock-near { background: #fefce8; color: #ca8a04; border: 1px solid #fef08a; }
+.badge.badge-stock-low { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+
+.btn-ghost {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.btn-ghost .material-symbols-outlined { font-size: 18px; }
+.btn-ghost-primary { color: var(--primary-color); }
+.btn-ghost-danger { color: #dc2626; margin-left: 8px; }
+.btn-ghost:hover { text-decoration: underline; }
+
+.stock-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
+.stock-modal-overlay.active { display: flex; }
+.stock-modal-content {
+  background: white;
+  padding: 2rem;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+.stock-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.stock-modal-title { font-size: 1.1rem; font-weight: 700; color: #0f172a; margin: 0; }
+.stock-modal-close { border: none; background: none; cursor: pointer; color: #64748b; font-size: 1.5rem; line-height: 1; }
+.stock-modal-resource-info {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1.25rem;
+  padding: 0.5rem 0.75rem;
+  background: #f0f7ff;
+  border-radius: 6px;
+}
+.stock-modal-field { margin-bottom: 1rem; }
+.stock-modal-field.last { margin-bottom: 1.5rem; }
+.stock-modal-label { font-size: 0.8rem; font-weight: 600; color: #475569; display: block; margin-bottom: 0.4rem; }
+.stock-modal-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+  outline: none;
+}
+.stock-modal-input:disabled { background: #f8fafc; color: #64748b; }
+.stock-modal-input:focus:not(:disabled) { border-color: var(--primary-color); }
+.stock-modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+
+/* --- File preview modal --- */
+.dh-fp-overlay {
+  display: flex;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+.dh-fp-content {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 860px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+.dh-fp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 1rem;
+}
+.dh-fp-title { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; color: #0f172a; font-size: 0.95rem; word-break: break-all; }
+.dh-fp-body { padding: 1.25rem; overflow: auto; display: flex; justify-content: center; background: #f8fafc; }
+
+/* --- Charts --- */
+.dh-chart-legend { display: flex; justify-content: center; flex-wrap: wrap; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.8rem; color: #475569; }
+.dh-chart-legend-item { display: inline-flex; align-items: center; gap: 0.4rem; }
+.dh-chart-legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.dh-doughnut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
+.dh-doughnut-value { font-size: 1.75rem; font-weight: 700; color: #0f172a; line-height: 1; }
+.dh-doughnut-label { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; }
+.dh-hbar-list { display: flex; flex-direction: column; gap: 0.7rem; }
+.dh-hbar-row { display: grid; grid-template-columns: 120px 1fr 48px; align-items: center; gap: 0.75rem; font-size: 0.82rem; }
+.dh-hbar-label { color: #475569; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dh-hbar-track { height: 22px; background: #f1f5f9; border-radius: 6px; overflow: hidden; }
+.dh-hbar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+.dh-hbar-value { color: #0f172a; font-weight: 600; }
+.dh-section-pad { padding: 1.25rem 1.5rem; }

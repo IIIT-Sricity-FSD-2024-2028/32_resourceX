@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, Patch, Param, Req, UseFilters } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AnalyticsService } from './analytics.service';
+import { Roles } from '../common/roles.decorator';
 import {
   DepartmentSummaryResponseDto,
   RegistrarSummaryResponseDto,
@@ -48,6 +49,7 @@ export class AnalyticsController {
   }
 
   @Patch('stock-thresholds/:id/:level')
+  @Roles('Dept Head', 'System Admin')
   @ApiOperation({ summary: 'Update a stock threshold level' })
   @ApiParam({ name: 'id', example: 'TH-1' })
   @ApiParam({ name: 'level', example: 10 })

@@ -44,8 +44,8 @@ export class ProcurementsController {
   @ApiOperation({ summary: 'Update a procurement' })
   @ApiParam({ name: 'id', example: 'PROC-819' })
   @ApiOkResponse({ description: 'Procurement updated successfully.', type: ProcurementResponseDto })
-  update(@Param('id') id: string, @Body() dto: UpdateProcurementDto) {
-    return this.procurementsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateProcurementDto, @Req() req: any) {
+    return this.procurementsService.update(id, dto, req.context);
   }
 
   @Post(':id/department-approve')
