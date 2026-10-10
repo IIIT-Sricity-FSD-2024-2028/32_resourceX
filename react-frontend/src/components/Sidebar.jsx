@@ -103,7 +103,7 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
     <aside className="sidebar">
       {/* Brand logo container */}
       <div
-        className="logo-container"
+        className="sidebar-logo-container logo-container"
         style={{ cursor: 'pointer' }}
         onClick={() => navigate('/')}
         title="Return to Home / Landing"
