@@ -170,7 +170,7 @@ export const seedState: AppState = {
     { id: 'U1', organizationId: 'ORG-001', name: 'RAVI CHANDRA', email: 'ravi@resourcex.com', password: '12345678', role: 'Requestor', department: 'IT Services', status: 'Active', preferences: { notifications: true } },
     { id: 'U2', organizationId: 'ORG-001', name: 'pradhyum', email: 'pradhyum@resourcex.com', password: '12345678', role: 'Dept Head', department: 'IT Services', status: 'Active', preferences: { notifications: true } },
     { id: 'U3', organizationId: 'ORG-001', name: 'HARSHA TEJ', email: 'harsha@resourcex.com', password: '12345678', role: 'Registrar', department: 'Administration', status: 'Active', preferences: { notifications: true } },
-    { id: 'U4', organizationId: 'ORG-001', name: 'prem kumar', email: 'prem@resourcex.com', password: '12345678', role: 'Staff', department: 'IT Services', status: 'Active', preferences: { notifications: true } },
+    { id: 'U4', organizationId: 'ORG-001', name: 'yaswanth kumar', email: 'yaswanth@resourcex.com', password: '12345678', role: 'Staff', department: 'IT Services', status: 'Active', preferences: { notifications: true } },
     { id: 'U5', organizationId: 'ORG-001', name: 'yashwath', email: 'yashwath@resourcex.com', password: '12345678', role: 'System Admin', department: 'Administration', status: 'Active', preferences: { notifications: true } },
     { id: 'U6', organizationId: 'ORG-001', name: 'Alice Worker', email: 'alice@resourcex.com', password: '12345678', role: 'Requestor', department: 'HR Dept', status: 'Active', preferences: { notifications: true } },
     { id: 'U7', organizationId: 'ORG-001', name: 'John Doe', email: 'john@resourcex.com', password: '12345678', role: 'Dept Head', department: 'HR Dept', status: 'Active', preferences: { notifications: true } },
@@ -227,7 +227,7 @@ export const seedState: AppState = {
     { id: 'D2', organizationId: 'ORG-001', name: 'HR Dept', head: 'John Doe', memberCount: 8 },
     { id: 'D3', organizationId: 'ORG-001', name: 'Operations', head: 'Jane Smith', memberCount: 20 },
     { id: 'D4', organizationId: 'ORG-001', name: 'Administration', head: 'HARSHA TEJ', memberCount: 5 },
-    { id: 'D5', organizationId: 'ORG-001', name: 'Facilities', head: 'prem kumar', memberCount: 12 }
+    { id: 'D5', organizationId: 'ORG-001', name: 'Facilities', head: 'yaswanth kumar', memberCount: 12 }
   ],
   requests: [
     { id: 'REQ-101', organizationId: 'ORG-001', resourceType: 'High-Cap Battery', quantity: 1, requestor: 'RAVI CHANDRA', requestorId: 'U1', department: 'IT Services', status: 'Allocated', priority: 'Normal', date: 'Oct 24, 2023', justification: 'Restocking for field ops' },
