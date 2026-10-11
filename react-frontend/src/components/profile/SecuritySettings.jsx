@@ -78,11 +78,24 @@ export default function SecuritySettings({ onUpdatePassword }) {
 
   return (
     <div style={{ padding: '0 2rem 2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-        <h2 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 600 }}>Security Settings</h2>
-        <button className="btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.875rem' }} onClick={toggleForm} type="button">
-          {showFields ? 'Cancel' : 'Change Password'}
-        </button>
+      <div>
+        <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '0.5rem', fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: 600, margin: 0 }}>
+          Security
+        </h2>
+        <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            Keep your account safe by using a strong, unique password.
+          </p>
+          <button
+            className="btn-secondary"
+            style={{ padding: '0.45rem 1rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}
+            onClick={toggleForm}
+            type="button"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>lock</span>
+            {showFields ? 'Cancel' : 'Change Password'}
+          </button>
+        </div>
       </div>
 
       {showFields && (

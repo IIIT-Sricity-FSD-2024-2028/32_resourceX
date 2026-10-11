@@ -37,7 +37,6 @@ export default function Profile({ onLogout, onNavigate }) {
         if (isMounted) {
           setUser(profileData);
           setIsLoading(false);
-          addToast("Profile loaded successfully! ✅", "success");
         }
       })
       .catch((err) => {
@@ -69,7 +68,6 @@ export default function Profile({ onLogout, onNavigate }) {
       .then((profileData) => {
         setUser(profileData);
         setIsLoading(false);
-        addToast("Profile loaded successfully! ✅", "success");
       })
       .catch((err) => {
         setIsLoading(false);
@@ -171,8 +169,66 @@ export default function Profile({ onLogout, onNavigate }) {
 
   return (
     <div className="app-container" style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* Sidebar Navigation */}
-      <Sidebar />
+      {/* Sidebar Navigation matching profile.html */}
+      <aside
+        className="sidebar"
+        style={{
+          width: '260px',
+          background: 'white',
+          borderRight: '1px solid var(--border-color, #e2e8f0)',
+          padding: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0 0.5rem 2rem' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              background: 'var(--primary-color, #0F386E)',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.85rem'
+            }}
+          >
+            RX
+          </div>
+          <div style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary-color, #0F386E)' }}>
+            ResourceX
+          </div>
+        </div>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1 }}>
+          <li
+            style={{
+              padding: '0.75rem 1rem',
+              cursor: 'pointer',
+              color: 'var(--text-muted, #64748b)',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              borderRadius: '6px'
+            }}
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('dashboard');
+              } else {
+                navigate(-1);
+              }
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ verticalAlign: 'middle', fontSize: '1.25rem' }}>
+              arrow_back
+            </span>
+            Return to App
+          </li>
+        </ul>
+      </aside>
 
       <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Top Header */}

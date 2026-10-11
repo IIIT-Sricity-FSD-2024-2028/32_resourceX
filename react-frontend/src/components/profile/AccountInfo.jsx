@@ -65,9 +65,6 @@ export default function AccountInfo({ id, department, email, name, onNameChange 
       <div className="form-group" style={{ marginTop: '1.5rem' }}>
         <label className="form-label">Email Address</label>
         <input type="email" className="form-control" value={email || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
-          Email address is locked to your organization domain and cannot be changed directly.
-        </span>
       </div>
     </div>
   );
