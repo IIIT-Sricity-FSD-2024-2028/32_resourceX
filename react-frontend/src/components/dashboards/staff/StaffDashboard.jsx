@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import { useAuth } from '../../../context/AuthContext';
@@ -30,10 +30,11 @@ const STAFF_NAV_ITEMS = [
 
 export default function StaffDashboard() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   // Initialize active tab from URL path if applicable
-  const getTabFromPath = () => {
+  const getTabFromPath = useCallback(() => {
     const path = location.pathname.toLowerCase();
     if (path.includes('/allocations') || path.includes('/dispatches')) return 'allocations';
     if (path.includes('/registration')) return 'registration';
@@ -42,11 +43,27 @@ export default function StaffDashboard() {
     if (path.includes('/returns')) return 'returns';
     if (path.includes('/procurement')) return 'procurement';
     return 'dashboard';
-  };
+  }, [location.pathname]);
 
   const [activeTab, setActiveTab] = useState(getTabFromPath);
   const [toasts, setToasts] = useState([]);
   const [previewFile, setPreviewFile] = useState(null);
+
+  // Sync tab with route changes
+  useEffect(() => {
+    setActiveTab(getTabFromPath());
+  }, [getTabFromPath]);
+
+  const handleTabChange = useCallback((tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'dashboard') navigate('/dashboard/staff');
+    else if (tabId === 'allocations') navigate('/dashboard/staff/allocations');
+    else if (tabId === 'registration') navigate('/dashboard/staff/registration');
+    else if (tabId === 'manage') navigate('/dashboard/staff/inventory');
+    else if (tabId === 'maintenance') navigate('/dashboard/staff/maintenance');
+    else if (tabId === 'returns') navigate('/dashboard/staff/returns');
+    else if (tabId === 'procurement') navigate('/dashboard/staff/procurement');
+  }, [navigate]);
 
   const addToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
@@ -73,7 +90,7 @@ export default function StaffDashboard() {
       {/* Universal Sidebar with Exact 7 Staff Operations Tabs */}
       <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         customNavItems={STAFF_NAV_ITEMS}
       />
 
@@ -83,7 +100,7 @@ export default function StaffDashboard() {
         <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>
           <div style={{ maxWidth: '1240px', margin: '0 auto', width: '100%' }}>
             {activeTab === 'dashboard' && (
-              <DashboardView onSwitchView={setActiveTab} addToast={addToast} />
+              <DashboardView onSwitchView={handleTabChange} addToast={addToast} />
             )}
 
             {activeTab === 'allocations' && (
