@@ -23,7 +23,7 @@ import { Roles } from '../common/roles.decorator';
 import { UserResponseDto } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { CreateEmployeeDto, CreateUserDto, UpdateUserDto } from './dto/user.dto';
 import { Public } from '../auth/public.decorator';
 import { UsersExceptionFilter } from './filters/users-exception.filter';
 
@@ -62,8 +62,8 @@ export class UsersController {
   @Post('create-employee')
   @Roles('Owner')
   @ApiOperation({ summary: 'Owner creates a new platform Employee' })
-  createEmployee(@Body('name') name: string, @Body('email') email: string) {
-    return this.usersService.createEmployee(name, email);
+  createEmployee(@Body() dto: CreateEmployeeDto) {
+    return this.usersService.createEmployee(dto);
   }
 
   @Patch(':id')

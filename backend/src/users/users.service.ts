@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
-import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { CreateEmployeeDto, CreateUserDto, UpdateUserDto } from './dto/user.dto';
 
 @Injectable()
 export class UsersService {
@@ -42,7 +42,10 @@ export class UsersService {
   }
 
   /** Owner creates a new platform Employee */
-  createEmployee(name: string, email: string): UserRecord {
+  createEmployee({ name, email, password }: CreateEmployeeDto): UserRecord {
+    if (this.dataService.getUserByEmail(email)) {
+      throw new BadRequestException('An account with this email already exists.');
+    }
     const users = this.dataService.getUsers();
     const empCount = users.filter(u => u.role === 'Employee').length;
     const newId = `EMP-${String(empCount + 1).padStart(3, '0')}-${Date.now()}`;
@@ -51,7 +54,7 @@ export class UsersService {
       organizationId: 'PLATFORM',
       name,
       email,
-      password: 'password',
+      password,
       role: 'Employee',
       status: 'Active',
       preferences: { notifications: true },
