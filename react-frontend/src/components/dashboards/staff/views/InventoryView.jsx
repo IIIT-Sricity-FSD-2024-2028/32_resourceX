@@ -130,8 +130,8 @@ export default function InventoryView({ addToast }) {
   };
 
   return (
-    <div className="staff-dashboard-wrapper">
-      <div className="staff-header-row">
+    <div className="staff-dashboard-wrapper inventory-view">
+      <div className="staff-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div className="staff-header-titles">
           <h1 className="page-title">Department Inventory</h1>
           <p className="page-subtitle">Browse department resources, modify entries, and audit statuses.</p>
@@ -140,7 +140,7 @@ export default function InventoryView({ addToast }) {
           type="button"
           className="btn-secondary"
           onClick={loadData}
-          style={{ fontSize: '0.825rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          style={{ fontSize: '0.825rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
           disabled={loading}
         >
           <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
@@ -150,30 +150,31 @@ export default function InventoryView({ addToast }) {
         </button>
       </div>
 
-      <div className="data-section">
-        <div className="data-section-header" style={{ flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="data-section" style={{ overflow: 'hidden', background: '#ffffff', borderRadius: '12px', border: '1px solid var(--border-color, #e2e8f0)', boxShadow: 'var(--shadow-sm)' }}>
+        <div className="data-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', padding: '1.25rem 1.5rem' }}>
           <div className="data-section-title">Asset List</div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="btn-primary"
               style={{
-                padding: '0.5rem 1.25rem',
+                padding: '0.5rem 1.1rem',
                 fontSize: '0.875rem',
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
                 borderRadius: '8px',
-                gap: '0.4rem'
+                gap: '0.4rem',
+                whiteSpace: 'nowrap'
               }}
               onClick={() => setIsAddOpen(true)}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '1.25rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1.2rem' }}>
                 add
               </span>
               Add Resource
             </button>
 
-            <div className="search-bar" style={{ width: '260px' }}>
+            <div className="search-bar" style={{ width: '250px', maxWidth: '100%' }}>
               <span className="material-symbols-outlined" style={{ color: '#94a3b8' }}>
                 search
               </span>
@@ -204,8 +205,8 @@ export default function InventoryView({ addToast }) {
             </p>
           </div>
         ) : (
-          <div className="table-responsive" style={{ overflowX: 'auto' }}>
-            <table className="table">
+          <div className="table-responsive" style={{ overflowX: 'auto', width: '100%', WebkitOverflowScrolling: 'touch' }}>
+            <table className="table" style={{ width: '100%', minWidth: '960px', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th>Code</th>
@@ -218,7 +219,7 @@ export default function InventoryView({ addToast }) {
                   <th>Vendor</th>
                   <th>Invoice</th>
                   <th>Invoice File</th>
-                  <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
+                  <th style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '1.25rem', width: '130px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -290,35 +291,38 @@ export default function InventoryView({ addToast }) {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          style={{
-                            fontSize: '0.75rem',
-                            marginRight: '6px',
-                            padding: '0.25rem 0.6rem'
-                          }}
-                          onClick={() => {
-                            setEditingResource(res);
-                            setIsEditOpen(true);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        {res.status !== 'Scrapped' && (
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap', paddingRight: '1.25rem' }}>
+                        <div style={{ display: 'inline-flex', gap: '0.4rem', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button
                             type="button"
-                            className="btn-danger"
+                            className="btn-secondary"
                             style={{
                               fontSize: '0.75rem',
-                              padding: '0.25rem 0.6rem'
+                              padding: '0.25rem 0.6rem',
+                              borderRadius: '6px'
                             }}
-                            onClick={() => handleScrap(res.id)}
+                            onClick={() => {
+                              setEditingResource(res);
+                              setIsEditOpen(true);
+                            }}
                           >
-                            Scrap
+                            Edit
                           </button>
-                        )}
+                          {res.status !== 'Scrapped' && (
+                            <button
+                              type="button"
+                              className="btn-danger"
+                              style={{
+                                fontSize: '0.75rem',
+                                padding: '0.25rem 0.6rem',
+                                borderRadius: '6px'
+                              }}
+                              onClick={() => handleScrap(res.id)}
+                            >
+                              Scrap
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

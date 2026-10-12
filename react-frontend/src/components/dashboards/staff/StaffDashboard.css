@@ -79,14 +79,29 @@
   opacity: 0.85;
 }
 
-/* Ensure table container does not clip the absolute multi-select dropdown */
-.staff-dashboard-wrapper .data-section,
-.staff-dashboard-wrapper .table-responsive,
-.staff-dashboard-wrapper table,
-.staff-dashboard-wrapper tbody,
-.staff-dashboard-wrapper tr,
-.staff-dashboard-wrapper td {
+/* Ensure table container does not clip the absolute multi-select dropdown ONLY in allocations view */
+.allocations-view .data-section,
+.allocations-view .table-responsive,
+.allocations-view table,
+.allocations-view tbody,
+.allocations-view tr,
+.allocations-view td {
   overflow: visible !important;
+}
+
+/* Department Inventory / Manage Resources card container styling */
+.inventory-view .data-section {
+  overflow: hidden !important;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--border-color, #e2e8f0);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgba(0, 0, 0, 0.05));
+}
+
+.inventory-view .table-responsive {
+  overflow-x: auto !important;
+  width: 100% !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Multi-Select Custom Dropdown (Allocations View) */

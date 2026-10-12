@@ -158,7 +158,7 @@ export default function AllocationsView({ addToast }) {
   const isAnyDropdownOpen = !!openDropdownId;
 
   return (
-    <div className="staff-dashboard-wrapper">
+    <div className="staff-dashboard-wrapper allocations-view">
       {/* Title & Page Header matching staff.html */}
       <div className="staff-header-row">
         <div className="staff-header-titles">
