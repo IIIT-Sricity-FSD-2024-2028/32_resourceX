@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>FDFED M2026 - Lab 1: React Migration Planning</title>
+
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            line-height: 1.6;
+            margin: 40px;
+            background-color: #f8f9fa;
+            color: #222;
+        }
+
+        h1, h2, h3 {
+            color: #003366;
+        }
+
+        h1 {
+            text-align: center;
+            border-bottom: 3px solid #003366;
+            padding-bottom: 10px;
+        }
+
+        section {
+            background: #ffffff;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .objective {
+            background-color: #eef5ff;
+            border-left: 5px solid #003366;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .important {
+            background-color: #fff4e5;
+            border-left: 5px solid #cc6600;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .react {
+            background-color: #f0f8f0;
+            border-left: 5px solid #006600;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .time {
+            font-weight: bold;
+            color: #006600;
+        }
+
+        pre {
+            background: #272822;
+            color: #f8f8f2;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        ul {
+            margin-left: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        table, th, td {
+            border: 1px solid #444;
+        }
+
+        th {
+            background-color: #003366;
+            color: #fff;
+            padding: 8px;
+        }
+
+        td {
+            padding: 8px;
+            min-height: 30px;
+        }
+
+        .blank {
+            height: 35px;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>
+    FDFED M2026<br>
+    Lab 1: Existing Application Analysis & React Planning
+</h1>
+
+<section>
+
+    <h2>Objective</h2>
+
+    <div class="objective">
+
+        <p>
+                   <strong>Purpose:</strong>. Analyze your existing multi-page application and identify the parts that will need to be redesigned/reimplemented using React during this semester.
+
+
+        </p>
+
+        <p>
+            This lab focuses on
+            <strong>analysis and planning</strong>, not implementation.
+        </p>
+
+    </div>
+
+    <div class="important">
+
+        <strong>Important:</strong>
+
+        <p>
+            Do <strong>NOT</strong> implement React in this lab.
+            Do not rebuild your pages using React yet.
+        </p>
+
+        <p>
+            Your analysis from this lab will be used as the
+            starting point for your React implementation in the
+            upcoming labs.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>What You Will Do</h2>
+
+    <ul>
+
+        <li>Understand your existing application flow</li>
+
+        <li>Identify repeated UI elements</li>
+
+        <li>Identify dynamic behaviour</li>
+
+        <li>Analyze your existing JavaScript</li>
+
+        <li>Analyze the NestJS APIs used by your frontend</li>
+
+        <li>Identify problems in the existing frontend</li>
+
+        <li>Identify where React could improve the application</li>
+
+        <li>Select one feature/page for the first React conversion</li>
+
+    </ul>
+
+</section>
+
+
+<section>
+
+    <h2>Task 0: Understand Your Application Flow</h2>
+
+    <p class="time">
+        Activity: Explore your existing application
+    </p>
+
+    <p>
+        First, use your application as a normal user.
+        Do not start by looking at the source code.
+    </p>
+
+    <p>Identify the entry page, main pages, important user workflows, where the user enters data, where the user receives or views data, and which parts of the application use backend data. </p>
+
+    
+    <h3>Submit</h3>
+
+    <p>
+        Prepare a simple application-flow diagram.
+    </p>
+
+   
+
+</section>
+
+
+<section>
+
+    <h2>Task 1: Identify Repeated UI</h2>
+
+    <p> Inspect all pages of your existing application. Identify UI elements that appear on multiple pages, are repeated many times on the same page, or have the same or similar structure.
+    </p>
+    <h3>Submit</h3>
+    <p>
+      Prepare a table and submit the list  as shown below.
+    </p>
+
+   <table>
+
+        <tr>
+            <th>UI Element</th>
+            <th>Pages / Location</th>
+            <th>How is it repeated?</th>
+            <th>Why could reuse be useful?</th>
+        </tr>
+
+        <tr>
+            <td>Example: Footer</td>
+            <td>All pages</td>
+            <td>Same footer on every page</td>
+            <td>One change can be reflected everywhere</td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+    </table>
+
+    <div class="react">
+
+        <strong>React connection:</strong>
+
+        <p>
+            These observations will later help you identify
+            reusable React components.
+        </p>
+
+        <p>
+            You do not need to implement the components now.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>Task 2: Identify Dynamic Behaviour</h2>
+
+    <p class="time">
+        Interact with your application and observe what changes.
+    </p>
+
+    <p>
+        Ask:
+        <strong>
+            "What changes when the user does something?"
+        </strong>
+    </p>
+
+    <p>Consider user actions such as clicking a button, entering text, searching, selecting an option, submitting a form, adding or removing an item, logging in or logging out, and opening or closing a modal or menu.</p>
+
+    <h3>Submit</h3>
+    <p>
+      Prepare a table and submit the list  as shown below.
+    </p>
+    <table>
+
+        <tr>
+            <th>Page / Feature</th>
+            <th>User Action</th>
+            <th>What Changes?</th>
+        </tr>
+
+        <tr>
+            <td>Example: Products</td>
+            <td>Enter search text</td>
+            <td>Product list changes</td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+    </table>
+
+    <div class="react">
+
+        <strong>React connection:</strong>
+
+        <p>
+            These behaviours will later help you understand
+            React events and state.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>Task 3: Analyze Your Existing JavaScript</h2>
+
+    <p>
+        Open your existing frontend JavaScript files/functions.
+        Identify the code responsible for responding to user actions
+        or changing the UI.
+    </p>
+
+    <p>Look for examples such as:</p>
+
+    <pre>
+document.getElementById()
+document.querySelector()
+addEventListener()
+innerHTML
+innerText
+classList
+    </pre>
+ <h3>Submit</h3>
+    <p>
+      Prepare a table and submit the list  as shown below.
+    </p>
+    <table>
+
+        <tr>
+            <th>JavaScript</th>
+            <th>What does it do?</th>
+            <th>Page / Feature</th>
+            <th>What UI does it affect?</th>
+        </tr>
+
+        <tr>
+            <td>Example: getElementById()</td>
+            <td>Finds a DOM element</td>
+            <td>Cart</td>
+            <td>Cart count</td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+    </table>
+
+    <div class="react">
+
+        <strong>React connection:</strong>
+
+        <p>
+            Later you will learn how React components, JSX,
+            events and state can handle UI changes instead of
+            relying primarily on manual DOM manipulation.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>Task 4: Analyze Your NestJS API</h2>
+
+    <p>
+        Inspect the APIs already used by your frontend.
+        You can use your NestJS source code, Swagger/API documentation,
+        browser Network tools, or the API calls in your frontend.
+    </p>
+ <h3>Submit</h3>
+    <p>
+      Prepare a table and submit the list  as shown below.
+    </p>
+    <table>
+
+        <tr>
+            <th>Feature</th>
+            <th>HTTP Method</th>
+            <th>API Endpoint</th>
+            <th>Purpose</th>
+        </tr>
+
+        <tr>
+            <td>Example: Login</td>
+            <td>POST</td>
+            <td>/auth/login</td>
+            <td>Authenticate user</td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+    </table>
+
+    <pre>
+Existing architecture:
+
+Frontend
+    ↓
+REST API
+    ↓
+NestJS
+    ↓
+Database
+    </pre>
+
+    <div class="react">
+
+        <strong>Important:</strong>
+
+        <p>
+            The existing NestJS backend will continue to be used.
+            Do not rewrite the backend for this lab.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section>
+
+    <h2>Task 5: Find Problems in the Existing Frontend</h2>
+
+    <p>
+        Critically evaluate your own application.
+    </p>
+
+    <p>
+        Identify at least
+        <strong>5 genuine issues or challenges</strong>.
+    </p>
+
+    <p>
+        Do not invent problems simply to reach five.
+    </p>
+ <h3>Submit</h3>
+    <p>
+      Prepare a table and submit the list  as shown below.
+    </p>
+    <table>
+
+        <tr>
+            <th>Current Issue</th>
+            <th>Where Does It Occur?</th>
+            <th>Why Is It a Problem?</th>
+        </tr>
+
+        <tr>
+            <td>Example: Repeated product card</td>
+            <td>Products</td>
+            <td>
+                Changes may need to be made repeatedly
+            </td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+        <tr>
+            <td class="blank"></td>
+            <td></td>
+            <td></td>
+        </tr>
+
+    </table>
+
+    <h3>Possible Areas to Investigate</h3>
+
+    <ul>
+
+        <li>Repeated HTML</li>
+
+        <li>Repeated JavaScript</li>
+
+        <li>Manual DOM manipulation</li>
+
+        <li>Repeated navbar/header/footer code</li>
+
+        <li>Repeated card/table structures</li>
+
+        <li>Difficult UI updates</li>
+
+        <li>Duplicate event handling</li>
+
+        <li>Large JavaScript files</li>
+
+        <li>Difficult-to-maintain frontend logic</li>
+
+    </ul>
+
+</section>
+
+
+
+
+
+
+
+
+
+<section>
+
+    <h2>Submission</h2>
+
+    <p>
+        Submit <strong>ONE PDF</strong> containing:
+    </p>
+
+    <ol>
+
+        <li>Application flow</li>
+
+        <li>Repeated UI analysis</li>
+
+        <li>Dynamic behaviour analysis</li>
+
+        <li>Existing JavaScript analysis</li>
+
+        <li>NestJS API analysis</li>
+
+        <li>At least 5 genuine frontend problems</li>
+
+        <li>React conversion opportunities</li>
+
+        <li>First React conversion target</li>
+
+        <li>Initial React conversion sketch</li>
+
+    </ol>
+
+    <div class="important">
+
+        <strong>React implementation is NOT required for this lab.</strong>
+
+        <p>
+            The submitted analysis will become the starting point
+            for your React implementation in subsequent labs.
+        </p>
+
+    </div>
+
+</section>
+
+
+
+<footer>
+
+    FDFED M2026 | React Project Lab 1<br>
+    Existing Application Analysis & React Planning
+
+</footer>
+
+</body>
+</html>

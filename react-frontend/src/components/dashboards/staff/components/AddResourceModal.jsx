@@ -111,16 +111,18 @@ export default function AddResourceModal({
 
   // Fallback catalog options if catalog is empty
   const defaultTypes = [
-    'Laptop',
-    'Monitor',
-    'Projector',
-    'Tablet',
-    'Printer',
-    'Router',
-    'Accessories',
-    'Furniture',
+    'Laptops',
+    'Server Blades v2',
     'External Hard Drives',
-    'Server Blades v2'
+    'Network Switches',
+    'Routers',
+    'Monitors',
+    'Printers',
+    'Accessories',
+    'Standing Desks',
+    'Office Chairs',
+    'Walkie Talkies',
+    'Tablets'
   ];
   const availableTypes = catalogTypes.length > 0 ? catalogTypes : defaultTypes;
 

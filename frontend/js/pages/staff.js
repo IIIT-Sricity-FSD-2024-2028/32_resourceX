@@ -78,60 +78,23 @@ const staffApp = {
 
     normalizeResourceToken: function (value) {
         return String(value || '')
+            .trim()
             .toLowerCase()
-            .replace(/[^a-z0-9]+/g, ' ')
-            .replace(/\b(v\d+|inch|inches|sets|set|bundles|bundle)\b/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-    },
-
-    getResourceTypeAliases: function (resourceType) {
-        const normalized = this.normalizeResourceToken(resourceType);
-        const aliasMap = {
-            'laptop': ['laptop', 'developer laptop', 'laptop bundle'],
-            'developer laptops': ['laptop', 'developer laptop'],
-            'laptop bundles': ['laptop', 'laptop bundle'],
-            'monitor': ['monitor', 'electronics'],
-            'projector': ['projector', 'electronics'],
-            'projector screens': ['projector', 'electronics'],
-            'tablet': ['tablet', 'electronics'],
-            'printer': ['printer', 'electronics'],
-            'router': ['router', 'switch', 'network switch', 'hardware'],
-            'cisco routers': ['router', 'switch', 'network switch', 'hardware'],
-            'server blades': ['server blade', 'hardware'],
-            'server blades v2': ['server blade', 'hardware'],
-            'accessories': ['accessories', 'keyboard', 'mouse', 'remote', 'headset'],
-            'ergonomic keyboards': ['keyboard', 'accessories'],
-            'electronics': ['electronics', 'monitor', 'projector', 'tablet', 'printer'],
-            'furniture': ['furniture', 'desk', 'chair', 'table', 'whiteboard'],
-            'standing desks': ['desk', 'furniture'],
-            'office desks': ['desk', 'furniture'],
-            'conference tables': ['table', 'furniture'],
-            'whiteboards': ['whiteboard', 'furniture'],
-            'hardware': ['hardware', 'server blade', 'router', 'switch'],
-            'appliance': ['appliance', 'coffee machine'],
-            'walkie talkies': ['electronics', 'accessories', 'walkie talkie'],
-            'microscope sets': ['microscope', 'electronics'],
-        };
-        const aliases = aliasMap[normalized] || [];
-        return [...new Set([normalized, ...aliases].map(item => this.normalizeResourceToken(item)).filter(Boolean))];
+            .replace(/[^a-z0-9]/g, '');
     },
 
     resourceMatchesType: function (resource, requestedType) {
-        const aliases = this.getResourceTypeAliases(requestedType);
-        const resourceType = this.normalizeResourceToken(resource.type);
-        const resourceName = this.normalizeResourceToken(resource.name);
+        if (!requestedType || !resource) return false;
+        const target = this.normalizeResourceToken(requestedType);
+        const resType = this.normalizeResourceToken(resource.type);
+        if (!target || !resType) return false;
 
-        return aliases.some(alias => {
-            return (
-                resourceType === alias ||
-                resourceName === alias ||
-                resourceType.includes(alias) ||
-                resourceName.includes(alias) ||
-                alias.includes(resourceType) ||
-                alias.includes(resourceName)
-            );
-        });
+        if (target === resType) return true;
+        const stripS = (str) => (str.endsWith('s') ? str.slice(0, -1) : str);
+        if (stripS(target) === stripS(resType)) return true;
+        if (target.replace(/s/g, '') === resType.replace(/s/g, '')) return true;
+
+        return false;
     },
 
     // 0. Dashboard View

@@ -29,61 +29,25 @@ export function ensureDepartmentScoped(dataService: DataService, context: Reques
 
 export function normalizeResourceToken(value?: string): string {
   return String(value || '')
+    .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\b(v\d+|inch|inches|sets|set|bundles|bundle)\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-export function getResourceTypeAliases(resourceType: string): string[] {
-  const normalized = normalizeResourceToken(resourceType);
-  const aliasMap: Record<string, string[]> = {
-    laptop: ['laptop', 'developer laptop', 'laptop bundle'],
-    'developer laptops': ['laptop', 'developer laptop'],
-    'laptop bundles': ['laptop', 'laptop bundle'],
-    monitor: ['monitor', 'electronics'],
-    projector: ['projector', 'electronics'],
-    'projector screens': ['projector', 'electronics'],
-    tablet: ['tablet', 'electronics'],
-    printer: ['printer', 'electronics'],
-    router: ['router', 'switch', 'network switch', 'hardware'],
-    'cisco routers': ['router', 'switch', 'network switch', 'hardware'],
-    'server blades': ['server blade', 'hardware'],
-    'server blades v2': ['server blade', 'hardware'],
-    accessories: ['accessories', 'keyboard', 'mouse', 'remote', 'headset'],
-    'ergonomic keyboards': ['keyboard', 'accessories'],
-    electronics: ['electronics', 'monitor', 'projector', 'tablet', 'printer'],
-    furniture: ['furniture', 'desk', 'chair', 'table', 'whiteboard'],
-    'standing desks': ['desk', 'furniture'],
-    'office desks': ['desk', 'furniture'],
-    'conference tables': ['table', 'furniture'],
-    whiteboards: ['whiteboard', 'furniture'],
-    hardware: ['hardware', 'server blade', 'router', 'switch'],
-    appliance: ['appliance', 'coffee machine'],
-    'walkie talkies': ['electronics', 'accessories', 'walkie talkie'],
-    'microscope sets': ['microscope', 'electronics'],
-  };
-
-  const aliases = aliasMap[normalized] || [];
-  return [...new Set([normalized, ...aliases].map((item) => normalizeResourceToken(item)).filter(Boolean))];
+    .replace(/[^a-z0-9]/g, '');
 }
 
 export function resourceMatchesType(resource: { type?: string; name?: string }, requestedType: string): boolean {
-  const aliases = getResourceTypeAliases(requestedType);
-  const resourceType = normalizeResourceToken(resource.type);
-  const resourceName = normalizeResourceToken(resource.name);
+  if (!requestedType || !resource) return false;
+  const target = normalizeResourceToken(requestedType);
+  const resType = normalizeResourceToken(resource.type);
+  if (!target || !resType) return false;
 
-  return aliases.some((alias) => {
-    return (
-      resourceType === alias ||
-      resourceName === alias ||
-      resourceType.includes(alias) ||
-      resourceName.includes(alias) ||
-      alias.includes(resourceType) ||
-      alias.includes(resourceName)
-    );
-  });
+  if (target === resType) return true;
+  // Handle plural / singular variation (e.g. laptop vs laptops, server blade vs server blades)
+  const stripS = (str: string) => (str.endsWith('s') ? str.slice(0, -1) : str);
+  if (stripS(target) === stripS(resType)) return true;
+  // Handle internal plural variation (e.g. serversblade vs serverblade)
+  if (target.replace(/s/g, '') === resType.replace(/s/g, '')) return true;
+
+  return false;
 }
 
 export function getDepartmentResourceTypes(dataService: DataService, department: string, organizationId?: string): string[] {
@@ -101,11 +65,7 @@ export function ensureValidDepartmentResourceType(dataService: DataService, depa
     );
   }
 
-  const requestedAliases = getResourceTypeAliases(resourceType);
-  const isValid = allowedTypes.some((allowed) => {
-    const allowedAliases = getResourceTypeAliases(allowed);
-    return allowedAliases.some((alias) => requestedAliases.includes(alias));
-  });
+  const isValid = allowedTypes.some((allowed) => resourceMatchesType({ type: allowed }, resourceType));
 
   if (!isValid) {
     throw new BadRequestException(

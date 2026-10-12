@@ -32,9 +32,19 @@ export default function WarehouseOverview({ onTabChange, addToast }) {
   }, [loadData]);
 
   const handleQuickDispatch = async (order) => {
+    const normalizeToken = (val) => String(val || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matchesType = (r, reqType) => {
+      const t = normalizeToken(reqType);
+      const rt = normalizeToken(r.type);
+      if (!t || !rt) return false;
+      if (t === rt) return true;
+      const stripS = (s) => (s.endsWith('s') ? s.slice(0, -1) : s);
+      return stripS(t) === stripS(rt) || t.replace(/s/g, '') === rt.replace(/s/g, '');
+    };
+
     // Find available resources matching this order
     const available = resources.filter(
-      (r) => r.status === 'Available' && (r.type?.toLowerCase().includes(order.resourceType?.toLowerCase()) || r.name?.toLowerCase().includes(order.resourceType?.toLowerCase()))
+      (r) => r.status === 'Available' && matchesType(r, order.resourceType)
     );
 
     if (available.length < order.quantity) {
