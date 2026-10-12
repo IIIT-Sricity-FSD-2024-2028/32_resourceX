@@ -91,6 +91,13 @@ export class DataService {
     return this.clone(ann);
   }
 
+  updateAnnouncement(id: string, updates: Partial<AnnouncementRecord>): AnnouncementRecord {
+    const ann = this.state.announcements.find(a => a.id === id);
+    if (!ann) throw new NotFoundException(`Announcement ${id} not found`);
+    Object.assign(ann, updates);
+    return this.clone(ann);
+  }
+
   getInvoices(): InvoiceRecord[] {
     return this.clone(this.state.invoices);
   }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataService } from '../data/data.service';
 import { AnnouncementRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
@@ -31,12 +31,10 @@ export class AnnouncementsService {
   }
 
   addReply(context: RequestContext, annId: string, reply: string): AnnouncementRecord {
-    const all = this.dataService.getAnnouncements();
-    const ann = all.find(a => a.id === annId);
-    if (!ann) throw new NotFoundException(`Announcement ${annId} not found`);
-    (ann as any).adminReply = reply;
-    (ann as any).adminReplyDate = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    (ann as any).adminReplyBy = context.userId;
-    return ann;
+    return this.dataService.updateAnnouncement(annId, {
+      adminReply: reply,
+      adminReplyDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      adminReplyBy: context.userId,
+    });
   }
 }
