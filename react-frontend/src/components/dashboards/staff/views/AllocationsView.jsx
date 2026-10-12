@@ -154,9 +154,6 @@ export default function AllocationsView({ addToast }) {
 
   const pendingRequests = requests.filter((r) => r.status === 'Approved');
 
-  // Check if any dropdown is currently open to adjust bottom spacing
-  const isAnyDropdownOpen = !!openDropdownId;
-
   return (
     <div className="staff-dashboard-wrapper allocations-view">
       {/* Title & Page Header matching staff.html */}
@@ -172,9 +169,7 @@ export default function AllocationsView({ addToast }) {
         className="data-section"
         style={{
           overflow: 'visible',
-          minHeight: '320px',
-          paddingBottom: isAnyDropdownOpen ? '160px' : '1.5rem',
-          transition: 'padding-bottom 0.2s ease'
+          minHeight: '320px'
         }}
       >
         <div className="data-section-header">
