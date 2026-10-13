@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import LandingPage from './components/landing/LandingPage';
 import Login from './components/login';
+import Register from './components/register';
 import Profile from './components/profile';
 
 // Role Dashboards (Each dashboard self-contains its views and subroutes)
@@ -99,6 +100,20 @@ function LoginPage() {
 }
 
 /**
+ * Organization Registration Page wrapper with programmatic router navigation
+ */
+function RegisterPage() {
+  const navigate = useNavigate();
+
+  return (
+    <Register
+      onNavigateLogin={() => navigate('/login')}
+      onNavigateHome={() => navigate('/')}
+    />
+  );
+}
+
+/**
  * Profile Page wrapper with programmatic router navigation
  */
 function ProfilePage() {
@@ -140,6 +155,16 @@ export default function App() {
             element={
               <PublicOnlyRoute>
                 <LoginPage />
+              </PublicOnlyRoute>
+            }
+          />
+
+          {/* Public Organization Registration Route */}
+          <Route
+            path="/register"
+            element={
+              <PublicOnlyRoute>
+                <RegisterPage />
               </PublicOnlyRoute>
             }
           />

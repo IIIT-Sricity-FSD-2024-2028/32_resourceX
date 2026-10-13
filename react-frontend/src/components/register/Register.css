@@ -1,0 +1,214 @@
+/* Register Component Styles - ResourceX (matches the Login look) */
+
+.register-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  background: radial-gradient(circle at top right, #e2e8f0 0%, #f8fafc 60%, #eef2f6 100%);
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+.register-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--border-color, #e2e8f0);
+  width: 100%;
+  max-width: 800px;
+  padding: 2.5rem;
+  box-sizing: border-box;
+}
+
+.register-home-link {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.register-home-link:hover {
+  color: var(--primary-color, #0F386E);
+}
+
+.register-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 0.25rem;
+}
+
+.register-logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--primary-color, #0F386E);
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.register-logo-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary-color, #0F386E);
+}
+
+.register-subtitle {
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  margin: 0 0 1.75rem;
+}
+
+.register-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 1.25rem;
+}
+
+.register-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.35rem;
+}
+
+.register-section-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+  margin: 0.5rem 0 1rem;
+}
+
+.register-muted {
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  padding: 1rem;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-card {
+  border: 2px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  background: #fff;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.plan-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--primary-color, #0F386E);
+}
+
+.plan-card.selected {
+  border-color: var(--primary-color, #0F386E);
+  background: rgba(15, 56, 110, 0.05);
+}
+
+.plan-name {
+  font-weight: 600;
+  color: var(--primary-color, #0F386E);
+}
+
+.plan-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0.6rem 0;
+  color: var(--text-main, #1e293b);
+}
+
+.plan-price span {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-muted, #64748b);
+}
+
+.plan-users,
+.plan-features {
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
+.plan-features {
+  margin-top: 0.35rem;
+}
+
+.register-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.register-submit {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+}
+
+.register-footer {
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.register-footer button {
+  background: none;
+  border: none;
+  color: var(--primary-color, #0F386E);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.register-success {
+  max-width: 480px;
+  text-align: center;
+}
+
+.register-success-icon {
+  font-size: 3.5rem;
+  color: #16a34a;
+}
+
+.register-success h2 {
+  margin: 0.5rem 0;
+  color: var(--text-main, #1e293b);
+}
+
+.register-success p {
+  color: var(--text-muted, #64748b);
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .register-card {
+    padding: 2rem 1.25rem;
+  }
+  .register-grid {
+    grid-template-columns: 1fr;
+  }
+}

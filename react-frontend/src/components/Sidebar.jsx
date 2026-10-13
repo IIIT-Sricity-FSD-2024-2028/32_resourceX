@@ -43,16 +43,18 @@ const ROLE_NAV_ITEMS = {
     { id: 'catalog', label: 'Master Catalog', icon: 'menu_book' }
   ],
   'Owner': [
-    { id: 'overview', label: 'Platform Metrics', icon: 'monitoring' },
-    { id: 'organizations', label: 'Tenants & Orgs', icon: 'corporate_fare' },
-    { id: 'revenue', label: 'Billing & Plans', icon: 'payments' },
-    { id: 'employees', label: 'Platform Staff', icon: 'badge' }
+    { target: '/dashboard/owner', label: 'Dashboard', icon: 'dashboard', isDefault: true },
+    { target: '/dashboard/owner/revenue', label: 'Revenue Analysis', icon: 'bar_chart' },
+    { target: '/dashboard/owner/organizations', label: 'Organization Management', icon: 'corporate_fare' },
+    { target: '/dashboard/owner/employees', label: 'Employee Management', icon: 'badge' },
+    { target: '/dashboard/owner/create-employee', label: 'Create Employee', icon: 'person_add' },
+    { target: '/dashboard/owner/registrations', label: 'Org Registrations', icon: 'pending_actions' }
   ],
   'Employee': [
-    { id: 'overview', label: 'Support Queue', icon: 'support_agent' },
-    { id: 'announcements', label: 'Tenant Broadcasts', icon: 'campaign' },
-    { id: 'tickets', label: 'Assigned Tickets', icon: 'confirmation_number' },
-    { id: 'tenants', label: 'Assigned Tenants', icon: 'apartment' }
+    { target: '/dashboard/employee', label: 'Dashboard', icon: 'dashboard', isDefault: true },
+    { target: '/dashboard/employee/support', label: 'Support Management', icon: 'support_agent' },
+    { target: '/dashboard/employee/institutions', label: 'Institution Management', icon: 'corporate_fare' },
+    { target: '/dashboard/employee/communication', label: 'Communication', icon: 'campaign' }
   ]
 };
 

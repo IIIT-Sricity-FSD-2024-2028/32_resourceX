@@ -1,0 +1,42 @@
+import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
+import Sidebar from '../../Sidebar';
+import AppHeader from '../../AppHeader';
+import EmployeeToast from './components/EmployeeToast';
+
+/**
+ * Exact layout shell from employee.html
+ * Hosting Sidebar, Top Header, and sub-routes rendered in content-area
+ */
+export default function EmployeeLayout() {
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  };
+
+  return (
+    <div className="app-container">
+      {/* Universal Sidebar */}
+      <Sidebar />
+
+      {/* Main Wrapper */}
+      <div className="main-wrapper">
+        {/* Top Header */}
+        <AppHeader />
+
+        {/* Content Area */}
+        <main className="content-area">
+          <Outlet context={{ addToast }} />
+        </main>
+      </div>
+
+      {/* Toast Notifications */}
+      <EmployeeToast toasts={toasts} />
+    </div>
+  );
+}

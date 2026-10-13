@@ -113,9 +113,7 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
         {step === 'role' && (
           <RoleSelector
             onSelectRole={handleSelectRole}
-            onRegisterOrg={() => {
-              window.location.href = '../pages/register.html';
-            }}
+            onRegisterOrg={() => navigate('/register')}
           />
         )}
 

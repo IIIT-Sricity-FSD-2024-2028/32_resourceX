@@ -251,6 +251,9 @@ export interface AnnouncementRecord {
   type: AnnouncementType;
   date: string;
   authorId: string;
+  adminReply?: string;
+  adminReplyDate?: string;
+  adminReplyBy?: string;
 }
 
 export interface InvoiceRecord {
