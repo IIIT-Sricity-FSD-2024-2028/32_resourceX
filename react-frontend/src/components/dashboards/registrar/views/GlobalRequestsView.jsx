@@ -1,16 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { fetchRequests } from '../../../../services/registrar';
+import { fetchRequests, fetchDepartments } from '../../../../services/registrar';
 
 /**
  * 2. Global Requests View (replicates sys-overview-view from registrar.html & registrar.js)
  */
 export default function GlobalRequestsView() {
   const [requests, setRequests] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [loading, setLoading] = useState(true);
 
-  // Fetch requests based on active dropdown filters
+  // 1. Fetch departments dynamically from backend on component mount
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        const data = await fetchDepartments();
+        if (Array.isArray(data)) {
+          setDepartments(data);
+        }
+      } catch (err) {
+        console.error('Error fetching departments from backend:', err);
+      }
+    };
+
+    loadDepartments();
+  }, []);
+
+  // 2. Fetch requests based on active dropdown filters
   const renderGlobalRequests = async () => {
     try {
       setLoading(true);
@@ -64,6 +81,7 @@ export default function GlobalRequestsView() {
           <option value="Rejected">Rejected</option>
         </select>
 
+        {/* Dynamic department dropdown fetched from backend */}
         <select
           id="filterDept"
           className="form-control"
@@ -72,10 +90,11 @@ export default function GlobalRequestsView() {
           onChange={(e) => setFilterDept(e.target.value)}
         >
           <option value="All">Filter Dept: All</option>
-          <option value="IT Services">IT Services</option>
-          <option value="HR Dept">HR Dept</option>
-          <option value="Operations">Operations</option>
-          <option value="Facilities">Facilities</option>
+          {departments.map((dept) => (
+            <option key={dept.id || dept.name} value={dept.name}>
+              {dept.name}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -9,6 +9,7 @@ import { apiRequest, buildQuery } from './api';
  * - Store.fetchResources()
  * - Store.approveRegistrarProcurement()
  * - Store.rejectRegistrarProcurement()
+ * - Store.fetchDepartments()
  */
 
 // 1. Fetch Registrar summary stats (active assets, pending reqs, pending procs, approved)
@@ -43,4 +44,9 @@ export const rejectRegistrarProcurement = async (id) => {
   return await apiRequest(`/procurements/${encodeURIComponent(id)}/registrar-reject`, {
     method: 'POST'
   });
+};
+
+// 7. Fetch Departments list from backend
+export const fetchDepartments = async () => {
+  return await apiRequest('/departments');
 };
