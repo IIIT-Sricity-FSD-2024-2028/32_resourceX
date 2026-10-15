@@ -14,6 +14,9 @@ const ROLE_NAV_ITEMS = {
     { target: '/dashboard/admin/subscription', label: 'Subscription Management', icon: 'subscriptions' },
     { target: '/dashboard/admin/support', label: 'Support Queries', icon: 'support_agent' },
     { target: '/dashboard/admin/announcements', label: 'Announcements', icon: 'campaign' },
+   
+
+
     
   ],
   'Dept Head': [
@@ -102,7 +105,7 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
   };
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" >
       {/* Brand logo container */}
       <div
         className="sidebar-logo-container logo-container"
