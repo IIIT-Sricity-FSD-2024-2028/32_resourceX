@@ -1,113 +1,116 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
-import { useAuth } from '../../../context/AuthContext';
 
-export default function RegistrarDashboard({ onLogout }) {
+// 4 Views matching previous registrar.html
+import RegistrarOverview from './views/RegistrarOverview';
+import ProcurementApprovalsView from './views/ProcurementApprovalsView';
+import GlobalRequestsView from './views/GlobalRequestsView';
+import SystemAnalyticsView from './views/SystemAnalyticsView';
+
+// Supporting Components
+import FilePreviewModal from './components/FilePreviewModal';
+import RegistrarToast from './components/RegistrarToast';
+
+/**
+ * 4 Exact navigation items from registrar.html:
+ * 1. Dashboard
+ * 2. Procurement Approvals
+ * 3. Global Requests Overview
+ * 4. System Analytics
+ */
+const REGISTRAR_NAV_ITEMS = [
+  { id: 'dashboard', target: '/dashboard/registrar', label: 'Dashboard', icon: 'dashboard', isDefault: true },
+  { id: 'procurements', target: '/dashboard/registrar/procurements', label: 'Procurement Approvals', icon: 'work' },
+  { id: 'requests', target: '/dashboard/registrar/requests', label: 'Global Requests Overview', icon: 'visibility' },
+  { id: 'analytics', target: '/dashboard/registrar/analytics', label: 'System Analytics', icon: 'analytics' }
+];
+
+export default function RegistrarDashboard() {
   const navigate = useNavigate();
-  const { user: currentUser, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('overview');
+  const location = useLocation();
 
-  const customNav = [
-    { id: 'overview', label: 'Registrar Overview', icon: 'dashboard' },
-    { id: 'procurements', label: 'Procurements & Invoices', icon: 'receipt_long' },
-    { id: 'tagging', label: 'RFID Asset Tagging', icon: 'qr_code_scanner' },
-    { id: 'catalog', label: 'Master Catalog', icon: 'menu_book' }
-  ];
+  // Map path to active tab
+  const getTabFromPath = useCallback(() => {
+    const path = location.pathname.toLowerCase();
+    if (path.includes('/procurements')) return 'procurements';
+    if (path.includes('/requests') || path.includes('/overview')) return 'requests';
+    if (path.includes('/analytics')) return 'analytics';
+    return 'dashboard';
+  }, [location.pathname]);
+
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
+  const [toasts, setToasts] = useState([]);
+  const [previewFile, setPreviewFile] = useState(null);
+
+  useEffect(() => {
+    setActiveTab(getTabFromPath());
+  }, [getTabFromPath]);
+
+  // Tab switching handler
+  const handleTabChange = useCallback(
+    (tabId) => {
+      setActiveTab(tabId);
+      if (tabId === 'dashboard') {
+        navigate('/dashboard/registrar');
+      } else {
+        navigate(`/dashboard/registrar/${tabId}`);
+      }
+    },
+    [navigate]
+  );
+
+  const addToast = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
+
+  const handlePreviewFile = useCallback((fileObj) => {
+    setPreviewFile(fileObj);
+  }, []);
 
   return (
     <div className="app-container" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+      {/* 1. Universal Sidebar with exact 4 items */}
       <Sidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
-        customNavItems={customNav}
+        onTabChange={handleTabChange}
+        customNavItems={REGISTRAR_NAV_ITEMS}
       />
 
+      {/* 2. Main Wrapper */}
       <div className="main-wrapper" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         <AppHeader />
 
+        {/* 3. Content Area */}
         <main className="content-area" style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>
-          <div style={{ maxWidth: '1240px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem' }}>
-              <div>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--primary-color, #0F386E)', marginBottom: '0.25rem' }}>
-                  Asset Registration & Registrar
-                </h1>
-                <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.875rem' }}>
-                  Register newly arrived hardware shipments, index serial barcodes, and link vendor invoices.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigate('/profile')}
-                style={{ fontSize: '0.85rem' }}
-              >
-                Profile Settings
-              </button>
-            </div>
-
-            {/* Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-              <div style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Shipments Pending Tag</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '1.85rem', fontWeight: 700, color: '#f59e0b' }}>5</span>
-                  <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: '#fde68a' }}>local_shipping</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Registered Assets</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0F386E' }}>254</span>
-                  <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: '#93c5fd' }}>qr_code</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase' }}>Vendor Invoices Audited</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '1.85rem', fontWeight: 700, color: '#10b981' }}>42</span>
-                  <span className="material-symbols-outlined" style={{ fontSize: '2rem', color: '#a7f3d0' }}>receipt</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Procurements Inflow Table */}
-            <div style={{ background: 'white', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)', padding: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#0f172a', marginBottom: '1rem' }}>
-                New Batch Procurement Registry
-              </h2>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: '#64748b' }}>
-                      <th style={{ padding: '0.75rem 1rem' }}>Batch PO</th>
-                      <th style={{ padding: '0.75rem 1rem' }}>Vendor</th>
-                      <th style={{ padding: '0.75rem 1rem' }}>Item Category</th>
-                      <th style={{ padding: '0.75rem 1rem' }}>Quantity</th>
-                      <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Registry Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '0.85rem 1rem', fontWeight: 600, color: '#0F386E' }}>PO-2024-88</td>
-                      <td style={{ padding: '0.85rem 1rem' }}>Dell Technologies Inc.</td>
-                      <td style={{ padding: '0.85rem 1rem' }}>Laptops (Dell Inspiron 15)</td>
-                      <td style={{ padding: '0.85rem 1rem' }}>10 Units</td>
-                      <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
-                        <button type="button" className="btn-primary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}>Tag & Register</button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <div style={{ maxWidth: '1240px', margin: '0 auto', width: '100%' }}>
+            <Routes>
+              <Route index element={<RegistrarOverview onSwitchView={handleTabChange} />} />
+              <Route path="dashboard" element={<RegistrarOverview onSwitchView={handleTabChange} />} />
+              <Route
+                path="procurements"
+                element={<ProcurementApprovalsView addToast={addToast} onPreviewFile={handlePreviewFile} />}
+              />
+              <Route path="requests" element={<GlobalRequestsView />} />
+              <Route path="analytics" element={<SystemAnalyticsView />} />
+              <Route path="*" element={<Navigate to="/dashboard/registrar" replace />} />
+            </Routes>
           </div>
         </main>
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
+
+      {/* Feedback Toast */}
+      <RegistrarToast toasts={toasts} />
     </div>
   );
 }
