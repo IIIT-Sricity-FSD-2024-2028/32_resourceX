@@ -20,9 +20,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const [selectedType, setSelectedType] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
+  const [requirementDate, setRequirementDate] = useState('');
+  const [returnDate, setReturnDate] = useState('');
   const [availableCount, setAvailableCount] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Today's date string in YYYY-MM-DD for min attribute
+  const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     const init = async () => {
@@ -98,6 +103,21 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       return;
     }
 
+    if (!requirementDate) {
+      addToast('Please select a Resource Requirement Date.', 'error');
+      return;
+    }
+
+    if (!returnDate) {
+      addToast('Please select a Resource Return Date.', 'error');
+      return;
+    }
+
+    if (new Date(returnDate) <= new Date(requirementDate)) {
+      addToast('Resource Return Date must be after the Requirement Date.', 'error');
+      return;
+    }
+
     // Re-verify availability
     try {
       const avail = await fetchResourceAvailability(selectedDept, selectedType);
@@ -121,6 +141,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       year: 'numeric'
     });
 
+    // Format dates for display
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
     const payload = {
       id: newId,
       department: selectedDept,
@@ -131,7 +159,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       status: 'Pending',
       priority: 'Normal',
       date: dateStr,
-      justification: reason
+      justification: reason,
+      requirementDate: requirementDate,
+      returnDate: returnDate,
+      requirementDateDisplay: formatDate(requirementDate),
+      returnDateDisplay: formatDate(returnDate)
     };
 
     setSubmitting(true);
@@ -143,6 +175,8 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       setSelectedType('');
       setQuantity(1);
       setReason('');
+      setRequirementDate('');
+      setReturnDate('');
       setAvailableCount(null);
 
       if (onNavigateToRequests) {
@@ -229,6 +263,66 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
               min="1"
               required
             />
+          </div>
+
+          {/* Timing Section */}
+          <div className="form-group">
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--primary-color, #0F386E)' }}>schedule</span>
+              Resource Usage Period
+            </label>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '1rem',
+              background: 'linear-gradient(135deg, #f0f6ff 0%, #e8f0fe 100%)',
+              border: '1.5px solid #c7d9f8',
+              borderRadius: '10px',
+              padding: '1rem 1.2rem',
+              marginTop: '0.3rem'
+            }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  📅 Requirement Date
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={requirementDate}
+                  min={todayStr}
+                  onChange={(e) => {
+                    setRequirementDate(e.target.value);
+                    // Clear return date if it becomes invalid
+                    if (returnDate && e.target.value && new Date(returnDate) <= new Date(e.target.value)) {
+                      setReturnDate('');
+                    }
+                  }}
+                  required
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  🔄 Return Date
+                </label>
+                <input
+                  type="date"
+                  className="form-control"
+                  value={returnDate}
+                  min={requirementDate || todayStr}
+                  onChange={(e) => setReturnDate(e.target.value)}
+                  disabled={!requirementDate}
+                  required
+                  style={{ fontSize: '0.9rem' }}
+                />
+              </div>
+            </div>
+            {requirementDate && returnDate && (
+              <small style={{ display: 'block', marginTop: '0.5rem', color: '#0F386E', fontWeight: 500 }}>
+                📆 Duration:{' '}
+                {Math.ceil((new Date(returnDate) - new Date(requirementDate)) / (1000 * 60 * 60 * 24))} day(s)
+              </small>
+            )}
           </div>
 
           <div className="form-group">

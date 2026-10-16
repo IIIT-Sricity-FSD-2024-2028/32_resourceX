@@ -123,6 +123,10 @@ export interface RequestRecord {
   assignedResources?: string;
   allocatedBy?: string;
   procurementId?: string;  // set when auto-generated from a completed procurement
+  requirementDate?: string;       // ISO date string, e.g. "2026-10-20"
+  returnDate?: string;            // ISO date string, e.g. "2026-10-30"
+  requirementDateDisplay?: string; // Human-readable, e.g. "Oct 20, 2026"
+  returnDateDisplay?: string;      // Human-readable, e.g. "Oct 30, 2026"
 }
 
 export interface ResourceRecord {

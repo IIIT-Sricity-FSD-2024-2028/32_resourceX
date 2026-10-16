@@ -290,7 +290,9 @@ export default function AdminUsers() {
             <option value="Requestor">Requestor</option>
             <option value="Dept Head">Dept Head</option>
             <option value="Registrar">Registrar</option>
-            <option value="Staff">Staff</option>
+            <option value="Inventory Officer">Inventory Officer</option>
+            <option value="Maintenance Officer">Maintenance Officer</option>
+            <option value="Procurement Officer">Procurement Officer</option>
             <option value="System Admin">System Admin</option>
           </select>
         </div>
@@ -351,7 +353,9 @@ export default function AdminUsers() {
             <option value="Requestor">Requestor</option>
             <option value="Dept Head">Dept Head</option>
             <option value="Registrar">Registrar</option>
-            <option value="Staff">Staff</option>
+            <option value="Inventory Officer">Inventory Officer</option>
+            <option value="Maintenance Officer">Maintenance Officer</option>
+            <option value="Procurement Officer">Procurement Officer</option>
             <option value="System Admin">System Admin</option>
           </select>
         </div>

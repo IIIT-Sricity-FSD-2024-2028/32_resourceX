@@ -55,6 +55,26 @@ export class CreateRequestDto {
   @IsOptional()
   @IsString()
   procurementId?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-20' })
+  @IsOptional()
+  @IsString()
+  requirementDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-30' })
+  @IsOptional()
+  @IsString()
+  returnDate?: string;
+
+  @ApiPropertyOptional({ example: 'Oct 20, 2026' })
+  @IsOptional()
+  @IsString()
+  requirementDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: 'Oct 30, 2026' })
+  @IsOptional()
+  @IsString()
+  returnDateDisplay?: string;
 }
 
 export class UpdateRequestDto extends PartialType(CreateRequestDto) {

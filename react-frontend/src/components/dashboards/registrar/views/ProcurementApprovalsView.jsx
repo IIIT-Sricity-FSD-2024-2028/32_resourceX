@@ -35,8 +35,8 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
     try {
       await approveRegistrarProcurement(id);
       await loadProcurements();
-      alert('Procurement Approved. Task passed to Staff for fulfillment.');
-      if (addToast) addToast('Procurement Approved. Task passed to Staff.', 'success');
+      alert('Procurement Approved. Task passed to Procurement Officer for fulfillment.');
+      if (addToast) addToast('Procurement Approved. Task passed to Procurement Officer.', 'success');
     } catch (err) {
       console.error(err);
       alert('Failed to approve procurement: ' + (err.message || 'Error'));

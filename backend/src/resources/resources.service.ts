@@ -29,7 +29,7 @@ export class ResourcesService {
 
     // 1. Role-based scoping within the org
     if (context.role !== 'System Admin' && context.role !== 'Registrar') {
-      if (context.role === 'Dept Head' || context.role === 'Staff') {
+      if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
         items = items.filter((resource) => resource.department === user?.department);
       } else if (context.role === 'Requestor') {
         items = items.filter(

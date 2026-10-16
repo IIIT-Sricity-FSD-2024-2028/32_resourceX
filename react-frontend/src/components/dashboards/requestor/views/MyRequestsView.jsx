@@ -303,7 +303,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
                   const stageMap = {
                     'Pending Approval': { stage: '1 of 5 — Awaiting Dept Head', bg: '#fef9c3', color: '#854d0e' },
                     'Pending': { stage: '2 of 5 — Awaiting Registrar', bg: '#fef9c3', color: '#854d0e' },
-                    'Approved': { stage: '3 of 5 — Staff Purchase', bg: '#dbeafe', color: '#1d4ed8' },
+                    'Approved': { stage: '3 of 5 — Inventory Officer Allocating', bg: '#dbeafe', color: '#1d4ed8' },
                     'Fulfilled': { stage: '4 of 5 — Asset Registration', bg: '#ede9fe', color: '#6d28d9' },
                     'Registered': { stage: '5 of 5 — Pending Allocation', bg: '#dcfce7', color: '#166534' },
                     'Rejected': { stage: 'Rejected', bg: '#fee2e2', color: '#b91c1c' }
@@ -318,7 +318,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
                   if (allocationReq && (allocationReq.status === 'Allocated' || allocationReq.status === 'Completed')) {
                     stageInfo = { stage: '✅ Allocated — Check My Resources', bg: '#dcfce7', color: '#166534' };
                   } else if (allocationReq && allocationReq.status === 'Approved') {
-                    stageInfo = { stage: '5 of 5 — Staff Allocating Now', bg: '#dcfce7', color: '#166534' };
+                    stageInfo = { stage: '5 of 5 — Inventory Officer Allocating Now', bg: '#dcfce7', color: '#166534' };
                   }
 
                   return (

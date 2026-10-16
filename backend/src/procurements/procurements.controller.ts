@@ -39,7 +39,7 @@ export class ProcurementsController {
   }
 
   @Patch(':id')
-  @Roles('Dept Head', 'Registrar', 'Staff', 'System Admin')
+  @Roles('Dept Head', 'Registrar', 'Procurement Officer', 'System Admin')
   @ApiBody({ type: UpdateProcurementDto })
   @ApiOperation({ summary: 'Update a procurement' })
   @ApiParam({ name: 'id', example: 'PROC-819' })
@@ -85,7 +85,7 @@ export class ProcurementsController {
   }
 
   @Post(':id/log-purchase')
-  @Roles('Staff', 'System Admin')
+  @Roles('Procurement Officer', 'System Admin')
   @ApiBody({ type: LogPurchaseDto })
   @ApiOperation({ summary: 'Log vendor and invoice details for an approved procurement' })
   @ApiParam({ name: 'id', example: 'PROC-911' })
@@ -95,7 +95,7 @@ export class ProcurementsController {
   }
 
   @Post(':id/register')
-  @Roles('Staff', 'System Admin')
+  @Roles('Inventory Officer', 'System Admin')
   @ApiBody({ type: RegisterProcurementDto })
   @ApiOperation({ summary: 'Register delivered assets for a fulfilled procurement' })
   @ApiParam({ name: 'id', example: 'PROC-850' })

@@ -34,7 +34,7 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ enum: ROLES, example: 'Staff' })
+  @ApiProperty({ enum: ROLES, example: 'Inventory Officer' })
   @IsEnum(ROLES)
   role!: (typeof ROLES)[number];
 

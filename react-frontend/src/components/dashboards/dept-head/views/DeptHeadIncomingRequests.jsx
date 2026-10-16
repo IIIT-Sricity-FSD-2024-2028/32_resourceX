@@ -54,7 +54,7 @@ export default function DeptHeadIncomingRequests() {
     try {
       await approveDeptRequest(id);
       setRequests((prev) => prev.filter((r) => r.id !== id));
-      addToast('Request approved. It has been passed to Staff for allocation.', 'success');
+      addToast('Request approved. It has been passed to the Inventory Officer for allocation.', 'success');
     } catch (err) {
       addToast(`Approval failed: ${err.message}`, 'error');
     } finally {
@@ -136,13 +136,14 @@ export default function DeptHeadIncomingRequests() {
                     <th>Requestor</th>
                     <th>Resource Type</th>
                     <th>Qty</th>
+                    <th>Usage Period</th>
                     <th>Reason</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {requests.length === 0 ? (
-                    <EmptyRow colSpan={6} text="No pending resource requests. 🎉" />
+                    <EmptyRow colSpan={7} text="No pending resource requests. 🎉" />
                   ) : (
                     requests.map((req) => (
                       <tr key={req.id}>
@@ -150,6 +151,27 @@ export default function DeptHeadIncomingRequests() {
                         <td>{req.requestor}</td>
                         <td>{req.resourceType}</td>
                         <td>{padQty(req.quantity)}</td>
+                        <td>
+                          {req.requirementDate || req.requirementDateDisplay ? (
+                            <div style={{ fontSize: '0.78rem', lineHeight: 1.6 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#0F386E', fontWeight: 600 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>event</span>
+                                {req.requirementDateDisplay || new Date(req.requirementDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#64748b', marginTop: '0.1rem' }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>event_available</span>
+                                {req.returnDateDisplay || (req.returnDate ? new Date(req.returnDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—')}
+                              </div>
+                              {req.requirementDate && req.returnDate && (
+                                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                                  {Math.ceil((new Date(req.returnDate) - new Date(req.requirementDate)) / (1000 * 60 * 60 * 24))} day(s)
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#cbd5e1', fontSize: '0.78rem' }}>—</span>
+                          )}
+                        </td>
                         <td style={{ fontSize: '0.75rem', color: '#64748b' }}>{req.justification || '—'}</td>
                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button

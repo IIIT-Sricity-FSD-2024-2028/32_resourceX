@@ -18,7 +18,7 @@ export class AnalyticsService {
     if (context.role === 'System Admin' || context.role === 'Registrar') {
       return items;
     }
-    if (context.role === 'Dept Head' || context.role === 'Staff') {
+    if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
       return items.filter((request) => request.department === user?.department);
     }
     if (context.role === 'Requestor') {
@@ -40,7 +40,7 @@ export class AnalyticsService {
     if (context.role === 'System Admin' || context.role === 'Registrar') {
       return items;
     }
-    if (context.role === 'Dept Head' || context.role === 'Staff') {
+    if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
       return items.filter((resource) => resource.department === user?.department);
     }
     if (context.role === 'Requestor') {
@@ -62,7 +62,7 @@ export class AnalyticsService {
     if (context.role === 'System Admin' || context.role === 'Registrar') {
       return items;
     }
-    if (context.role === 'Dept Head' || context.role === 'Staff') {
+    if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
       return items.filter((procurement) => procurement.department === user?.department);
     }
     if (context.role === 'Requestor') {
@@ -125,7 +125,7 @@ export class AnalyticsService {
       resources = resources.filter((r) => r.organizationId === context.organizationId);
     }
     // Department scoping — Dept Head / Staff only see thresholds for their own department
-    if (context.role === 'Dept Head' || context.role === 'Staff') {
+    if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
       const user = getActingUser(this.dataService, context);
       thresholds = thresholds.filter((t) => t.department === user?.department);
     }

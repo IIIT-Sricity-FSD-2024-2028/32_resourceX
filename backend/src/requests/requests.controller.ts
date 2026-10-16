@@ -25,7 +25,7 @@ export class RequestsController {
   }
 
   @Post()
-  @Roles('Requestor', 'Staff', 'System Admin')
+  @Roles('Requestor', 'System Admin')
   @ApiBody({ type: CreateRequestDto })
   @ApiOperation({ summary: 'Create a resource request' })
   @ApiCreatedResponse({ description: 'Request created successfully.', type: RequestResponseDto })
@@ -34,7 +34,7 @@ export class RequestsController {
   }
 
   @Patch(':id')
-  @Roles('Dept Head', 'Staff', 'System Admin')
+  @Roles('Dept Head', 'Inventory Officer', 'System Admin')
   @ApiBody({ type: UpdateRequestDto })
   @ApiOperation({ summary: 'Update a request' })
   @ApiParam({ name: 'id', example: 'REQ-102' })
@@ -62,7 +62,7 @@ export class RequestsController {
   }
 
   @Post(':id/allocate')
-  @Roles('Staff', 'System Admin')
+  @Roles('Inventory Officer', 'System Admin')
   @ApiBody({ type: AllocateRequestDto })
   @ApiOperation({ summary: 'Allocate inventory resources to an approved request' })
   @ApiParam({ name: 'id', example: 'REQ-104' })
