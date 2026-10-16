@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResourceX - Login</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/components/layout.css">
+    <link rel="stylesheet" href="../css/components/button.css">
+    <link rel="stylesheet" href="../css/components/card.css">
+    <link rel="stylesheet" href="../css/components/table.css">
+    <link rel="stylesheet" href="../css/components/form.css">
+    <link rel="stylesheet" href="../css/components/badge.css">
+    <link rel="stylesheet" href="../css/components/toast.css">
+    <style>
+        .login-body {
+            background-color: var(--bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+        }
+        .login-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            width: 100%;
+            max-width: 450px;
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .login-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+        }
+        .login-logo .icon {
+            width: 40px;
+            height: 40px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        .login-subtitle {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+        .form-group {
+            text-align: left;
+            margin-bottom: 1.25rem;
+        }
+        .step-container {
+            display: none;
+        }
+        .step-container.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .role-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        .role-btn {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 0.75rem;
+            border-radius: 8px;
+            font-weight: 500;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .role-btn:hover {
+            border-color: var(--primary-color);
+            background: #f0f4ff;
+            color: var(--primary-color);
+        }
+        .back-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-bottom: 1.5rem;
+        }
+        .back-btn:hover {
+            color: var(--primary-color);
+        }
+    </style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0">
+</head>
+<body class="login-body">
+
+    <div class="login-card" style="position: relative;">
+        <a href="../index.html" style="position: absolute; top: 1.5rem; left: 1.5rem; color: var(--text-muted); text-decoration: none; display: flex; align-items: center; font-size: 0.875rem; font-weight: 500; transition: color 0.2s;" onmouseover="this.style.color='var(--primary-color)'" onmouseout="this.style.color='var(--text-muted)'">
+            <span class="material-symbols-outlined" style="font-size: 1.25rem; margin-right: 0.25rem;">arrow_back</span> Home
+        </a>
+        
+        <div class="login-logo">
+            <div class="icon">R</div>
+            <div style="font-size:1.5rem; font-weight:700; color:var(--primary-color)">ResourceX</div>
+        </div>
+        
+        <!-- STEP 1: ROLE SELECTION -->
+        <div id="stepRole" class="step-container active">
+            <h1 class="login-title">Select Your Role</h1>
+            <p class="login-subtitle">Choose how you want to sign in</p>
+            
+            <div class="role-grid">
+                <button class="role-btn" onclick="selectRole('Owner')">Platform Owner</button>
+                <button class="role-btn" onclick="selectRole('Employee')">Platform Employee</button>
+                <button class="role-btn" onclick="selectRole('System Admin')">System Admin</button>
+                <button class="role-btn" onclick="selectRole('Dept Head')">Department Head</button>
+                <button class="role-btn" onclick="selectRole('Requestor')">Requestor</button>
+                <button class="role-btn" onclick="selectRole('Staff')">Staff</button>
+                <button class="role-btn" onclick="selectRole('Registrar')" style="grid-column: span 2;">Registrar</button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <a href="register.html" style="color: var(--rx-primary); text-decoration: none; font-size: 0.9rem; font-weight: 500;">New here? Register your Organization</a>
+            </div>
+        </div>
+
+        <!-- STEP 2: ORG SELECTION (If not platform role) -->
+        <div id="stepOrg" class="step-container">
+            <button class="back-btn" onclick="goBack('stepRole')"><span class="material-symbols-outlined">arrow_back</span> Back to Roles</button>
+            <h1 class="login-title">Select Organization</h1>
+            <p class="login-subtitle" id="orgSubtitle">Choose your workspace</p>
+            
+            <div class="form-group">
+                <label class="form-label">Organization</label>
+                <select id="orgSelect" class="form-control" style="padding: 0.75rem;">
+                    <option value="">Loading organizations...</option>
+                </select>
+            </div>
+            <button class="btn-primary" style="width:100%; padding:0.75rem; font-size:1rem;" onclick="continueToLogin()">Continue</button>
+        </div>
+
+        <!-- STEP 3: LOGIN -->
+        <div id="stepLogin" class="step-container">
+            <button class="back-btn" id="loginBackBtn"><span class="material-symbols-outlined">arrow_back</span> Back</button>
+            <h1 class="login-title">Welcome Back</h1>
+            <p class="login-subtitle" id="loginSubtitle">Sign in</p>
+
+            <form id="loginForm" onsubmit="submitLogin(event)" novalidate>
+                <div class="form-group">
+                    <label class="form-label">Email Address</label>
+                    <input type="email" id="username" class="form-control" placeholder="Enter email address" required oninput="clearEmailError()">
+                    <div id="emailError" style="color: #ef4444; font-size: 0.8rem; font-weight: 500; display: none; margin-top: 0.4rem;">Please enter a valid email address.</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter password" required>
+                </div>
+                <button type="submit" class="btn-primary" style="width:100%; padding:0.75rem; font-size:1rem; margin-top:0.5rem">Sign In</button>
+            </form>
+
+            <div style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                <button class="btn-primary" style="background: #10b981; border-color: #10b981; width:100%; padding:0.75rem; font-size:1rem;" onclick="quickLogin()">⚡ Quick Login (Auto-fill Mock User)</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/store.js"></script>
+    <script>
+        let selectedRole = null;
+        let selectedOrgId = null;
+        let orgsList = [];
+
+        async function loadOrgs() {
+            try {
+                const res = await fetch('http://localhost:3000/api/organizations/public');
+                if (res.ok) {
+                    orgsList = await res.json();
+                }
+            } catch (e) {
+                console.error('Failed to load orgs:', e);
+            }
+        }
+
+        // Preload orgs when page loads
+        document.addEventListener('DOMContentLoaded', loadOrgs);
+
+        function showStep(stepId) {
+            document.querySelectorAll('.step-container').forEach(el => el.classList.remove('active'));
+            document.getElementById(stepId).classList.add('active');
+        }
+
+        function selectRole(role) {
+            selectedRole = role;
+            
+            if (role === 'Owner' || role === 'Employee') {
+                selectedOrgId = 'PLATFORM';
+                document.getElementById('loginSubtitle').innerText = `Sign in as ${role}`;
+                document.getElementById('loginBackBtn').onclick = () => showStep('stepRole');
+                showStep('stepLogin');
+            } else {
+                document.getElementById('orgSubtitle').innerText = `Signing in as ${role}`;
+                populateOrgDropdown();
+                showStep('stepOrg');
+            }
+        }
+
+        function populateOrgDropdown() {
+            const select = document.getElementById('orgSelect');
+            select.innerHTML = '';
+            if (orgsList.length === 0) {
+                select.innerHTML = '<option value="">No organizations available</option>';
+                return;
+            }
+            
+            orgsList.forEach(org => {
+                select.innerHTML += `<option value="${org.id}">${org.name}</option>`;
+            });
+        }
+
+        function continueToLogin() {
+            const select = document.getElementById('orgSelect');
+            if (!select.value) {
+                alert('Please select an organization.');
+                return;
+            }
+            selectedOrgId = select.value;
+            const orgName = select.options[select.selectedIndex].text;
+            
+            document.getElementById('loginSubtitle').innerText = `Sign in to ${orgName} as ${selectedRole}`;
+            document.getElementById('loginBackBtn').onclick = () => showStep('stepOrg');
+            
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            showStep('stepLogin');
+        }
+
+        function goBack(stepId) {
+            showStep(stepId);
+        }
+
+        function clearEmailError() {
+            const errorDiv = document.getElementById('emailError');
+            if (errorDiv) {
+                errorDiv.style.display = 'none';
+                document.getElementById('username').style.borderColor = 'var(--border-color)';
+            }
+        }
+
+        async function quickLogin() {
+            try {
+                let url = `http://localhost:3000/api/users/mock?role=${encodeURIComponent(selectedRole)}`;
+                if (selectedOrgId && selectedOrgId !== 'PLATFORM') {
+                    url += `&orgId=${encodeURIComponent(selectedOrgId)}`;
+                }
+                
+                const res = await fetch(url);
+                if (res.ok) {
+                    const data = await res.json();
+                    document.getElementById('username').value = data.email;
+
+                    // ORG-001 seed users (U1–U9) use '12345678'
+                    // All other orgs and Platform users use 'password'
+                    document.getElementById('password').value =
+                        (selectedOrgId === 'ORG-001') ? '12345678' : 'password';
+                    
+                    // Auto submit
+                    submitLogin({ preventDefault: () => {} });
+                } else {
+                    alert('No mock user found for this combination.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('Failed to fetch mock user.');
+            }
+        }
+
+        async function submitLogin(e) {
+            e.preventDefault();
+            const emailInput = document.getElementById('username');
+            const email = emailInput.value.toLowerCase().trim();
+            const errorDiv = document.getElementById('emailError');
+            
+            if (!email) {
+                errorDiv.innerText = 'Email address is required.';
+                errorDiv.style.display = 'block';
+                emailInput.style.borderColor = '#ef4444';
+                emailInput.focus();
+                return;
+            }
+
+            const passwordInput = document.getElementById('password');
+            if (!passwordInput.value.trim()) {
+                alert('Please enter your password.');
+                passwordInput.focus();
+                return;
+            }
+            const password = passwordInput.value;
+            
+            const user = await Store.login(email, password);
+            
+            if (user) {
+                // Verification that user belongs to the selected organization (optional, but good practice)
+                if (selectedOrgId !== 'PLATFORM' && user.organizationId !== selectedOrgId) {
+                    alert('User does not belong to the selected organization.');
+                    Store.logout();
+                    return;
+                }
+                
+                switch(user.role) {
+                    case 'Requestor': window.location.href = 'requestor.html'; break;
+                    case 'Dept Head': window.location.href = 'department_head.html'; break;
+                    case 'Staff': window.location.href = 'staff.html'; break;
+                    case 'Registrar': window.location.href = 'registrar.html'; break;
+                    case 'System Admin': window.location.href = 'admin.html'; break;
+                    case 'Owner': window.location.href = 'owner.html'; break;
+                    case 'Employee': window.location.href = 'employee.html'; break;
+                }
+            } else {
+                alert('User not found or invalid credentials.');
+                document.getElementById('username').focus();
+            }
+        }
+    </script>
+</body>
+</html>

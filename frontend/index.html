@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ResourceX - Enterprise Resource Management</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/components/layout.css">
+    <link rel="stylesheet" href="css/components/button.css">
+    <link rel="stylesheet" href="css/components/card.css">
+    <link rel="stylesheet" href="css/pages/landing.css">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            /* Account for fixed navbar when jumping to sections */
+            scroll-padding-top: 80px;
+        }
+
+        .landing-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .landing-nav-links a.active {
+            color: var(--primary-color);
+            font-weight: 700;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 0.25rem;
+        }
+
+        .landing-nav-links a {
+            transition: all 0.2s;
+            text-decoration: none;
+            color: var(--text-muted);
+        }
+
+        .landing-nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Layout for dynamic sections */
+        .content-section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .content-section:last-of-type {
+            border-bottom: none;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-header h2 {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            font-size: 1.125rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .custom-signin-btn {
+            padding: 0.5rem 1.25rem;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+            color: #1e40af;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-signin-btn:hover {
+            background: linear-gradient(135deg, #c7d2fe, #a5b4fc);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.15);
+        }
+
+        .custom-explore-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 30px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.4);
+            font-size: 1.1rem;
+        }
+
+        .custom-explore-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 15px 20px -5px rgba(16, 185, 129, 0.5);
+        }
+    </style>
+</head>
+
+<body class="landing-body">
+
+    <nav class="landing-nav">
+        <div class="logo-container" style="padding:0">
+            <div class="logo-icon">R</div>
+            <div class="logo-text">ResourceX</div>
+        </div>
+
+        <ul class="landing-nav-links">
+            <li><a href="#dashboard" class="nav-link active">Dashboard</a></li>
+            <li><a href="#departments" class="nav-link">Departments</a></li>
+            <li><a href="#users" class="nav-link">Users</a></li>
+            <li><a href="#resources" class="nav-link">Resources</a></li>
+        </ul>
+
+        <div class="landing-actions">
+            <a href="pages/login.html" class="custom-signin-btn">Sign In</a>
+        </div>
+    </nav>
+
+    <main>
+        <!-- DASHBOARD SECTION -->
+        <section id="dashboard" class="hero-section" style="padding-top: 4rem; margin-bottom: 2rem;">
+            <div class="hero-content">
+                <div class="hero-tag">NEW: V2.0 RELEASE</div>
+                <h1 class="hero-title">Empower Your <span>Enterprise</span> with ResourceX</h1>
+                <p class="hero-subtitle">A unified platform to orchestrate your global workforce. Manage departments,
+                    users, and organizational resources with unprecedented precision and real-time clarity.</p>
+                <div class="hero-actions">
+                    <button class="custom-explore-btn"
+                        onclick="document.getElementById('departments').scrollIntoView()">Explore Features</button>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <img src="assets/images/hero_dashboard_v2.png" alt="ResourceX Enterprise Dashboard"
+                    style="width: 100%; height: auto; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            </div>
+        </section>
+
+        <section class="partners-section" style="margin-bottom: 2rem;">
+            <div class="partners-title">Trusted By Global Enterprise Leaders</div>
+            <div class="partners-grid">
+                <div class="partner-box">techCorp</div>
+                <div class="partner-box">global-el-x</div>
+                <div class="partner-box">FINANCE X</div>
+                <div class="partner-box">QUANTUM</div>
+                <div class="partner-box">R-Corp</div>
+            </div>
+        </section>
+
+        <!-- DEPARTMENTS SECTION -->
+        <section id="departments" class="content-section">
+            <div class="section-header">
+                <h2>Department Orchestration</h2>
+                <p>Gain absolute visibility over every sector of your organization. Budgeting, hierarchies, and
+                    oversight simplified.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="material-symbols-outlined"
+                        style="font-size:3rem; color:var(--primary-color); margin-bottom:1rem;">domain</div>
+                    <h3 class="feature-title">Top-Down Visibility</h3>
+                    <p class="feature-desc">Visualize your organizational tree. Instantly know who manages which
+                        department and track their current operational capacity limits.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="material-symbols-outlined"
+                        style="font-size:3rem; color:var(--primary-color); margin-bottom:1rem;">account_balance</div>
+                    <h3 class="feature-title">Budget Allocation</h3>
+                    <p class="feature-desc">Allocate financial limits across different sectors to dynamically prevent
+                        over-purchasing and ensure strict enterprise compliance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="material-symbols-outlined"
+                        style="font-size:3rem; color:var(--primary-color); margin-bottom:1rem;">speed</div>
+                    <h3 class="feature-title">Department Metrics</h3>
+                    <p class="feature-desc">Monitor procurement velocity, active employee requests, and maintenance
+                        schedules unique to specific structural divisions.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- USERS SECTION -->
+        <section id="users" class="content-section" style="background-color: #f8fafc; border-radius: 20px;">
+            <div class="section-header">
+                <h2>Role-Based Intelligence</h2>
+                <p>Enterprise-grade security controls with custom authentication flows, specialized dashboards, and
+                    dynamic permissions.</p>
+            </div>
+            <div style="display: flex; gap: 3rem; align-items: center; justify-content: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <ul style="list-style: none; padding: 0;">
+                        <li
+                            style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1rem; border-left: 4px solid var(--primary-color);">
+                            <strong
+                                style="display:block; font-size:1.1rem; color:var(--primary-color); margin-bottom:0.25rem;">The
+                                Requestor</strong>
+                            <span style="color:var(--text-muted); font-size:0.9rem;">Empower employees to request
+                                hardware or services tracked with real-time ETA dashboards.</span>
+                        </li>
+                        <li
+                            style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1rem; border-left: 4px solid #10b981;">
+                            <strong style="display:block; font-size:1.1rem; color:#10b981; margin-bottom:0.25rem;">The
+                                Approver (Dept Head)</strong>
+                            <span style="color:var(--text-muted); font-size:0.9rem;">Equip managers with one-click
+                                decision tools directly linking budgets to incoming employee needs.</span>
+                        </li>
+                        <li
+                            style="background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 1rem; border-left: 4px solid #f59e0b;">
+                            <strong style="display:block; font-size:1.1rem; color:#f59e0b; margin-bottom:0.25rem;">Staff
+                                & Maintenance</strong>
+                            <span style="color:var(--text-muted); font-size:0.9rem;">Direct ground-level workflow for
+                                physical inventory distribution and damage repairs.</span>
+                        </li>
+                    </ul>
+                </div>
+                <div style="flex: 1; min-width: 300px; text-align:center;">
+                    <img src="https://ui-avatars.com/api/?name=Admin+Access&background=0f38ae&color=fff&size=200"
+                        alt="Access Roles" style="border-radius: 50%; box-shadow: 0 10px 25px rgba(15, 56, 110, 0.3);">
+                </div>
+            </div>
+        </section>
+
+        <!-- RESOURCES SECTION -->
+        <section id="resources" class="content-section">
+            <div class="section-header">
+                <h2>Asset Lifecycle Management</h2>
+                <p>From procurement to deployment to eventual scrapping, track the exact status and physical location of
+                    every enterprise asset.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card" style="text-align: center;">
+                    <div class="material-symbols-outlined" style="font-size:3rem; color:#8b5cf6; margin-bottom:1rem;">
+                        inventory_2</div>
+                    <h3 class="feature-title">Live Inventory</h3>
+                    <p class="feature-desc">Search across thousands of physical assets instantly using our optimized
+                        indexing systems.</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div class="material-symbols-outlined" style="font-size:3rem; color:#ef4444; margin-bottom:1rem;">
+                        build</div>
+                    <h3 class="feature-title">Predictive Maintenance</h3>
+                    <p class="feature-desc">Automatically tag high-risk equipment and seamlessly generate repair tickets
+                        for on-site staff.</p>
+                </div>
+                <div class="feature-card" style="text-align: center;">
+                    <div class="material-symbols-outlined" style="font-size:3rem; color:#10b981; margin-bottom:1rem;">
+                        local_shipping</div>
+                    <h3 class="feature-title">Seamless Procurement</h3>
+                    <p class="feature-desc">Generate purchase orders managed directly by the Registrar for expanding
+                        active inventory loops.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="landing-footer">
+        <div style="font-size:0.75rem; color:#64748b;">
+            <strong style="color:var(--text-main)">ResourceX</strong><br>
+            © 2024 ResourceX Enterprise. All rights reserved.
+        </div>
+        <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <a href="#">Terms of Service</a>
+            <a href="#">Contact Support</a>
+            <a href="#">Documentation</a>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const sections = document.querySelectorAll("section");
+            const navLinks = document.querySelectorAll(".landing-nav-links .nav-link");
+
+            const observerOptions = {
+                root: null,
+                rootMargin: "-20% 0px -70% 0px", // triggers when section is in top middle
+                threshold: 0
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute("id");
+                        // Remove active class from all links
+                        navLinks.forEach(link => link.classList.remove("active"));
+                        // Add active class to corresponding link
+                        const activeLink = document.querySelector(`.landing-nav-links a[href="#${id}"]`);
+                        if (activeLink) {
+                            activeLink.classList.add("active");
+                        }
+                    }
+                });
+            }, observerOptions);
+
+            sections.forEach(section => {
+                if (section.id) observer.observe(section);
+            });
+        });
+    </script>
+</body>
+
+</html>

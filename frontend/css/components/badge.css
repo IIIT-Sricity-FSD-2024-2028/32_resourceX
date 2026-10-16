@@ -1,0 +1,42 @@
+/* Badges */
+.badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.badge.allocated, .badge.approved {
+  background-color: var(--status-allocated);
+  color: var(--status-allocated-text);
+}
+.badge.pending, .badge.maintenance {
+  background-color: var(--status-pending);
+  color: var(--status-pending-text);
+}
+.badge.rejected, .badge.scrap {
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
+}
+
+/* Hyphenated variants used by owner.js/employee.js/admin.js. Defined as
+   .badge.badge-x (not bare .badge-x) so the extra specificity always beats
+   Bootstrap's own .badge { color: #fff } on pages that load Bootstrap after
+   this stylesheet (owner.html, employee.html) — otherwise these badges render
+   as invisible white-on-white text with no background of their own. */
+.badge.badge-success {
+  background-color: var(--status-allocated);
+  color: var(--status-allocated-text);
+}
+.badge.badge-pending {
+  background-color: var(--status-pending);
+  color: var(--status-pending-text);
+}
+.badge.badge-rejected {
+  background-color: var(--status-rejected);
+  color: var(--status-rejected-text);
+}
+.badge.badge-secondary {
+  background-color: #e2e8f0;
+  color: #475569;
+}

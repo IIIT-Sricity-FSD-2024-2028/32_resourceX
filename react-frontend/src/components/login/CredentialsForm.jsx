@@ -3,6 +3,7 @@ import { fetchMockUser } from '../../services/auth';
 
 export default function CredentialsForm({
   selectedRole,
+  selectedOrg,
   isPlatformRole,
   onSubmit,
   isSubmitting,
@@ -49,10 +50,11 @@ export default function CredentialsForm({
     setIsQuickLoading(true);
     setEmailError('');
     try {
-      const mock = await fetchMockUser(selectedRole);
+      const mock = await fetchMockUser(selectedRole, selectedOrg?.id);
       if (mock && mock.email) {
         setEmail(mock.email);
-        const pwd = mock.password || (selectedRole === 'Owner' || selectedRole === 'Employee' ? 'password' : '12345678');
+        // ORG-001 seed accounts use '12345678', all other orgs use 'password'
+        const pwd = selectedOrg?.id === 'ORG-001' ? '12345678' : 'password';
         setPassword(pwd);
         // Automatically submit with mock credentials
         onSubmit({ email: mock.email, password: pwd });
@@ -66,19 +68,19 @@ export default function CredentialsForm({
     }
   };
 
+  const subtitleText = isPlatformRole
+    ? `Sign in as ${selectedRole}`
+    : `Sign in to ${selectedOrg?.name || 'Workspace'} as ${selectedRole}`;
+
   return (
     <div className="credentials-step">
-      {onBack && (
-        <button type="button" className="login-back-btn" onClick={onBack}>
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
-          Back to Roles
-        </button>
-      )}
+      <button type="button" className="login-back-btn" onClick={onBack}>
+        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+        Back
+      </button>
 
       <h2 className="login-title">Welcome Back</h2>
-      <p className="login-subtitle">
-        Sign in as <strong>{selectedRole || 'User'}</strong>
-      </p>
+      <p className="login-subtitle">{subtitleText}</p>
 
       {authError && (
         <div className="login-error-banner">
@@ -175,7 +177,7 @@ export default function CredentialsForm({
           'Loading Mock Credentials...'
         ) : (
           <>
-            <span>⚡</span> Quick Login as {selectedRole || 'Mock User'}
+            <span>⚡</span> Quick Login (Auto-fill Mock User)
           </>
         )}
       </button>

@@ -4,7 +4,7 @@ import AdminLayout from './AdminLayout';
 import AdminOverview from './views/AdminOverview';
 import AdminUsers from './views/AdminUsers';
 import AdminDepartments from './views/AdminDepartments';
-
+import AdminResources from './views/AdminResources';
 import AdminSupport from './views/AdminSupport';
 import AdminSubscription from './views/AdminSubscription';
 import AdminAnnouncements from './views/AdminAnnouncements';
@@ -21,7 +21,7 @@ export default function AdminDashboard() {
         <Route path="overview" element={<AdminOverview />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="departments" element={<AdminDepartments />} />
-        
+        <Route path="resources" element={<AdminResources />} />
         <Route path="support" element={<AdminSupport />} />
         <Route path="subscription" element={<AdminSubscription />} />
         <Route path="announcements" element={<AdminAnnouncements />} />

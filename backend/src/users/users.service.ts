@@ -21,7 +21,7 @@ export class UsersService {
       throw new NotFoundException(`No mock user found for role: ${role} in org: ${orgId}`);
     }
 
-    return { email: user.email, password: user.password };
+    return { email: user.email };
   }
 
   getAll(context: RequestContext): UserRecord[] {

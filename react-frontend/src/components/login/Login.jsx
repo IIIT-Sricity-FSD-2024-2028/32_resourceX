@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RoleSelector from './RoleSelector';
+import OrgSelector from './OrgSelector';
 import CredentialsForm from './CredentialsForm';
 import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
 /**
  * Modular Login Component for ResourceX
- * Supports clean 2-step authentication flow:
- *   1. Role Selection
- *   2. Credential Submission & Quick Login Auto-fill
- *   (Organization selection removed - user organization is resolved by account credentials)
+ * Supports 3-step authentication flow:
+ *   1. Role Selection (Platform vs Tenant roles)
+ *   2. Organization Discovery (for Tenant roles)
+ *   3. Credential Submission & Quick Login Auto-fill
  *
  * Props:
  *   - onLoginSuccess(user): Callback invoked when authentication succeeds
@@ -19,27 +20,41 @@ import './Login.css';
 export default function Login({ onLoginSuccess, onNavigateHome }) {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [step, setStep] = useState('role'); // 'role' | 'credentials'
+  const [step, setStep] = useState('role'); // 'role' | 'org' | 'credentials'
   const [selectedRole, setSelectedRole] = useState(null);
   const [isPlatformRole, setIsPlatformRole] = useState(false);
+  const [selectedOrg, setSelectedOrg] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState(null);
 
-  // Step 1: Role Selection -> Step 2: Credentials Form (skips organization selection)
+  // Step 1 -> Step 2 or 3
   const handleSelectRole = (role, isPlatform) => {
     setSelectedRole(role);
     setIsPlatformRole(isPlatform);
     setAuthError(null);
+
+    if (isPlatform) {
+      setSelectedOrg({ id: 'PLATFORM', name: 'Platform Workspace' });
+      setStep('credentials');
+    } else {
+      setStep('org');
+    }
+  };
+
+  // Step 2 -> Step 3
+  const handleSelectOrg = (orgId, orgName) => {
+    setSelectedOrg({ id: orgId, name: orgName });
+    setAuthError(null);
     setStep('credentials');
   };
 
-  // Step 2: Handle credentials submission
+  // Step 3: Handle credentials submission
   const handleSubmitCredentials = async ({ email, password }) => {
     setIsSubmitting(true);
     setAuthError(null);
 
     try {
-      const user = await login(email, password);
+      const user = await login(email, password, selectedOrg?.id);
       if (onLoginSuccess) {
         onLoginSuccess(user);
       } else {
@@ -55,6 +70,15 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
   const handleBackToRoles = () => {
     setAuthError(null);
     setStep('role');
+  };
+
+  const handleBackFromCredentials = () => {
+    setAuthError(null);
+    if (isPlatformRole) {
+      setStep('role');
+    } else {
+      setStep('org');
+    }
   };
 
   const handleHomeClick = () => {
@@ -93,15 +117,25 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
           />
         )}
 
-        {/* Step 2: Credentials Input & Quick Login */}
+        {/* Step 2: Organization Selection */}
+        {step === 'org' && (
+          <OrgSelector
+            selectedRole={selectedRole}
+            onSelectOrg={handleSelectOrg}
+            onBack={handleBackToRoles}
+          />
+        )}
+
+        {/* Step 3: Credentials Input & Quick Login */}
         {step === 'credentials' && (
           <CredentialsForm
             selectedRole={selectedRole}
+            selectedOrg={selectedOrg}
             isPlatformRole={isPlatformRole}
             onSubmit={handleSubmitCredentials}
             isSubmitting={isSubmitting}
             authError={authError}
-            onBack={handleBackToRoles}
+            onBack={handleBackFromCredentials}
           />
         )}
       </div>

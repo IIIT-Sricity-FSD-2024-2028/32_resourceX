@@ -22,7 +22,7 @@ export default function AdminLayout() {
   return (
     <div className="app-container">
       {/* Universal Sidebar */}
-      <Sidebar / >
+      <Sidebar />
 
       {/* Main Wrapper */}
       <div className="main-wrapper">
@@ -30,7 +30,7 @@ export default function AdminLayout() {
         <AppHeader />
 
         {/* Content Area */}
-        <main className="content-area" >
+        <main className="content-area">
           <Outlet context={{ addToast }} />
         </main>
       </div>
