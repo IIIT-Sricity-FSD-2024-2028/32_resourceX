@@ -1,0 +1,109 @@
+/* Requestor Portal Dedicated Styles */
+.file-upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #f8fafc;
+  position: relative;
+}
+
+.file-upload-zone:hover,
+.file-upload-zone.dragover {
+  border-color: var(--primary-color, #0F386E);
+  background: #eff6ff;
+}
+
+.file-upload-zone .material-symbols-outlined {
+  font-size: 2rem;
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+.file-upload-zone p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.file-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.file-preview-box .file-icon {
+  font-size: 1.5rem;
+  color: #16a34a;
+}
+
+.file-preview-box .file-info {
+  flex: 1;
+  text-align: left;
+}
+
+.file-preview-box .file-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.file-preview-box .file-size {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.file-remove-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+.file-remove-btn:hover {
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.spec-file-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.spec-file-link:hover {
+  text-decoration: underline;
+}
+
+.td-id {
+  font-weight: 600;
+  color: var(--primary-color, #0F386E);
+}
+
+.form-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  max-width: 650px;
+}
