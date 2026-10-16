@@ -22,7 +22,7 @@ export class MaintenanceController {
   }
 
   @Post(':resourceId/accept')
-  @Roles('Staff', 'System Admin')
+  @Roles('Maintenance Officer', 'System Admin')
   @ApiOperation({ summary: 'Accept a maintenance request' })
   @ApiParam({ name: 'resourceId', example: 'RES-5011' })
   @ApiOkResponse({ description: 'Maintenance request accepted successfully.', type: ResourceResponseDto })
@@ -31,7 +31,7 @@ export class MaintenanceController {
   }
 
   @Post(':resourceId/repair')
-  @Roles('Staff', 'System Admin')
+  @Roles('Maintenance Officer', 'System Admin')
   @ApiOperation({ summary: 'Mark a resource as repaired' })
   @ApiParam({ name: 'resourceId', example: 'RES-5013' })
   @ApiOkResponse({ description: 'Resource marked as repaired successfully.', type: ResourceResponseDto })
@@ -40,7 +40,7 @@ export class MaintenanceController {
   }
 
   @Post(':resourceId/scrap')
-  @Roles('Staff', 'System Admin')
+  @Roles('Maintenance Officer', 'System Admin')
   @ApiOperation({ summary: 'Scrap a resource from the maintenance flow' })
   @ApiParam({ name: 'resourceId', example: 'RES-5013' })
   @ApiOkResponse({ description: 'Resource scrapped successfully.', type: ResourceResponseDto })

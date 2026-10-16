@@ -69,7 +69,7 @@ export class ResourcesController {
   }
 
   @Post()
-  @Roles('Staff', 'System Admin')
+  @Roles('Inventory Officer', 'System Admin')
   @ApiBody({ type: CreateResourceDto })
   @ApiOperation({ summary: 'Create an inventory resource' })
   @ApiCreatedResponse({ description: 'Resource created successfully.', type: ResourceResponseDto })
@@ -78,7 +78,7 @@ export class ResourcesController {
   }
 
   @Patch(':id')
-  @Roles('Requestor', 'Staff', 'System Admin')
+  @Roles('Requestor', 'Inventory Officer', 'System Admin')
   @ApiBody({ type: UpdateResourceDto })
   @ApiOperation({ summary: 'Update a resource' })
   @ApiParam({ name: 'id', example: 'RES-1049' })
@@ -115,7 +115,7 @@ export class ResourcesController {
   }
 
   @Post(':id/scrap')
-  @Roles('Staff', 'System Admin')
+  @Roles('Inventory Officer', 'System Admin')
   @ApiOperation({ summary: 'Scrap a resource' })
   @ApiParam({ name: 'id', example: 'RES-5011' })
   @ApiOkResponse({ description: 'Resource marked as scrapped successfully.', type: ResourceResponseDto })

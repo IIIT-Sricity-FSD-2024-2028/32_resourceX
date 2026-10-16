@@ -17,8 +17,8 @@ export function renderRoleBadge(role) {
       </span>
     );
   }
-  if (role === 'Staff') {
-    return <span className="badge pending">{role}</span>;
+  if (role === 'Inventory Officer' || role === 'Maintenance Officer' || role === 'Procurement Officer') {
+    return <span className="badge pending" style={{ background: '#e0f2fe', color: '#0369a1' }}>{role}</span>;
   }
   if (role === 'System Admin') {
     return (
@@ -262,7 +262,9 @@ export default function AdminOverview() {
             <option value="Requestor">Requestor</option>
             <option value="Dept Head">Dept Head</option>
             <option value="Registrar">Registrar</option>
-            <option value="Staff">Staff</option>
+            <option value="Inventory Officer">Inventory Officer</option>
+            <option value="Maintenance Officer">Maintenance Officer</option>
+            <option value="Procurement Officer">Procurement Officer</option>
             <option value="System Admin">System Admin</option>
           </select>
         </div>

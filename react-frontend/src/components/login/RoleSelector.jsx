@@ -6,7 +6,9 @@ const ROLES = [
   { id: 'System Admin', label: 'System Admin', icon: 'admin_panel_settings', isPlatform: false, desc: 'Tenant IT Administrator' },
   { id: 'Dept Head', label: 'Department Head', icon: 'supervisor_account', isPlatform: false, desc: 'Budget & Approvals' },
   { id: 'Requestor', label: 'Requestor', icon: 'person', isPlatform: false, desc: 'Employee / Faculty' },
-  { id: 'Staff', label: 'Staff', icon: 'inventory', isPlatform: false, desc: 'Inventory & Allocations' },
+  { id: 'Inventory Officer', label: 'Inventory Officer', icon: 'inventory_2', isPlatform: false, desc: 'Allocations & Stock' },
+  { id: 'Maintenance Officer', label: 'Maintenance Officer', icon: 'build', isPlatform: false, desc: 'Repairs & Returns' },
+  { id: 'Procurement Officer', label: 'Procurement Officer', icon: 'shopping_cart', isPlatform: false, desc: 'Purchasing & Vendors' },
   { id: 'Registrar', label: 'Registrar', icon: 'fact_check', isPlatform: false, desc: 'Asset Registration & Tagging', fullWidth: true }
 ];
 

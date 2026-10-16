@@ -9,7 +9,6 @@ import RequestorOverview from './views/RequestorOverview';
 import RequestResourceView from './views/RequestResourceView';
 import MyRequestsView from './views/MyRequestsView';
 import MyResourcesView from './views/MyResourcesView';
-import ProcurementView from './views/ProcurementView';
 
 import './requestor.css';
 
@@ -25,8 +24,7 @@ const REQUESTOR_NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'request', label: 'Request Resource', icon: 'add_circle' },
   { id: 'my-requests', label: 'My Requests', icon: 'list_alt' },
-  { id: 'my-resources', label: 'My Resources', icon: 'inventory_2' },
-  { id: 'procurement', label: 'Procurement', icon: 'shopping_cart' }
+  { id: 'my-resources', label: 'My Resources', icon: 'inventory_2' }
 ];
 
 export default function RequestorDashboard() {
@@ -99,12 +97,7 @@ export default function RequestorDashboard() {
               />
             )}
 
-            {activeTab === 'procurement' && (
-              <ProcurementView
-                addToast={addToast}
-                onPreviewFile={handlePreviewFile}
-              />
-            )}
+
           </div>
         </main>
       </div>

@@ -50,7 +50,7 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
   };
 
   const handleReturn = async (resId) => {
-    if (!window.confirm('Are you sure you want to return this resource? It will be sent to Staff for Verification.')) return;
+    if (!window.confirm('Are you sure you want to return this resource? It will be sent to the Maintenance Officer for inspection.')) return;
     setActionLoadingId(resId);
     try {
       await initiateResourceReturn(resId);

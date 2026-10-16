@@ -11,7 +11,9 @@ import AdminDashboard from './components/dashboards/admin/AdminDashboard';
 // Role Skeleton Dashboards
 import DeptHeadDashboard from './components/dashboards/dept-head/DeptHeadDashboard';
 import RequestorDashboard from './components/dashboards/requestor/RequestorDashboard';
-import StaffDashboard from './components/dashboards/staff/StaffDashboard';
+import InventoryOfficerDashboard from './components/dashboards/inventory-officer/InventoryOfficerDashboard';
+import MaintenanceOfficerDashboard from './components/dashboards/maintenance-officer/MaintenanceOfficerDashboard';
+import ProcurementOfficerDashboard from './components/dashboards/procurement-officer/ProcurementOfficerDashboard';
 import RegistrarDashboard from './components/dashboards/registrar/RegistrarDashboard';
 import OwnerDashboard from './components/dashboards/owner/OwnerDashboard';
 import EmployeeDashboard from './components/dashboards/employee/EmployeeDashboard';
@@ -29,8 +31,12 @@ const getRoleDashboardPath = (role) => {
       return '/dashboard/dept-head';
     case 'Requestor':
       return '/dashboard/requestor';
-    case 'Staff':
-      return '/dashboard/staff';
+    case 'Inventory Officer':
+      return '/dashboard/inventory-officer';
+    case 'Maintenance Officer':
+      return '/dashboard/maintenance-officer';
+    case 'Procurement Officer':
+      return '/dashboard/procurement-officer';
     case 'Registrar':
       return '/dashboard/registrar';
     case 'Owner':
@@ -222,12 +228,32 @@ export default function App() {
             }
           />
 
-          {/* Warehouse & Staff Dashboard */}
+          {/* Inventory Officer Dashboard */}
           <Route
-            path="/dashboard/staff/*"
+            path="/dashboard/inventory-officer/*"
             element={
               <ProtectedRoute>
-                <StaffDashboard />
+                <InventoryOfficerDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Maintenance Officer Dashboard */}
+          <Route
+            path="/dashboard/maintenance-officer/*"
+            element={
+              <ProtectedRoute>
+                <MaintenanceOfficerDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Procurement Officer Dashboard */}
+          <Route
+            path="/dashboard/procurement-officer/*"
+            element={
+              <ProtectedRoute>
+                <ProcurementOfficerDashboard />
               </ProtectedRoute>
             }
           />

@@ -18,7 +18,8 @@ export function ensureActor(dataService: DataService, context: RequestContext) {
 }
 
 export function ensureDepartmentScoped(dataService: DataService, context: RequestContext, department?: string) {
-  if (context.role !== 'Staff' && context.role !== 'Dept Head') {
+  const officerRoles = ['Inventory Officer', 'Maintenance Officer', 'Procurement Officer'];
+  if (context.role !== 'Dept Head' && !officerRoles.includes(context.role as string)) {
     return;
   }
   const user = getActingUser(dataService, context);
