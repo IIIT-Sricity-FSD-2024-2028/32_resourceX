@@ -402,6 +402,7 @@ You can verify the complete end-to-end operational workflows:
 # Team & Individual Contributions
 
 ### J Prem Sahith (Roll: `S20240010089`)
+> 📄 **Official Individual Contribution Document (PDF)**: [`Prem_Sahith_S20240010089_Individual_Contribution.pdf`](file:///Users/premsahith/Desktop/Sk/fefed/final_resource/Prem_Sahith_S20240010089_Individual_Contribution.pdf) (Generated and stored in project root).
 
 #### 1. Requestor History & Activity Center (Return & Maintenance Tracking)
 - **Component Developed**: [`react-frontend/src/components/dashboards/requestor/views/RequestorHistoryView.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/final_resource/react-frontend/src/components/dashboards/requestor/views/RequestorHistoryView.jsx)

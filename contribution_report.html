@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Individual Contribution Report - J Prem Sahith</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 18mm 16mm;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1e293b;
+    line-height: 1.5;
+    font-size: 10pt;
+    background: #ffffff;
+    margin: 0;
+    padding: 0;
+  }
+
+  .header {
+    border-bottom: 2px solid #0F386E;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .header-left h1 {
+    font-size: 18pt;
+    font-weight: 800;
+    color: #0F386E;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
+  }
+
+  .header-left .subtitle {
+    font-size: 11pt;
+    font-weight: 600;
+    color: #3b82f6;
+    margin: 0 0 4px 0;
+  }
+
+  .header-left .meta {
+    font-size: 8.5pt;
+    color: #64748b;
+  }
+
+  .student-badge {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: right;
+    font-size: 8.5pt;
+  }
+
+  .student-badge .name {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #0F386E;
+    margin-bottom: 2px;
+  }
+
+  .student-badge .roll {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #0284c7;
+    margin-bottom: 3px;
+  }
+
+  .section-title {
+    font-size: 11.5pt;
+    font-weight: 700;
+    color: #0F386E;
+    border-left: 4px solid #3b82f6;
+    padding-left: 8px;
+    margin: 16px 0 10px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .summary-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    font-size: 9.2pt;
+    color: #334155;
+  }
+
+  .module-box {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+
+  .module-header {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .module-title {
+    font-size: 10.2pt;
+    font-weight: 700;
+    color: #0F386E;
+  }
+
+  .module-tag {
+    font-size: 7.5pt;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #e0f2fe;
+    color: #0369a1;
+    text-transform: uppercase;
+  }
+
+  .module-body {
+    padding: 10px 12px;
+    background: #ffffff;
+  }
+
+  .module-body p {
+    margin: 0 0 8px 0;
+    font-size: 8.8pt;
+    color: #475569;
+  }
+
+  .files-list {
+    margin: 6px 0;
+    padding-left: 16px;
+    font-size: 8.4pt;
+  }
+
+  .files-list li {
+    margin-bottom: 4px;
+  }
+
+  .file-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: #0284c7;
+    font-size: 8pt;
+    background: #f0f9ff;
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid #bae6fd;
+  }
+
+  .feature-pill {
+    display: inline-block;
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.3pt;
+    margin: 10px 0;
+    page-break-inside: avoid;
+  }
+
+  th {
+    background: #0F386E;
+    color: #ffffff;
+    text-align: left;
+    padding: 6px 8px;
+    font-weight: 600;
+    font-size: 8pt;
+    text-transform: uppercase;
+  }
+
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+  }
+
+  tr:nth-child(even) td {
+    background: #f8fafc;
+  }
+
+  .badge-success {
+    background: #dcfce7;
+    color: #166534;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 7.5pt;
+    display: inline-block;
+  }
+
+  .footer {
+    margin-top: 18px;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 7.5pt;
+    color: #94a3b8;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+</style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <h1>ResourceX – Asset Lifecycle Platform</h1>
+      <div class="subtitle">Individual Contribution Report &amp; System Documentation</div>
+      <div class="meta">
+        Indian Institute of Information Technology, Sri City (IIIT Sri City) &bull; FSD 2024–2028<br>
+        Multi-Tenant Enterprise Resource &amp; Asset Allocation Management System
+      </div>
+    </div>
+    <div class="student-badge">
+      <div class="name">J Prem Sahith</div>
+      <div class="roll">Roll No: S20240010089</div>
+      <div>Branch: <code>updated-features</code></div>
+      <div>Date: October 2026</div>
+    </div>
+  </div>
+
+  <!-- EXECUTIVE SUMMARY -->
+  <div class="section-title">Executive Contribution Overview</div>
+  <div class="summary-card">
+    As a core full-stack developer on the <strong>ResourceX</strong> engineering team, my primary contributions focused on building and operationalizing critical sub-systems across both frontend (React 19, Vite, Modular CSS) and backend (NestJS, TypeScript, RBAC):
+    <strong>(1) Requestor Activity &amp; History Center</strong> for asset return and maintenance transparency;
+    <strong>(2) Inventory Staff Return Inspection &amp; Tri-State Routing Engine</strong>;
+    <strong>(3) Registrar Procurement Approvals, Document Previews &amp; Institutional Analytics</strong>; and
+    <strong>(4) Marketing Landing Page Conversion with Scroll-Spy Architecture</strong>.
+    All modules have been developed, typed, tested, and pushed to remote branch <code>updated-features</code>.
+  </div>
+
+  <!-- MODULE BREAKDOWN -->
+  <div class="section-title">Key Modules Developed &amp; Specific Files</div>
+
+  <!-- MODULE 1 -->
+  <div class="module-box">
+    <div class="module-header">
+      <span class="module-title">1. Requestor History &amp; Activity Center (Returns &amp; Maintenance Tracking)</span>
+      <span class="module-tag">Frontend &bull; Backend &bull; Full-Stack</span>
+    </div>
+    <div class="module-body">
+      <p>
+        Architected a dedicated, user-facing history portal providing equipment requestors with full transparency over returned assets, condition assessments, and repair service tickets.
+      </p>
+      <div style="margin-bottom: 6px;">
+        <span class="feature-pill">Dual-Tab Navigation (Returns vs Maintenance)</span>
+        <span class="feature-pill">Clean Badge: Return Accepted &amp; Closed</span>
+        <span class="feature-pill">Processed by Inventory Indicator</span>
+        <span class="feature-pill">Condition &amp; Status Filtering</span>
+        <span class="feature-pill">Requestor Isolation Guard</span>
+      </div>
+      <ul class="files-list">
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/requestor/views/RequestorHistoryView.jsx</span>
+          <br>Engineered unified history view. Replaced raw internal warehouse logistics tags (e.g. <em>Sent to Maintenance</em>) with client-reassuring badge <code>✅ Return Accepted &amp; Closed</code> and <code>Processed by Inventory</code> subtext. Integrated search, condition filtering (<em>Good</em>, <em>Fair</em>, <em>Damaged</em>, <em>Bad</em>), and repair ticket status monitoring.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/requestor/RequestorDashboard.jsx</span>
+          <br>Integrated the new <code>History &amp; Activity</code> navigation route and dynamic view switching.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/requestor/views/RequestorOverview.jsx</span>
+          <br>Added real-time <em>Returned Assets</em> KPI card and quick-launch activity center banner.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/requestor/views/MyResourcesView.jsx</span>
+          <br>Added contextual jump button linking directly to return and repair history records.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/services/requestor.js</span>
+          <br>Built API client abstractions <code>fetchRequestorReturnHistory()</code> and <code>fetchRequestorMaintenanceHistory()</code>.
+        </li>
+        <li>
+          <span class="file-name">backend/src/returns/returns.service.ts</span> &amp; <span class="file-name">backend/src/maintenance/maintenance.service.ts</span>
+          <br>Implemented query scoping ensuring Requestors only retrieve their own return records and maintenance tickets (filtering by authenticated user identity).
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MODULE 2 -->
+  <div class="module-box">
+    <div class="module-header">
+      <span class="module-title">2. Inventory Staff Return Management &amp; Inspection Queue</span>
+      <span class="module-tag">Frontend &bull; Backend Routing</span>
+    </div>
+    <div class="module-body">
+      <p>
+        Transferred equipment return inspection from maintenance staff to <strong>Inventory Staff</strong> to match realistic operational resource lifecycles.
+      </p>
+      <div style="margin-bottom: 6px;">
+        <span class="feature-pill">Real-time Inspection Queue</span>
+        <span class="feature-pill">Multi-condition Evaluation</span>
+        <span class="feature-pill">Tri-state Dispatch (Available / Maintenance / Scrap)</span>
+        <span class="feature-pill">Audit Return History Logs</span>
+      </div>
+      <ul class="files-list">
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/inventory-officer/views/InventoryReturnsView.jsx</span>
+          <br>Built dual-view return workstation: (a) <em>Inspection Queue</em> modal to assess physical condition and determine resource destination (Available / Maintenance Queue with issue notes / Scrapped); (b) <em>Return History Logs</em> with destination filtering and asset search.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/inventory-officer/InventoryOfficerDashboard.jsx</span>
+          <br>Configured <code>Process Returns</code> navigation link and sub-view routing.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/inventory-officer/views/InvOfficerOverview.jsx</span>
+          <br>Added pending return KPI counters and operational quick-action banner.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/services/inventoryOfficer.js</span>
+          <br>Implemented <code>fetchReturnHistory()</code> and <code>processReturn()</code> API methods.
+        </li>
+        <li>
+          <span class="file-name">backend/src/returns/returns.controller.ts</span>
+          <br>Updated endpoint authorization guards with <code>@Roles('Inventory Officer', 'Maintenance Officer', 'System Admin')</code>.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="page-break"></div>
+
+  <!-- MODULE 3 -->
+  <div class="module-box">
+    <div class="module-header">
+      <span class="module-title">3. Registrar Portal React Conversion &amp; Global Analytics</span>
+      <span class="module-tag">React 19 &bull; SPA Architecture</span>
+    </div>
+    <div class="module-body">
+      <p>
+        Architected and converted the complete Registrar institutional procurement, file previewing, and analytics suite from static pages to an enterprise React SPA.
+      </p>
+      <ul class="files-list">
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/RegistrarDashboard.jsx</span>
+          <br>Master dashboard shell synchronizing sidebar navigation, active tab states, and URL parameters.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/views/RegistrarOverview.jsx</span>
+          <br>High-level KPI dashboard with resilient parallel asynchronous data loading (<code>Promise.all</code>).
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/views/ProcurementApprovalsView.jsx</span>
+          <br>Procurement review suite supporting one-click approval, cost summaries, and rejection with mandatory justification.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/views/GlobalRequestsView.jsx</span>
+          <br>Cross-departmental request audit table with dynamic backend department filtering.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/views/SystemAnalyticsView.jsx</span>
+          <br>Operational capacity analytics and department resource allocation metrics.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/components/FilePreviewModal.jsx</span>
+          <br>In-browser document viewer for specification sheets and vendor invoices (supports PDF iframe embedding, image zoom, Base64-to-Blob decoding, and local download).
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/dashboards/registrar/components/RegistrarToast.jsx</span> &amp; <span class="file-name">services/registrar.js</span>
+          <br>Floating toast feedback notification system and modular API client connecting to NestJS endpoints.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- MODULE 4 -->
+  <div class="module-box">
+    <div class="module-header">
+      <span class="module-title">4. Marketing Landing Page React Conversion &amp; Scroll-Spy</span>
+      <span class="module-tag">UI/UX &bull; CSS Design Tokens</span>
+    </div>
+    <div class="module-body">
+      <p>
+        Converted static HTML marketing website into an animated, modular React component tree with automated viewport tracking.
+      </p>
+      <ul class="files-list">
+        <li>
+          <span class="file-name">react-frontend/src/components/landing/LandingPage.jsx</span> &amp; Sub-components
+          <br>Built modular component architecture: <code>Navbar</code>, <code>HeroSection</code>, <code>DepartmentsSection</code>, <code>UsersSection</code>, <code>ResourcesSection</code>, <code>PartnersSection</code>, <code>Footer</code>.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/landing/Navbar.jsx</span>
+          <br>Engineered automated <strong>Scroll-Spy</strong> using native <code>IntersectionObserver</code> to update active navbar state during scrolling without performance lag.
+        </li>
+        <li>
+          <span class="file-name">react-frontend/src/components/landing/landing.css</span>
+          <br>Scoped modern CSS design system with custom HSL palettes, smooth transitions, and mobile/tablet responsive breakpoints.
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- VERIFICATION & VALIDATION TABLE -->
+  <div class="section-title">Verification, Testing &amp; Build Validation</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%;">Target Domain</th>
+        <th style="width: 35%;">Test / Verification Performed</th>
+        <th style="width: 20%;">Command / Tool</th>
+        <th style="width: 20%;">Result Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Backend Type Safety</strong></td>
+        <td>Strict NestJS TypeScript compilation across controllers, services, guards</td>
+        <td><code>npx tsc --noEmit</code></td>
+        <td><span class="badge-success">0 Errors / Passed</span></td>
+      </tr>
+      <tr>
+        <td><strong>Frontend Bundle</strong></td>
+        <td>Production asset bundling &amp; JSX syntax verification via Vite</td>
+        <td><code>npm run build</code></td>
+        <td><span class="badge-success">147 Modules / Passed</span></td>
+      </tr>
+      <tr>
+        <td><strong>Return Isolation</strong></td>
+        <td>Verification that Requestors cannot view other users' return handovers</td>
+        <td>API User-context check</td>
+        <td><span class="badge-success">Scoped to Auth User</span></td>
+      </tr>
+      <tr>
+        <td><strong>Status Badge Check</strong></td>
+        <td>Verification that 'Sent to Maintenance' is replaced with clean badge</td>
+        <td>Component Test</td>
+        <td><span class="badge-success">Verified Clean</span></td>
+      </tr>
+      <tr>
+        <td><strong>Git Versioning</strong></td>
+        <td>Synchronized commits and branches pushed to origin repository</td>
+        <td><code>git status &amp; push</code></td>
+        <td><span class="badge-success">Up to Date</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div>ResourceX &bull; IIIT Sri City FSD Coursework 2024–2028</div>
+    <div>Student: J Prem Sahith (S20240010089) &bull; Branch: updated-features</div>
+    <div>Generated: October 2026</div>
+  </div>
+
+</body>
+</html>
