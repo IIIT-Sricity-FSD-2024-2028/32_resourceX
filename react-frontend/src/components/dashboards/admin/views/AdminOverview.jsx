@@ -265,7 +265,6 @@ export default function AdminOverview() {
             <option value="Inventory Officer">Inventory Officer</option>
             <option value="Maintenance Officer">Maintenance Officer</option>
             <option value="Procurement Officer">Procurement Officer</option>
-            <option value="System Admin">System Admin</option>
           </select>
         </div>
         <div style={{ marginBottom: '1rem' }}>

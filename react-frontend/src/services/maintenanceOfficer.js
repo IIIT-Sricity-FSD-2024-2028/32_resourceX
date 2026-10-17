@@ -11,25 +11,36 @@ export const fetchResources = async (params = {}) =>
 export const fetchMaintenanceHistory = async () =>
   apiRequest('/maintenance/history');
 
-export const acceptMaintenance = async (resourceId) =>
-  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/accept`, { method: 'POST' });
+export const acceptMaintenance = async (resourceId, payload = {}) =>
+  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/accept`, {
+    method: 'POST',
+    body: payload,
+  });
 
-export const repairMaintenance = async (resourceId) =>
-  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/repair`, { method: 'POST' });
+export const repairMaintenance = async (resourceId, payload = {}) =>
+  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/repair`, {
+    method: 'POST',
+    body: payload,
+  });
 
-export const scrapMaintenance = async (resourceId) =>
-  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/scrap`, { method: 'POST' });
+export const scrapMaintenance = async (resourceId, payload = {}) =>
+  apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/scrap`, {
+    method: 'POST',
+    body: payload,
+  });
 
 // ── Return Processing ──────────────────────────────────────────────────────────
 
 export const fetchReturnHistory = async () =>
   apiRequest('/returns/history');
 
-export const processReturn = async (resourceId, condition) =>
-  apiRequest(`/returns/${encodeURIComponent(resourceId)}/process`, {
+export const processReturn = async (resourceId, payload) => {
+  const body = typeof payload === 'string' ? { condition: payload } : payload;
+  return apiRequest(`/returns/${encodeURIComponent(resourceId)}/process`, {
     method: 'POST',
-    body: { condition }
+    body,
   });
+};
 
 // ── Overview Stats ─────────────────────────────────────────────────────────────
 

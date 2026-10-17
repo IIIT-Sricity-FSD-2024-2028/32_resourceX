@@ -99,16 +99,128 @@ export class UpdateProcurementDto extends PartialType(CreateProcurementDto) {
   @IsOptional()
   @IsString()
   invoice?: string;
+
+  @ApiPropertyOptional({ example: 'PO-2026-0042' })
+  @IsOptional()
+  @IsString()
+  poNumber?: string;
+
+  @ApiPropertyOptional({ example: 'FedEx' })
+  @IsOptional()
+  @IsString()
+  carrier?: string;
+
+  @ApiPropertyOptional({ example: 'TRK-99214059' })
+  @IsOptional()
+  @IsString()
+  trackingNumber?: string;
+}
+
+export class CreatePurchaseOrderDto {
+  @ApiPropertyOptional({ example: 'PO-2026-0042' })
+  @IsOptional()
+  @IsString()
+  poNumber?: string;
+
+  @ApiProperty({ example: 'Dell Technologies' })
+  @IsString()
+  vendor!: string;
+
+  @ApiPropertyOptional({ example: 'orders@dell.com' })
+  @IsOptional()
+  @IsString()
+  vendorContact?: string;
+
+  @ApiPropertyOptional({ example: 4500 })
+  @IsOptional()
+  estimatedCost?: number | string;
+
+  @ApiPropertyOptional({ example: '2026-11-05' })
+  @IsOptional()
+  @IsString()
+  estimatedDeliveryDate?: string;
+
+  @ApiPropertyOptional({ example: 'Standard Net 30 payment terms' })
+  @IsOptional()
+  @IsString()
+  poNotes?: string;
+
+  @ApiPropertyOptional({ example: 'PO-2026-0042.pdf' })
+  @IsOptional()
+  @IsString()
+  poFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  poFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,...' })
+  @IsOptional()
+  @IsString()
+  poFileDataUrl?: string;
+}
+
+export class DispatchDeliveryDto {
+  @ApiPropertyOptional({ example: 'FedEx Express' })
+  @IsOptional()
+  @IsString()
+  carrier?: string;
+
+  @ApiPropertyOptional({ example: 'TRK-9823411' })
+  @IsOptional()
+  @IsString()
+  trackingNumber?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-18' })
+  @IsOptional()
+  @IsString()
+  shippedDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-22' })
+  @IsOptional()
+  @IsString()
+  expectedDeliveryDate?: string;
+
+  @ApiPropertyOptional({ example: 'Dispatched from central hub in 2 crates' })
+  @IsOptional()
+  @IsString()
+  deliveryNotes?: string;
 }
 
 export class LogPurchaseDto {
-  @ApiProperty({ example: 'Dell' })
+  @ApiPropertyOptional({ example: 'Dell' })
+  @IsOptional()
   @IsString()
-  vendor!: string;
+  vendor?: string;
 
   @ApiProperty({ example: 'INV-2026-1001' })
   @IsString()
   invoice!: string;
+
+  @ApiPropertyOptional({ example: '2026-10-20' })
+  @IsOptional()
+  @IsString()
+  invoiceDate?: string;
+
+  @ApiPropertyOptional({ example: 4500 })
+  @IsOptional()
+  invoiceAmount?: number | string;
+
+  @ApiPropertyOptional({ example: 'Net 30' })
+  @IsOptional()
+  @IsString()
+  paymentTerms?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-22' })
+  @IsOptional()
+  @IsString()
+  receivedDate?: string;
+
+  @ApiPropertyOptional({ example: 'Ravi Teja' })
+  @IsOptional()
+  @IsString()
+  receivedBy?: string;
 
   @ApiPropertyOptional({ example: 'invoice-1024.pdf' })
   @IsOptional()

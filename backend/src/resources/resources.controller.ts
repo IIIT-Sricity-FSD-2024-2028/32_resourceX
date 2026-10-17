@@ -8,7 +8,7 @@ import {
 } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { ResourcesService } from './resources.service';
-import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto } from './dto/resource.dto';
+import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto } from './dto/resource.dto';
 import { ResourcesExceptionFilter } from './filters/resources-exception.filter';
 
 @ApiTags('resources')
@@ -92,8 +92,8 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Request maintenance for an allocated resource' })
   @ApiParam({ name: 'id', example: 'RES-1049' })
   @ApiOkResponse({ description: 'Maintenance requested successfully.', type: ResourceResponseDto })
-  requestMaintenance(@Param('id') id: string, @Req() req: any) {
-    return this.resourcesService.requestMaintenance(id, req.context);
+  requestMaintenance(@Param('id') id: string, @Body() dto: RequestMaintenanceDto, @Req() req: any) {
+    return this.resourcesService.requestMaintenance(id, dto, req.context);
   }
 
   @Post(':id/initiate-return')
@@ -101,8 +101,8 @@ export class ResourcesController {
   @ApiOperation({ summary: 'Initiate a return request for an allocated resource' })
   @ApiParam({ name: 'id', example: 'RES-9055' })
   @ApiOkResponse({ description: 'Return initiated successfully.', type: ResourceResponseDto })
-  initiateReturn(@Param('id') id: string, @Req() req: any) {
-    return this.resourcesService.initiateReturn(id, req.context);
+  initiateReturn(@Param('id') id: string, @Body() dto: InitiateReturnDto, @Req() req: any) {
+    return this.resourcesService.initiateReturn(id, dto, req.context);
   }
 
   @Post(':id/confirm-repaired')

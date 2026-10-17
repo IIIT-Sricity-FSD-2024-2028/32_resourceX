@@ -3,6 +3,7 @@ import { ResourceCondition, ResourceRecord, ReturnHistoryRecord } from '../commo
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
 import { getActingUser, ensureDepartmentScoped } from '../common/utils';
+import { ReturnProcessDto } from './dto/return.dto';
 
 @Injectable()
 export class ReturnsService {
@@ -26,7 +27,11 @@ export class ReturnsService {
     );
   }
 
-  process(resourceId: string, condition: ResourceCondition, context: RequestContext): ResourceRecord {
+  process(
+    resourceId: string,
+    payload: ResourceCondition | ReturnProcessDto,
+    context: RequestContext
+  ): ResourceRecord {
     const resource = this.dataService.getResourceById(resourceId);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${resourceId} not found.`);
@@ -37,7 +42,20 @@ export class ReturnsService {
       throw new BadRequestException('Can only process returned resources.');
     }
 
-    const finalStatus = condition === 'Damaged' || condition === 'Bad' ? 'Scrapped' : 'Available';
+    const isDto = typeof payload === 'object';
+    const condition = isDto ? payload.condition : payload;
+    const specifiedDestination = isDto ? payload.destination : undefined;
+    const returnReason = (isDto ? payload.returnReason : undefined) || resource.returnReason || 'General Return';
+    const notes = (isDto ? payload.notes : undefined) || resource.returnNotes || '';
+    const maintenanceIssue = (isDto ? payload.maintenanceIssue : undefined) || notes || returnReason || 'Maintenance required post-return';
+
+    // Destination routing
+    let finalStatus: 'Available' | 'Scrapped' | 'Maintenance Requested';
+    if (specifiedDestination) {
+      finalStatus = specifiedDestination;
+    } else {
+      finalStatus = condition === 'Damaged' || condition === 'Bad' ? 'Scrapped' : 'Available';
+    }
 
     // Insert log into return history
     this.dataService.insertReturnHistory({
@@ -50,13 +68,27 @@ export class ReturnsService {
       condition,
       finalStatus,
       department: resource.department,
+      returnReason,
+      notes,
     });
 
-    // Update resource state
-    return this.dataService.updateResource(resourceId, {
+    const updatePayload: Partial<ResourceRecord> = {
       status: finalStatus,
       condition,
       assignedTo: 'None',
-    });
+      assignedToId: undefined,
+      returnReason,
+      returnNotes: notes,
+    };
+
+    if (finalStatus === 'Maintenance Requested') {
+      updatePayload.maintenanceIssue = maintenanceIssue;
+      updatePayload.maintenancePriority = condition === 'Damaged' || condition === 'Bad' ? 'High' : 'Medium';
+      updatePayload.maintenanceRequestDate = new Date().toLocaleDateString('en-US');
+      updatePayload.routedFromReturn = true;
+    }
+
+    // Update resource state
+    return this.dataService.updateResource(resourceId, updatePayload);
   }
 }

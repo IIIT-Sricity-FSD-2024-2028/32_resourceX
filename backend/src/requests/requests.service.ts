@@ -15,7 +15,31 @@ import {
 export class RequestsService {
   constructor(private readonly dataService: DataService) {}
 
+  private purgeExpiredRequests(): void {
+    const all = this.dataService.getRequests();
+    const now = Date.now();
+
+    for (const req of all) {
+      if (req.status !== 'Allocated' && req.status !== 'Completed') {
+        const dateStr = req.requirementDate;
+        if (dateStr) {
+          const parsed = Date.parse(dateStr);
+          if (!isNaN(parsed)) {
+            const deadline = new Date(parsed);
+            deadline.setHours(23, 59, 59, 999);
+            if (now > deadline.getTime()) {
+              this.dataService.deleteRequest(req.id);
+            }
+          }
+        }
+      }
+    }
+  }
+
   getAll(context: RequestContext, filters?: { status?: string; department?: string }): RequestRecord[] {
+    // Automatically purge requests whose requirement date has crossed and are not yet allocated
+    this.purgeExpiredRequests();
+
     const user = getActingUser(this.dataService, context);
     let items = this.dataService.getRequests();
 
@@ -142,10 +166,23 @@ export class RequestsService {
         assignedTo: request.requestor,
         assignedToId: request.requestorId,
         date: new Date().toLocaleDateString('en-US'),
+        returnDate: request.returnDate,
+        returnDateDisplay: request.returnDateDisplay,
       });
     }
 
-    return this.dataService.updateRequest(id, { status: 'Allocated' });
+    return this.dataService.updateRequest(id, {
+      status: 'Allocated',
+      assignedResources: resourceIds.join(', ')
+    });
+  }
+
+  delete(id: string): RequestRecord {
+    const deleted = this.dataService.deleteRequest(id);
+    if (!deleted) {
+      throw new NotFoundException(`Request with ID ${id} not found.`);
+    }
+    return deleted;
   }
 
   confirmReceipt(id: string, context: RequestContext): RequestRecord {
@@ -154,9 +191,50 @@ export class RequestsService {
       throw new NotFoundException(`Request with ID ${id} not found.`);
     }
 
-    ensureActor(this.dataService, context);
+    const user = ensureActor(this.dataService, context);
     if (request.status !== 'Allocated') {
       throw new BadRequestException('Can only confirm receipt for allocated requests.');
+    }
+
+    // Firmly ensure all allocated resources for this request are linked to this requestor
+    if (request.assignedResources) {
+      const resIds = request.assignedResources.split(',').map((s) => s.trim()).filter(Boolean);
+      for (const resId of resIds) {
+        const existing = this.dataService.getResourceById(resId);
+        if (existing) {
+          this.dataService.updateResource(resId, {
+            status: 'Allocated',
+            assignedTo: request.requestor || user.name,
+            assignedToId: request.requestorId || user.id,
+            returnDate: request.returnDate || existing.returnDate,
+            returnDateDisplay: request.returnDateDisplay || existing.returnDateDisplay,
+          });
+        }
+      }
+    } else {
+      // If assignedResources wasn't previously set, find or allocate available resources of matching type
+      const avail = this.dataService.getResources().filter(
+        (r) =>
+          r.organizationId === request.organizationId &&
+          r.department === request.department &&
+          resourceMatchesType(r, request.resourceType) &&
+          (r.status === 'Allocated' && (r.assignedToId === user.id || r.assignedTo === user.name) || r.status === 'Available')
+      );
+      const toAssign = avail.slice(0, request.quantity);
+      for (const r of toAssign) {
+        this.dataService.updateResource(r.id, {
+          status: 'Allocated',
+          assignedTo: request.requestor || user.name,
+          assignedToId: request.requestorId || user.id,
+          returnDate: request.returnDate,
+          returnDateDisplay: request.returnDateDisplay,
+        });
+      }
+      if (toAssign.length > 0) {
+        this.dataService.updateRequest(id, {
+          assignedResources: toAssign.map((r) => r.id).join(', '),
+        });
+      }
     }
 
     return this.dataService.updateRequest(id, { status: 'Completed' });

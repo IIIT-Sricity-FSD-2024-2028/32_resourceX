@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 /**
  * Exact replica of the original AppHeader component from app-header.js
  */
-export default function AppHeader() {
+export default function AppHeader({ hideSearch = false }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -15,6 +15,7 @@ export default function AppHeader() {
 
   const name = user?.name || 'yashwath';
   const role = user?.role || 'Administrator';
+  const isSearchHidden = hideSearch || role === 'System Admin' || user?.role === 'System Admin';
 
   const handleLogout = (e) => {
     e.preventDefault();
@@ -27,6 +28,7 @@ export default function AppHeader() {
   return (
     <header className="top-header">
       {/* Search bar matching original HTML */}
+      {!isSearchHidden ? (
       <div className="search-bar">
         <span className="search-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -49,6 +51,9 @@ export default function AppHeader() {
           </span>
         )}
       </div>
+      ) : (
+        <div style={{ flex: 1 }} />
+      )}
 
       <div className="header-actions">
         {/* Notifications Dropdown */}

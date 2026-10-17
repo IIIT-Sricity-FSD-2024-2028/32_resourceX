@@ -2,11 +2,13 @@ import React, { useState, useCallback } from 'react';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import ProcOfficerOverview from './views/ProcOfficerOverview';
+import IndentsView from './views/IndentsView';
 import ProcurementOrdersView from './views/ProcurementOrdersView';
 import PurchaseHistoryView from './views/PurchaseHistoryView';
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'dashboard' },
+  { id: 'indents', label: 'Department Indents', icon: 'assignment' },
   { id: 'orders', label: 'Procurement Orders', icon: 'shopping_cart' },
   { id: 'purchase-history', label: 'Purchase History', icon: 'receipt_long' },
 ];
@@ -32,6 +34,12 @@ export default function ProcurementOfficerDashboard() {
         <main style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>
           <div style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
             {activeTab === 'overview' && <ProcOfficerOverview onNavigate={setActiveTab} addToast={addToast} />}
+            {activeTab === 'indents' && (
+              <IndentsView
+                addToast={addToast}
+                onProcessOrder={() => setActiveTab('orders')}
+              />
+            )}
             {activeTab === 'orders' && <ProcurementOrdersView addToast={addToast} />}
             {activeTab === 'purchase-history' && <PurchaseHistoryView addToast={addToast} />}
           </div>

@@ -33,8 +33,16 @@ export default function AllocationQueueView({ addToast }) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const reqList = await fetchApprovedRequests({ department });
-      const list = Array.isArray(reqList) ? reqList : [];
+      const reqList = await fetchApprovedRequests(department ? { department } : {});
+      const isExpired = (req) => {
+        if (!req.requirementDate) return false;
+        const parsed = Date.parse(req.requirementDate);
+        if (isNaN(parsed)) return false;
+        const deadline = new Date(parsed);
+        deadline.setHours(23, 59, 59, 999);
+        return Date.now() > deadline.getTime();
+      };
+      const list = (Array.isArray(reqList) ? reqList : []).filter(r => !isExpired(r));
       setRequests(list);
 
       const allAvail = await fetchAvailableResources({ department });

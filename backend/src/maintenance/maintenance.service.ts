@@ -26,7 +26,7 @@ export class MaintenanceService {
     );
   }
 
-  accept(resourceId: string, context: RequestContext): ResourceRecord {
+  accept(resourceId: string, dto: any, context: RequestContext): ResourceRecord {
     const resource = this.dataService.getResourceById(resourceId);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${resourceId} not found.`);
@@ -37,10 +37,19 @@ export class MaintenanceService {
       throw new BadRequestException('Only maintenance-requested resources can be accepted.');
     }
 
-    return this.dataService.updateResource(resourceId, { status: 'Maintenance' });
+    return this.dataService.updateResource(resourceId, {
+      status: 'Maintenance',
+      maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
+      maintenanceNotes: dto?.notes || resource.maintenanceNotes || '',
+    });
   }
 
-  private resolve(resourceId: string, status: 'Repaired' | 'Scrapped', context: RequestContext): ResourceRecord {
+  private resolve(
+    resourceId: string,
+    status: 'Repaired' | 'Scrapped',
+    dto: any,
+    context: RequestContext
+  ): ResourceRecord {
     const resource = this.dataService.getResourceById(resourceId);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${resourceId} not found.`);
@@ -51,8 +60,16 @@ export class MaintenanceService {
       throw new BadRequestException('Only active maintenance items can be resolved.');
     }
 
-    const finalStatus = status === 'Repaired' ? 'Repaired' : 'Scrapped';
-    const finalCondition = status === 'Repaired' ? 'Good' : resource.condition;
+    // If item was allocated to a user, mark as 'Repaired' so user confirms receipt.
+    // If it was unallocated / returned, mark as 'Available' so it goes directly to inventory.
+    const isAllocatedUser = Boolean(resource.assignedTo && resource.assignedTo !== 'None');
+    const finalStatus = status === 'Repaired'
+      ? (isAllocatedUser ? 'Repaired' : 'Available')
+      : 'Scrapped';
+    const finalCondition = dto?.condition || (status === 'Repaired' ? 'Good' : resource.condition);
+    const recordedIssue = dto?.issue || resource.maintenanceIssue || (status === 'Repaired' ? 'Routine Maintenance' : 'Unrepairable Fault');
+    const resolutionNotes = dto?.resolutionNotes || (status === 'Repaired' ? 'Repaired and tested operational' : 'Decommissioned - beyond economical repair');
+    const priority = dto?.priority || resource.maintenancePriority || 'Medium';
 
     // Log the maintenance action
     this.dataService.insertMaintenanceHistory({
@@ -61,23 +78,28 @@ export class MaintenanceService {
       type: resource.type,
       department: resource.department,
       allocatedTo: resource.assignedTo,
-      issue: status === 'Repaired' ? 'Repaired' : 'Unrepairable',
+      issue: recordedIssue,
       actionDate: new Date().toLocaleDateString('en-US'),
       status: status === 'Repaired' ? 'Repaired' : 'Scrap',
+      resolutionNotes,
+      cost: dto?.cost !== undefined ? dto.cost : 0,
+      priority,
     });
 
     // Update resource state
     return this.dataService.updateResource(resourceId, {
       status: finalStatus,
       condition: finalCondition,
+      maintenanceNotes: resolutionNotes,
+      maintenanceIssue: recordedIssue,
     });
   }
 
-  repair(resourceId: string, context: RequestContext): ResourceRecord {
-    return this.resolve(resourceId, 'Repaired', context);
+  repair(resourceId: string, dto: any, context: RequestContext): ResourceRecord {
+    return this.resolve(resourceId, 'Repaired', dto, context);
   }
 
-  scrap(resourceId: string, context: RequestContext): ResourceRecord {
-    return this.resolve(resourceId, 'Scrapped', context);
+  scrap(resourceId: string, dto: any, context: RequestContext): ResourceRecord {
+    return this.resolve(resourceId, 'Scrapped', dto, context);
   }
 }

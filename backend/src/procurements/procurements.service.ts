@@ -4,6 +4,8 @@ import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
 import {
   CreateProcurementDto,
+  CreatePurchaseOrderDto,
+  DispatchDeliveryDto,
   LogPurchaseDto,
   ProcurementRegistrationResourceDto,
   UpdateProcurementDto,
@@ -30,7 +32,9 @@ export class ProcurementsService {
 
     // 1. Role-based scoping within the org
     if (context.role !== 'System Admin' && context.role !== 'Registrar') {
-      if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
+      if (context.role === 'Procurement Officer') {
+        items = items.filter((p) => p.status !== 'Pending Approval' && (!user?.department || p.department === user?.department));
+      } else if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer') {
         items = items.filter((procurement) => procurement.department === user?.department);
       } else if (context.role === 'Requestor') {
         items = items.filter(
@@ -151,20 +155,85 @@ export class ProcurementsService {
     return this.dataService.updateProcurement(id, { status: 'Rejected' });
   }
 
+  createPurchaseOrder(id: string, dto: CreatePurchaseOrderDto, context: RequestContext): ProcurementRecord {
+    const procurement = this.dataService.getProcurementById(id);
+    if (!procurement) {
+      throw new NotFoundException(`Procurement with ID ${id} not found.`);
+    }
+
+    ensureDepartmentScoped(this.dataService, context, procurement.department);
+    if (procurement.status !== 'Approved' && procurement.status !== 'Pending') {
+      throw new BadRequestException('Can only issue a Purchase Order for approved requests.');
+    }
+
+    const rawId = id.replace(/[^0-9]/g, '') || Date.now().toString().slice(-4);
+    const poNumber = dto.poNumber?.trim() || dto.poFileName?.replace(/\.[^/.]+$/, '') || `PO-${rawId}`;
+    const vendor = dto.vendor?.trim() || procurement.vendor || 'Authorized Vendor';
+
+    return this.dataService.updateProcurement(id, {
+      status: 'PO Created',
+      poNumber,
+      vendor,
+      vendorContact: dto.vendorContact,
+      estimatedCost: dto.estimatedCost,
+      estimatedDeliveryDate: dto.estimatedDeliveryDate,
+      poDate: new Date().toLocaleDateString('en-US'),
+      poNotes: dto.poNotes,
+      poFileName: dto.poFileName,
+      poFileType: dto.poFileType,
+      poFileDataUrl: dto.poFileDataUrl,
+    });
+  }
+
+  dispatchDelivery(id: string, dto: DispatchDeliveryDto, context: RequestContext): ProcurementRecord {
+    const procurement = this.dataService.getProcurementById(id);
+    if (!procurement) {
+      throw new NotFoundException(`Procurement with ID ${id} not found.`);
+    }
+
+    ensureDepartmentScoped(this.dataService, context, procurement.department);
+    if (procurement.status !== 'PO Created' && procurement.status !== 'Approved') {
+      throw new BadRequestException('Can only mark out for delivery after purchase order is issued.');
+    }
+
+    const rawId = id.replace(/[^0-9]/g, '') || Date.now().toString().slice(-4);
+    const carrier = dto.carrier?.trim() || 'Logistics Partner';
+    const trackingNumber = dto.trackingNumber?.trim() || `TRK-${rawId}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    return this.dataService.updateProcurement(id, {
+      status: 'Out for Delivery',
+      carrier,
+      trackingNumber,
+      shippedDate: dto.shippedDate || new Date().toLocaleDateString('en-US'),
+      expectedDeliveryDate: dto.expectedDeliveryDate,
+      deliveryNotes: dto.deliveryNotes,
+    });
+  }
+
   logPurchase(id: string, dto: LogPurchaseDto, context: RequestContext): ProcurementRecord {
     const procurement = this.dataService.getProcurementById(id);
     if (!procurement) {
       throw new NotFoundException(`Procurement with ID ${id} not found.`);
     }
 
-    if (procurement.status !== 'Approved') {
-      throw new BadRequestException('Can only log purchases for approved requests.');
+    ensureDepartmentScoped(this.dataService, context, procurement.department);
+    const validStatuses = ['Approved', 'PO Created'];
+    if (!validStatuses.includes(procurement.status)) {
+      throw new BadRequestException('Can only log invoice and fulfill purchases for approved or PO created requests.');
     }
+
+    const rawId = id.replace(/[^0-9]/g, '') || Date.now().toString().slice(-4);
+    const invoiceNumber = dto.invoice?.trim() || dto.invoiceFileName?.replace(/\.[^/.]+$/, '') || `INV-${rawId}`;
 
     return this.dataService.updateProcurement(id, {
       status: 'Fulfilled',
-      vendor: dto.vendor,
-      invoice: dto.invoice,
+      vendor: dto.vendor?.trim() || procurement.vendor || 'Authorized Vendor',
+      invoice: invoiceNumber,
+      invoiceDate: dto.invoiceDate || new Date().toLocaleDateString('en-US'),
+      invoiceAmount: dto.invoiceAmount,
+      paymentTerms: dto.paymentTerms,
+      receivedDate: dto.receivedDate || new Date().toLocaleDateString('en-US'),
+      receivedBy: dto.receivedBy || getActingUser(this.dataService, context)?.name || 'Procurement Team',
       invoiceFileName: dto.invoiceFileName,
       invoiceFileType: dto.invoiceFileType,
       invoiceFileDataUrl: dto.invoiceFileDataUrl,

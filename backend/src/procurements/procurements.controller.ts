@@ -7,6 +7,8 @@ import { ProcurementsService } from './procurements.service';
 import { ProcurementsExceptionFilter } from './filters/procurements-exception.filter';
 import {
   CreateProcurementDto,
+  CreatePurchaseOrderDto,
+  DispatchDeliveryDto,
   LogPurchaseDto,
   RegisterProcurementDto,
   UpdateProcurementDto,
@@ -84,12 +86,32 @@ export class ProcurementsController {
     return this.procurementsService.registrarReject(id);
   }
 
+  @Post(':id/create-po')
+  @Roles('Procurement Officer', 'System Admin')
+  @ApiBody({ type: CreatePurchaseOrderDto })
+  @ApiOperation({ summary: 'Issue a purchase order for an approved procurement' })
+  @ApiParam({ name: 'id', example: 'PROC-911' })
+  @ApiOkResponse({ description: 'Purchase order created successfully.', type: ProcurementResponseDto })
+  createPurchaseOrder(@Param('id') id: string, @Body() dto: CreatePurchaseOrderDto, @Req() req: any) {
+    return this.procurementsService.createPurchaseOrder(id, dto, req.context);
+  }
+
+  @Post(':id/dispatch')
+  @Roles('Procurement Officer', 'System Admin')
+  @ApiBody({ type: DispatchDeliveryDto })
+  @ApiOperation({ summary: 'Mark order as out for delivery / in transit with courier details' })
+  @ApiParam({ name: 'id', example: 'PROC-911' })
+  @ApiOkResponse({ description: 'Order marked out for delivery successfully.', type: ProcurementResponseDto })
+  dispatchDelivery(@Param('id') id: string, @Body() dto: DispatchDeliveryDto, @Req() req: any) {
+    return this.procurementsService.dispatchDelivery(id, dto, req.context);
+  }
+
   @Post(':id/log-purchase')
   @Roles('Procurement Officer', 'System Admin')
   @ApiBody({ type: LogPurchaseDto })
-  @ApiOperation({ summary: 'Log vendor and invoice details for an approved procurement' })
+  @ApiOperation({ summary: 'Log invoice and fulfill purchases for an order' })
   @ApiParam({ name: 'id', example: 'PROC-911' })
-  @ApiOkResponse({ description: 'Purchase log saved successfully.', type: ProcurementResponseDto })
+  @ApiOkResponse({ description: 'Purchase log and invoice saved successfully.', type: ProcurementResponseDto })
   logPurchase(@Param('id') id: string, @Body() dto: LogPurchaseDto, @Req() req: any) {
     return this.procurementsService.logPurchase(id, dto, req.context);
   }

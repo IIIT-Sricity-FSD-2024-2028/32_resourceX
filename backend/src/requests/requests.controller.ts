@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseFilters } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseFilters } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../common/roles.decorator';
 import { RequestResponseDto } from '../common/swagger-models';
@@ -78,5 +78,14 @@ export class RequestsController {
   @ApiOkResponse({ description: 'Receipt confirmed successfully.', type: RequestResponseDto })
   confirmReceipt(@Param('id') id: string, @Req() req: any) {
     return this.requestsService.confirmReceipt(id, req.context);
+  }
+
+  @Delete(':id')
+  @Roles('Dept Head', 'Inventory Officer', 'Requestor', 'System Admin')
+  @ApiOperation({ summary: 'Delete an expired or cancelled request' })
+  @ApiParam({ name: 'id', example: 'REQ-101' })
+  @ApiOkResponse({ description: 'Request deleted successfully.', type: RequestResponseDto })
+  deleteRequest(@Param('id') id: string) {
+    return this.requestsService.delete(id);
   }
 }

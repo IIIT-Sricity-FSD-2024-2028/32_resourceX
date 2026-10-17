@@ -59,15 +59,17 @@ export const fetchResources = async (params = {}) => {
   return await apiRequest(`/resources${buildQuery(params)}`);
 };
 
-export const requestResourceMaintenance = async (id) => {
+export const requestResourceMaintenance = async (id, payload = {}) => {
   return await apiRequest(`/resources/${encodeURIComponent(id)}/maintenance-request`, {
-    method: 'POST'
+    method: 'POST',
+    body: payload,
   });
 };
 
-export const initiateResourceReturn = async (id) => {
+export const initiateResourceReturn = async (id, payload = {}) => {
   return await apiRequest(`/resources/${encodeURIComponent(id)}/initiate-return`, {
-    method: 'POST'
+    method: 'POST',
+    body: payload,
   });
 };
 

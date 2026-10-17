@@ -9,9 +9,16 @@ import {
 } from '../../../../services/maintenanceOfficer';
 
 const STEP_MAP = {
-  'Maintenance Requested': { label: 'Requested', next: 'Accept', action: 'accept', color: '#f59e0b', bg: '#fffbeb' },
-  'Maintenance': { label: 'Under Maintenance', next: 'Mark Repaired', action: 'repair', color: '#ef4444', bg: '#fef2f2' },
+  'Maintenance Requested': { label: 'Requested', next: 'Accept Request', action: 'accept', color: '#f59e0b', bg: '#fffbeb' },
+  'Maintenance': { label: 'Under Repair', next: 'Mark Repaired', action: 'repair', color: '#ef4444', bg: '#fef2f2' },
   'Repaired': { label: 'Repaired', next: null, action: null, color: '#22c55e', bg: '#f0fdf4' },
+};
+
+const PRIORITY_COLORS = {
+  Critical: { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
+  High: { bg: '#ffedd5', text: '#9a3412', border: '#fdba74' },
+  Medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+  Low: { bg: '#f1f5f9', text: '#475569', border: '#e2e8f0' },
 };
 
 export default function MaintenanceQueueView({ addToast }) {
@@ -22,7 +29,16 @@ export default function MaintenanceQueueView({ addToast }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [scrapConfirmId, setScrapConfirmId] = useState(null);
+
+  // Modals
+  const [repairModalItem, setRepairModalItem] = useState(null);
+  const [repairNotes, setRepairNotes] = useState('');
+  const [repairCost, setRepairCost] = useState('');
+  const [repairCondition, setRepairCondition] = useState('Good');
+
+  const [scrapConfirmItem, setScrapConfirmItem] = useState(null);
+  const [scrapReason, setScrapReason] = useState('');
+
   const [showHistory, setShowHistory] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -44,30 +60,66 @@ export default function MaintenanceQueueView({ addToast }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleAction = async (resourceId, action) => {
-    const fns = { accept: acceptMaintenance, repair: repairMaintenance };
+  const handleAccept = async (resourceId) => {
     try {
       setProcessingId(resourceId);
-      await fns[action](resourceId);
-      const msgs = { accept: 'Maintenance accepted. Resource is now under repair.', repair: 'Resource marked as Repaired.' };
-      addToast(msgs[action], 'success');
+      await acceptMaintenance(resourceId);
+      addToast('Maintenance accepted. Resource moved to Active Repair.', 'success');
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Action failed.', 'error');
+      addToast(err.message || 'Failed to accept maintenance.', 'error');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleScrap = async (resourceId) => {
+  const handleOpenRepairModal = (res) => {
+    setRepairModalItem(res);
+    setRepairNotes('');
+    setRepairCost('');
+    setRepairCondition('Good');
+  };
+
+  const handleConfirmRepairSubmit = async (e) => {
+    e.preventDefault();
+    if (!repairModalItem) return;
     try {
-      setProcessingId(resourceId);
-      await scrapMaintenance(resourceId);
-      addToast('Resource has been scrapped.', 'success');
-      setScrapConfirmId(null);
+      setProcessingId(repairModalItem.id);
+      await repairMaintenance(repairModalItem.id, {
+        resolutionNotes: repairNotes.trim() || 'Serviced and verified functional',
+        cost: repairCost ? Number(repairCost) : 0,
+        condition: repairCondition,
+        issue: repairModalItem.maintenanceIssue || 'Routine Maintenance',
+      });
+      addToast('Resource marked as Repaired and returned to inventory.', 'success');
+      setRepairModalItem(null);
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Scrap failed.', 'error');
+      addToast(err.message || 'Failed to complete repair.', 'error');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleOpenScrapModal = (res) => {
+    setScrapConfirmItem(res);
+    setScrapReason('Beyond economical repair');
+  };
+
+  const handleConfirmScrapSubmit = async (e) => {
+    e.preventDefault();
+    if (!scrapConfirmItem) return;
+    try {
+      setProcessingId(scrapConfirmItem.id);
+      await scrapMaintenance(scrapConfirmItem.id, {
+        resolutionNotes: scrapReason.trim() || 'Decommissioned from maintenance',
+        issue: scrapConfirmItem.maintenanceIssue || 'Severe Malfunction',
+      });
+      addToast('Resource marked as Scrapped.', 'success');
+      setScrapConfirmItem(null);
+      await loadData();
+    } catch (err) {
+      addToast(err.message || 'Scrap action failed.', 'error');
     } finally {
       setProcessingId(null);
     }
@@ -77,74 +129,233 @@ export default function MaintenanceQueueView({ addToast }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Maintenance Queue</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Maintenance Workbench</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-            {queue.length} resource{queue.length !== 1 ? 's' : ''} requiring maintenance attention
+            {queue.length} resource{queue.length !== 1 ? 's' : ''} in the maintenance queue requiring diagnostic or repair action
           </p>
         </div>
-        <button onClick={() => setShowHistory(!showHistory)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: showHistory ? '#1e293b' : '#f1f5f9', color: showHistory ? '#fff' : '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          <span className="material-icons" style={{ fontSize: 18 }}>history</span>
-          {showHistory ? 'Hide History' : 'Show History'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: showHistory ? '#1e293b' : '#f1f5f9', color: showHistory ? '#fff' : '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>history</span>
+            {showHistory ? 'Hide History' : 'Show History'}
+          </button>
+          <button
+            onClick={loadData}
+            disabled={loading}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#f8fafc', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>refresh</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading...</div>
+        <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading maintenance queue...</div>
       ) : queue.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
-          <span className="material-icons" style={{ fontSize: 48, color: '#22c55e', display: 'block', marginBottom: 12 }}>check_circle_outline</span>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>No active maintenance</div>
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>All resources are in good standing.</div>
+        <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 32 }}>check_circle</span>
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Maintenance Workbench Clear</div>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>All equipment in this department is fully serviced and operational.</div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
           {queue.map(res => {
             const step = STEP_MAP[res.status] || {};
             const isProcessing = processingId === res.id;
-            return (
-              <div key={res.id} style={{ background: '#fff', border: `1px solid ${step.color}40`, borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                {/* Status bar */}
-                <div style={{ background: step.bg, padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${step.color}30` }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: step.color }}>{step.label}</span>
-                  <span className="material-icons" style={{ fontSize: 20, color: step.color }}>build</span>
-                </div>
+            const priorityStyle = PRIORITY_COLORS[res.maintenancePriority] || PRIORITY_COLORS.Medium;
 
-                {/* Resource Info */}
-                <div style={{ padding: '1rem' }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{res.type}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span>ID: <strong style={{ color: '#3b82f6' }}>{res.id}</strong></span>
-                    {res.serialNumber && <span>Serial: {res.serialNumber}</span>}
-                    <span>Condition: {res.condition || '—'}</span>
-                    {res.assignedTo && <span>Last assigned to: {res.assignedTo}</span>}
+            return (
+              <div
+                key={res.id}
+                style={{
+                  background: '#fff',
+                  border: `1px solid ${step.color}40`,
+                  borderRadius: 16,
+                  overflow: 'hidden',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* Status Bar */}
+                <div style={{ background: step.bg, padding: '0.85rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${step.color}30` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: step.color }}>build</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: step.color, letterSpacing: '0.04em' }}>
+                      {step.label.toUpperCase()}
+                    </span>
                   </div>
 
-                  {/* Step indicator */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '1rem' }}>
-                    {['Maintenance Requested', 'Maintenance', 'Repaired'].map((s, i) => {
-                      const statuses = ['Maintenance Requested', 'Maintenance', 'Repaired'];
-                      const currentIdx = statuses.indexOf(res.status);
-                      const done = i <= currentIdx;
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {res.maintenancePriority && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          background: priorityStyle.bg,
+                          color: priorityStyle.text,
+                          border: `1px solid ${priorityStyle.border}`,
+                        }}
+                      >
+                        {res.maintenancePriority} Priority
+                      </span>
+                    )}
+                    {res.routedFromReturn && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          background: '#ede9fe',
+                          color: '#6d28d9',
+                          border: '1px solid #ddd6fe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}
+                        title="Forwarded directly from Return Processing"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 12 }}>assignment_return</span>
+                        From Return
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Body Content */}
+                <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.9rem', flex: 1 }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{res.name || res.type}</h3>
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                      <span>ID: <strong style={{ color: '#3b82f6' }}>{res.id}</strong></span>
+                      {res.serialNumber && <span>SN: <strong>{res.serialNumber}</strong></span>}
+                      <span>Condition: <strong>{res.condition || '—'}</strong></span>
+                      {res.assignedTo && res.assignedTo !== 'None' ? (
+                        <span>User: <strong>{res.assignedTo}</strong></span>
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>Unallocated Asset</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Reported Issue Banner */}
+                  <div style={{ background: '#fef3c7', padding: '10px 12px', borderRadius: 10, border: '1px solid #fde68a' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#d97706' }}>report_problem</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        Reported Maintenance Issue
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: '#78350f', lineHeight: 1.4 }}>
+                      {res.maintenanceIssue || 'General hardware maintenance requested'}
+                    </div>
+                    {res.maintenanceRequestDate && (
+                      <div style={{ fontSize: 11, color: '#b45309', marginTop: 4 }}>
+                        Reported: {res.maintenanceRequestDate}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Progress Indicator */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: '0.5rem' }}>
+                    {['Requested', 'Under Repair', 'Repaired'].map((s, i) => {
+                      const curIdx = res.status === 'Maintenance' ? 1 : 0;
+                      const done = i <= curIdx;
                       return (
                         <React.Fragment key={s}>
-                          <div style={{ width: 10, height: 10, borderRadius: '50%', background: done ? '#3b82f6' : '#e2e8f0', flexShrink: 0 }} />
-                          {i < 2 && <div style={{ flex: 1, height: 2, background: i < currentIdx ? '#3b82f6' : '#e2e8f0' }} />}
+                          <div
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: done ? '#3b82f6' : '#e2e8f0',
+                              flexShrink: 0
+                            }}
+                          />
+                          {i < 2 && <div style={{ flex: 1, height: 2, background: i < curIdx ? '#3b82f6' : '#e2e8f0' }} />}
                         </React.Fragment>
                       );
                     })}
                   </div>
 
-                  {/* Actions */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {step.next && (
-                      <button onClick={() => handleAction(res.id, step.action)} disabled={isProcessing}
-                        style={{ flex: 1, padding: '9px 0', background: step.color, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}>
-                        {isProcessing ? 'Processing...' : step.next}
+                  {/* Actions Bar */}
+                  <div style={{ display: 'flex', gap: 8, marginTop: '0.5rem' }}>
+                    {res.status === 'Maintenance Requested' ? (
+                      <button
+                        onClick={() => handleAccept(res.id)}
+                        disabled={isProcessing}
+                        style={{
+                          flex: 1,
+                          padding: '9px 0',
+                          background: '#f59e0b',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          boxShadow: '0 2px 6px rgba(245,158,11,0.25)',
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>assignment_turned_in</span>
+                        {isProcessing ? 'Accepting...' : 'Accept Ticket'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenRepairModal(res)}
+                        disabled={isProcessing}
+                        style={{
+                          flex: 1,
+                          padding: '9px 0',
+                          background: '#16a34a',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 10,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: isProcessing ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          boxShadow: '0 2px 6px rgba(22,163,74,0.25)',
+                        }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>task_alt</span>
+                        Complete Repair
                       </button>
                     )}
-                    <button onClick={() => setScrapConfirmId(res.id)} disabled={isProcessing}
-                      style={{ padding: '9px 14px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+
+                    <button
+                      onClick={() => handleOpenScrapModal(res)}
+                      disabled={isProcessing}
+                      style={{
+                        padding: '9px 14px',
+                        background: '#fef2f2',
+                        color: '#dc2626',
+                        border: '1px solid #fca5a5',
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete_forever</span>
                       Scrap
                     </button>
                   </div>
@@ -157,52 +368,203 @@ export default function MaintenanceQueueView({ addToast }) {
 
       {/* History section */}
       {showHistory && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 600, fontSize: 15, color: '#1e293b' }}>
-            Maintenance History ({history.length} entries)
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 700, fontSize: 15, color: '#1e293b', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Maintenance History Log ({history.length} records)</span>
+            <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>Showing recent repairs and decommissioned assets</span>
           </div>
           {history.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>No history yet.</div>
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>No history recorded yet.</div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc' }}>
-                  {['Resource ID', 'Type', 'Action', 'Outcome', 'Date'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {history.slice(0, 20).map((h, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '10px 14px', color: '#3b82f6', fontWeight: 600 }}>{h.resourceId || h.id}</td>
-                    <td style={{ padding: '10px 14px', color: '#1e293b' }}>{h.resourceType || h.type || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{h.action || 'Maintenance'}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: h.outcome === 'Repaired' ? '#f0fdf4' : '#fef2f2', color: h.outcome === 'Repaired' ? '#16a34a' : '#dc2626' }}>
-                        {h.outcome || h.status || '—'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{h.date || '—'}</td>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    {['Asset ID', 'Type', 'Reported Issue', 'Resolution / Diagnostic', 'Outcome', 'Cost', 'Date'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {history.slice(0, 25).map((h, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                      <td style={{ padding: '10px 14px', color: '#3b82f6', fontWeight: 700 }}>{h.code || h.resourceId || h.id}</td>
+                      <td style={{ padding: '10px 14px', color: '#1e293b' }}>{h.type || h.resourceType || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#b45309', fontWeight: 600, maxWidth: 220 }}>{h.issue || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#475569', maxWidth: 220 }}>{h.resolutionNotes || '—'}</td>
+                      <td style={{ padding: '10px 14px' }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '3px 10px',
+                            borderRadius: 20,
+                            background: h.status === 'Repaired' ? '#f0fdf4' : '#fef2f2',
+                            color: h.status === 'Repaired' ? '#16a34a' : '#dc2626',
+                          }}
+                        >
+                          {h.status || 'Repaired'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 600 }}>
+                        {h.cost ? `$${Number(h.cost).toFixed(2)}` : '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', color: '#64748b' }}>{h.actionDate || h.date || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}
 
-      {/* Scrap confirm modal */}
-      {scrapConfirmId && (
-        <div onClick={() => setScrapConfirmId(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 16, padding: '2rem', width: 380, textAlign: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 48, color: '#ef4444', display: 'block', marginBottom: 12 }}>warning</span>
-            <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700 }}>Scrap this resource?</h3>
-            <p style={{ margin: '0 0 1.5rem', fontSize: 13, color: '#64748b' }}>This will permanently mark the resource as Scrapped. This cannot be undone.</p>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setScrapConfirmId(null)} style={{ padding: '10px 20px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => handleScrap(scrapConfirmId)} style={{ padding: '10px 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Yes, Scrap</button>
+      {/* Complete Repair Modal */}
+      {repairModalItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#f0fdf4', padding: '1.25rem 1.5rem', borderBottom: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#dcfce7', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 22 }}>task_alt</span>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#14532d' }}>Complete Repair & Service</h3>
+                  <div style={{ fontSize: 12, color: '#166534' }}>{repairModalItem.type} — {repairModalItem.id}</div>
+                </div>
+              </div>
+              <button onClick={() => setRepairModalItem(null)} style={{ background: 'none', border: 'none', color: '#86efac', cursor: 'pointer', padding: 4 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+              </button>
             </div>
+
+            <form onSubmit={handleConfirmRepairSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Issue recap */}
+              <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 12 }}>
+                <span style={{ color: '#64748b' }}>Reported issue: </span>
+                <strong style={{ color: '#b45309' }}>{repairModalItem.maintenanceIssue || 'Routine Maintenance'}</strong>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                  Resolution / Repair Notes <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <textarea
+                  value={repairNotes}
+                  onChange={(e) => setRepairNotes(e.target.value)}
+                  placeholder="Describe repair actions taken (e.g., Replaced cooling fan, updated firmware, cleaned motherboard, ran stress test)..."
+                  rows={3}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                    Condition After Repair
+                  </label>
+                  <select
+                    value={repairCondition}
+                    onChange={(e) => setRepairCondition(e.target.value)}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
+                  >
+                    <option value="Good">Good — Like new, fully functional</option>
+                    <option value="Average">Average — Functional with cosmetic wear</option>
+                    <option value="Fair">Fair — Usable, minor degradation</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                    Repair Cost ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={repairCost}
+                    onChange={(e) => setRepairCost(e.target.value)}
+                    placeholder="0.00"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setRepairModalItem(null)}
+                  style={{ padding: '9px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingId === repairModalItem.id}
+                  style={{ padding: '9px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
+                  {processingId === repairModalItem.id ? 'Saving...' : 'Mark as Repaired'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Scrap Modal */}
+      {scrapConfirmItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 420, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#fef2f2', padding: '1.25rem 1.5rem', borderBottom: '1px solid #fecaca', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 22 }}>warning</span>
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#991b1b' }}>Scrap Resource</h3>
+                <div style={{ fontSize: 12, color: '#b91c1c' }}>{scrapConfirmItem.type} — {scrapConfirmItem.id}</div>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmScrapSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <p style={{ margin: 0, fontSize: 13, color: '#475569', lineHeight: 1.5 }}>
+                Are you sure you want to scrap this resource? This will permanently decommission it from operational inventory.
+              </p>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                  Reason for Scrapping
+                </label>
+                <input
+                  type="text"
+                  value={scrapReason}
+                  onChange={(e) => setScrapReason(e.target.value)}
+                  placeholder="e.g., Burned PCB, parts unrepairable, obsolete model"
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setScrapConfirmItem(null)}
+                  style={{ padding: '9px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={processingId === scrapConfirmItem.id}
+                  style={{ padding: '9px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_forever</span>
+                  {processingId === scrapConfirmItem.id ? 'Scrapping...' : 'Confirm Scrap'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -76,6 +76,36 @@ export class CreateResourceDto {
   @IsOptional()
   @IsString()
   date?: string;
+
+  @ApiPropertyOptional({ example: 'Screen flickering' })
+  @IsOptional()
+  @IsString()
+  maintenanceIssue?: string;
+
+  @ApiPropertyOptional({ example: 'Medium' })
+  @IsOptional()
+  @IsString()
+  maintenancePriority?: 'Low' | 'Medium' | 'High' | 'Critical';
+
+  @ApiPropertyOptional({ example: 'Project Completed' })
+  @IsOptional()
+  @IsString()
+  returnReason?: string;
+
+  @ApiPropertyOptional({ example: 'Returned with accessories' })
+  @IsOptional()
+  @IsString()
+  returnNotes?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-30' })
+  @IsOptional()
+  @IsString()
+  returnDate?: string;
+
+  @ApiPropertyOptional({ example: 'Nov 30, 2026' })
+  @IsOptional()
+  @IsString()
+  returnDateDisplay?: string;
 }
 
 export class UpdateResourceDto extends PartialType(CreateResourceDto) { }
@@ -90,3 +120,28 @@ export class UpdateCatalogDto {
   @IsString({ each: true })
   resourceTypes!: string[];
 }
+
+export class RequestMaintenanceDto {
+  @ApiPropertyOptional({ example: 'Screen flickering and battery draining quickly' })
+  @IsOptional()
+  @IsString()
+  issue?: string;
+
+  @ApiPropertyOptional({ example: 'High', enum: ['Low', 'Medium', 'High', 'Critical'] })
+  @IsOptional()
+  @IsString()
+  priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
+export class InitiateReturnDto {
+  @ApiPropertyOptional({ example: 'Project Completed' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({ example: 'Device in good condition with original charger' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+

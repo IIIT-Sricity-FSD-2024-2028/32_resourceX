@@ -139,7 +139,8 @@ export default function MaintenanceView({ addToast }) {
                   <th>Code</th>
                   <th>Type</th>
                   <th>Allocated To</th>
-                  <th>Issue/Status</th>
+                  <th>Reported Issue</th>
+                  <th>Status</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
@@ -162,6 +163,15 @@ export default function MaintenanceView({ addToast }) {
                         )}
                       </td>
                       <td>{res.assignedTo && res.assignedTo !== 'None' ? res.assignedTo : 'Unassigned'}</td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#b45309', fontSize: '0.82rem', maxWidth: '220px' }}>
+                          {res.maintenanceIssue || 'Routine Maintenance'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '2px' }}>
+                          {res.maintenancePriority && <span>Priority: <strong>{res.maintenancePriority}</strong> </span>}
+                          {res.routedFromReturn && <span style={{ color: '#7c3aed', fontWeight: 600 }}>(↩ From Return)</span>}
+                        </div>
+                      </td>
                       <td>
                         <span className="badge pending">{statusLabel}</span>
                       </td>

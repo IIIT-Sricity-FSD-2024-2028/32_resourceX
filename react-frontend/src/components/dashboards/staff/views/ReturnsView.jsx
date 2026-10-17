@@ -51,22 +51,40 @@ export default function ReturnsView({ addToast }) {
   };
 
   const handleProcessReturn = async (id) => {
-    const condition = returnConditions[id];
-    if (!condition) {
-      if (addToast) addToast('Please select a condition before processing return.', 'error');
+    const selected = returnConditions[id];
+    if (!selected) {
+      if (addToast) addToast('Please select a condition/destination before processing return.', 'error');
       return;
     }
 
     try {
       setProcessingId(id);
-      await processStaffReturn(id, condition);
+      const item = returnsQueue.find(r => r.id === id);
 
-      const isAvailable = condition !== 'Damaged' && condition !== 'Bad';
+      let destination = 'Available';
+      let condition = selected;
+      if (selected === 'Maintenance') {
+        destination = 'Maintenance Requested';
+        condition = 'Damaged';
+      } else if (selected === 'Bad') {
+        destination = 'Scrapped';
+        condition = 'Bad';
+      }
+
+      await processStaffReturn(id, {
+        condition,
+        destination,
+        returnReason: item?.returnReason || 'General Return',
+        maintenanceIssue: item?.returnNotes || item?.returnReason || 'Inspection required post-return',
+      });
+
       if (addToast) {
-        if (isAvailable) {
-          addToast('Return processed. Resource marked as Available.', 'success');
-        } else {
+        if (destination === 'Maintenance Requested') {
+          addToast('Return processed. Asset routed to Maintenance Queue for repair.', 'success');
+        } else if (destination === 'Scrapped') {
           addToast('Return processed. Resource marked as Scrap.', 'error');
+        } else {
+          addToast('Return processed. Resource restocked as Available.', 'success');
         }
       }
 
@@ -89,7 +107,7 @@ export default function ReturnsView({ addToast }) {
       <div className="staff-header-row">
         <div className="staff-header-titles">
           <h1 className="page-title">Return Management</h1>
-          <p className="page-subtitle">Inspect returned assets and update inventory availability.</p>
+          <p className="page-subtitle">Inspect returned assets and route them to inventory, maintenance, or scrap.</p>
         </div>
         <button
           type="button"
@@ -131,8 +149,9 @@ export default function ReturnsView({ addToast }) {
                   <th>Code</th>
                   <th>Type</th>
                   <th>Returned By</th>
+                  <th>Reason for Return</th>
                   <th>Return Date</th>
-                  <th>Condition Inspection</th>
+                  <th>Condition Inspection & Action</th>
                   <th style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</th>
                 </tr>
               </thead>
@@ -153,18 +172,27 @@ export default function ReturnsView({ addToast }) {
                         )}
                       </td>
                       <td>{res.assignedTo && res.assignedTo !== 'None' ? res.assignedTo : 'Unknown'}</td>
+                      <td>
+                        <div style={{ fontWeight: 600, color: '#1e293b' }}>{res.returnReason || 'General Return'}</div>
+                        {res.returnNotes && (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', maxWidth: '200px' }}>
+                            "{res.returnNotes}"
+                          </div>
+                        )}
+                      </td>
                       <td>{res.date || new Date().toLocaleDateString('en-US')}</td>
                       <td>
                         <select
                           className="form-control"
-                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.5rem', minWidth: '170px' }}
+                          style={{ fontSize: '0.8rem', padding: '0.35rem 0.5rem', minWidth: '190px' }}
                           value={selectedCond}
                           onChange={(e) => handleConditionChange(res.id, e.target.value)}
                         >
-                          <option value="">-- Inspect Condition --</option>
-                          <option value="Good">Good &rarr; Available</option>
-                          <option value="Average">Average &rarr; Available</option>
-                          <option value="Bad">Bad &rarr; Scrap</option>
+                          <option value="">-- Select Destination --</option>
+                          <option value="Good">Good &rarr; Restock Available</option>
+                          <option value="Average">Average &rarr; Restock Available</option>
+                          <option value="Maintenance">Damaged &rarr; Send to Maintenance Queue</option>
+                          <option value="Bad">Bad / Broken &rarr; Scrap Asset</option>
                         </select>
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -175,7 +203,7 @@ export default function ReturnsView({ addToast }) {
                           disabled={!selectedCond || isProcessing}
                           onClick={() => handleProcessReturn(res.id)}
                         >
-                          {isProcessing ? 'Processing...' : 'Process Return'}
+                          {isProcessing ? 'Processing...' : 'Process'}
                         </button>
                       </td>
                     </tr>

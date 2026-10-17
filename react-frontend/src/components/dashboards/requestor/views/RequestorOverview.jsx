@@ -32,7 +32,15 @@ export default function RequestorOverview({ onSwitchView }) {
   }, []);
 
   const myRequests = data.requests || [];
-  const myResources = data.resources || [];
+  const uName = user?.name ? user.name.trim().toLowerCase() : '';
+  const uId = user?.id;
+  const myResources = (data.resources || []).filter((r) => {
+    if (!['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired'].includes(r.status)) return false;
+    if (!r.assignedTo || r.assignedTo === 'None') return false;
+    const idMatch = Boolean(uId && r.assignedToId && r.assignedToId === uId);
+    const nameMatch = Boolean(uName && r.assignedTo && r.assignedTo.trim().toLowerCase() === uName);
+    return idMatch || nameMatch;
+  });
   const summary = data.summary || {};
 
   const totalReq = summary.totalRequests ?? myRequests.length;

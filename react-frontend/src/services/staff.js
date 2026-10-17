@@ -93,27 +93,30 @@ export const fetchStaffMaintenanceHistory = async () => {
 /**
  * Accept a maintenance request (moves status to 'Maintenance')
  */
-export const acceptStaffMaintenance = async (resourceId) => {
+export const acceptStaffMaintenance = async (resourceId, payload = {}) => {
   return await apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/accept`, {
-    method: 'POST'
+    method: 'POST',
+    body: payload,
   });
 };
 
 /**
  * Mark a resource under maintenance as repaired (moves status to 'Repaired', condition to 'Good')
  */
-export const repairStaffMaintenance = async (resourceId) => {
+export const repairStaffMaintenance = async (resourceId, payload = {}) => {
   return await apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/repair`, {
-    method: 'POST'
+    method: 'POST',
+    body: payload,
   });
 };
 
 /**
  * Scrap a resource directly from the maintenance flow
  */
-export const scrapStaffMaintenance = async (resourceId) => {
+export const scrapStaffMaintenance = async (resourceId, payload = {}) => {
   return await apiRequest(`/maintenance/${encodeURIComponent(resourceId)}/scrap`, {
-    method: 'POST'
+    method: 'POST',
+    body: payload,
   });
 };
 
@@ -131,10 +134,11 @@ export const fetchStaffReturnHistory = async () => {
 /**
  * Process a returned resource with inspected condition ('Good' | 'Average' | 'Bad')
  */
-export const processStaffReturn = async (resourceId, condition) => {
+export const processStaffReturn = async (resourceId, payload) => {
+  const body = typeof payload === 'string' ? { condition: payload } : payload;
   return await apiRequest(`/returns/${encodeURIComponent(resourceId)}/process`, {
     method: 'POST',
-    body: { condition }
+    body,
   });
 };
 

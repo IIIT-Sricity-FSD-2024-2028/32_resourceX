@@ -80,11 +80,11 @@ export default function RegistrarOverview({ onSwitchView }) {
           </div>
         </div>
 
-        <div className="stat-card">
-          <div className="stat-title" style={{ color: '#d97706' }}>Pending Procurements</div>
+        <div className="stat-card" style={{ cursor: 'pointer' }} onClick={() => onSwitchView && onSwitchView('procurements')}>
+          <div className="stat-title" style={{ color: '#d97706' }}>Pending Indents</div>
           <div className="stat-value-row">
             <div className="stat-value" style={{ color: '#d97706' }} id="dash-main-procs">{loading ? '...' : pendingProcurements}</div>
-            <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: '#d97706' }}>shopping_cart</span>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.5rem', color: '#d97706' }}>assignment</span>
           </div>
         </div>
 
@@ -151,10 +151,10 @@ export default function RegistrarOverview({ onSwitchView }) {
           </table>
         </div>
 
-        {/* Actionable Procurements Section */}
+        {/* Actionable Department Indents Section */}
         <div className="data-section" style={{ margin: 0 }}>
           <div className="data-section-header">
-            <div className="data-section-title">Actionable Procurements</div>
+            <div className="data-section-title">Actionable Department Indents</div>
             <button
               type="button"
               className="btn-secondary"
@@ -167,25 +167,38 @@ export default function RegistrarOverview({ onSwitchView }) {
           <table className="table">
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Type</th>
-                <th>Status</th>
+                <th>Indent ID</th>
+                <th>Dept</th>
+                <th>Requested Resource</th>
+                <th>Qty</th>
+                <th style={{ textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {actionableProcurements.length === 0 ? (
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>
-                    {loading ? 'Loading...' : 'No pending procurements.'}
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>
+                    {loading ? 'Loading...' : 'No pending department indents.'}
                   </td>
                 </tr>
               ) : (
                 actionableProcurements.map((p) => (
                   <tr key={p.id}>
-                    <td>{p.id}</td>
-                    <td>{p.resourceType || p.item}</td>
                     <td>
-                      <span className="badge pending">Pending</span>
+                      <span style={{ fontWeight: 600, color: '#0F386E' }}>{p.id}</span>
+                    </td>
+                    <td>{p.department}</td>
+                    <td><strong>{p.resourceType || p.item}</strong></td>
+                    <td>{p.quantity}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
+                        onClick={() => onSwitchView && onSwitchView('procurements')}
+                      >
+                        Review
+                      </button>
                     </td>
                   </tr>
                 ))

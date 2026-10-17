@@ -206,6 +206,15 @@ export class DataService {
     return this.clone(req);
   }
 
+  deleteRequest(id: string): RequestRecord | undefined {
+    const idx = this.state.requests.findIndex((r) => r.id === id);
+    if (idx !== -1) {
+      const [deleted] = this.state.requests.splice(idx, 1);
+      return this.clone(deleted);
+    }
+    return undefined;
+  }
+
   // --- RESOURCES ---
 
   getResources(): ResourceRecord[] {

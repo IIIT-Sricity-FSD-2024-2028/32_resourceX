@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo } from 'react';
 
 /**
- * Converts a base64 Data URL to a Blob URL so the browser can display PDFs and images
- * without triggering security blocks.
+ * Converts a base64 Data URL to a Blob URL so the browser can display PDFs
+ * without iframe navigation security blocks.
  */
 function dataUrlToBlobUrl(dataUrl) {
   try {
@@ -20,15 +20,20 @@ function dataUrlToBlobUrl(dataUrl) {
 }
 
 /**
- * FilePreviewModal:
- * Displays specification sheets or vendor invoices attached to procurement requests.
+ * FilePreviewModal for Registrar Dashboard
+ * Displays specification sheets or invoices attached to procurement indents.
+ * Directly renders images via dataUrl (matching DeptHead & Staff behavior)
+ * and PDFs via blob URL.
  */
 export default function FilePreviewModal({ file, onClose }) {
   const blobUrl = useMemo(() => {
-    return file?.dataUrl ? dataUrlToBlobUrl(file.dataUrl) : null;
+    if (!file?.dataUrl) return null;
+    if (typeof file.dataUrl === 'string' && file.dataUrl.startsWith('data:')) {
+      return dataUrlToBlobUrl(file.dataUrl);
+    }
+    return null;
   }, [file]);
 
-  // Clean up blob URL memory when component unmounts
   useEffect(() => {
     return () => {
       if (blobUrl) {
@@ -39,10 +44,11 @@ export default function FilePreviewModal({ file, onClose }) {
 
   if (!file) return null;
 
+  const fileName = file.name || 'document';
   const fileType = (file.type || '').toLowerCase();
-  const isImage = fileType.startsWith('image/');
-  const isPdf = fileType === 'application/pdf' || (file.name && file.name.endsWith('.pdf'));
-  const fileHref = blobUrl || file.dataUrl;
+  const isImage = fileType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(fileName);
+  const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+  const href = file.dataUrl?.startsWith('data:') ? (blobUrl || file.dataUrl) : file.dataUrl;
 
   return (
     <div
@@ -51,7 +57,7 @@ export default function FilePreviewModal({ file, onClose }) {
         inset: 0,
         backgroundColor: 'rgba(15, 23, 42, 0.65)',
         backdropFilter: 'blur(3px)',
-        zIndex: 9999,
+        zIndex: 99999,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -62,48 +68,57 @@ export default function FilePreviewModal({ file, onClose }) {
       <div
         style={{
           backgroundColor: '#ffffff',
-          borderRadius: '12px',
+          borderRadius: 14,
           width: '100%',
-          maxWidth: '850px',
-          maxHeight: '90vh',
+          maxWidth: '860px',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.25)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Modal Header */}
         <div
           style={{
-            padding: '1rem 1.5rem',
-            borderBottom: '1px solid #e2e8f0',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            padding: '1rem 1.5rem',
+            borderBottom: '1px solid #e2e8f0',
+            background: '#ffffff'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: '#0F386E' }}>
-            <span className="material-symbols-outlined">description</span>
-            <span>{file.name || 'Procurement Document'}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 22, color: '#0F386E' }}>
+              {isImage ? 'image' : isPdf ? 'picture_as_pdf' : 'description'}
+            </span>
+            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>
+              {fileName}
+            </span>
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            {fileHref && (
+            {href && (
               <a
-                href={fileHref}
-                download={file.name || 'document'}
-                className="btn-secondary"
+                href={href}
+                download={fileName}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.35rem 0.75rem',
-                  fontSize: '0.8rem',
-                  textDecoration: 'none'
+                  gap: 6,
+                  padding: '6px 14px',
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  borderRadius: 8,
+                  textDecoration: 'none',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: '1px solid #cbd5e1'
                 }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>download</span>
+                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>download</span>
                 Download
               </a>
             )}
@@ -112,9 +127,14 @@ export default function FilePreviewModal({ file, onClose }) {
               onClick={onClose}
               style={{
                 border: 'none',
-                background: 'transparent',
+                background: '#f1f5f9',
+                borderRadius: 8,
+                width: 32,
+                height: 32,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 cursor: 'pointer',
-                fontSize: '1.25rem',
                 color: '#64748b'
               }}
             >
@@ -123,31 +143,52 @@ export default function FilePreviewModal({ file, onClose }) {
           </div>
         </div>
 
-        {/* Content Body */}
-        <div style={{ padding: '1.5rem', overflowY: 'auto', flex: 1, textAlign: 'center' }}>
+        {/* Modal Body */}
+        <div
+          style={{
+            padding: '1.5rem',
+            overflowY: 'auto',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            minHeight: 380,
+            background: '#f8fafc'
+          }}
+        >
           {!file.dataUrl ? (
-            <div style={{ padding: '2rem', color: '#64748b' }}>
-              <p>No document preview available.</p>
-            </div>
+            <p style={{ color: '#64748b' }}>File content is not available for preview.</p>
           ) : isImage ? (
             <img
-              src={fileHref}
-              alt={file.name || 'Document'}
-              style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '6px' }}
+              src={file.dataUrl}
+              alt={fileName}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '72vh',
+                borderRadius: 8,
+                objectFit: 'contain'
+              }}
             />
           ) : isPdf ? (
             <iframe
-              src={fileHref}
-              title={file.name || 'PDF Preview'}
-              style={{ width: '100%', height: '70vh', border: 'none', borderRadius: '6px' }}
+              src={blobUrl || file.dataUrl}
+              title={fileName}
+              style={{
+                width: '100%',
+                height: '72vh',
+                border: 'none',
+                borderRadius: 8,
+                background: '#ffffff'
+              }}
             />
           ) : (
-            <div style={{ padding: '3rem 1rem', color: '#64748b' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '3rem', color: '#94a3b8' }}>
-                file_present
+            <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 48, color: '#94a3b8' }}>
+                draft
               </span>
-              <p style={{ marginTop: '0.5rem', fontWeight: 500 }}>{file.name}</p>
-              <p style={{ fontSize: '0.85rem' }}>This file type cannot be previewed in-browser.</p>
+              <p style={{ marginTop: '0.5rem', fontWeight: 600, color: '#1e293b' }}>{fileName}</p>
+              <p style={{ fontSize: 13 }}>
+                Preview is not supported for this file type. Use Download to open it.
+              </p>
             </div>
           )}
         </div>

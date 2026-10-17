@@ -29,6 +29,6 @@ export class ReturnsController {
   @ApiParam({ name: 'resourceId', example: 'RES-6001' })
   @ApiOkResponse({ description: 'Return processed successfully.', type: ResourceResponseDto })
   process(@Param('resourceId') resourceId: string, @Body() dto: ReturnProcessDto, @Req() req: any) {
-    return this.returnsService.process(resourceId, dto.condition, req.context);
+    return this.returnsService.process(resourceId, dto, req.context);
   }
 }

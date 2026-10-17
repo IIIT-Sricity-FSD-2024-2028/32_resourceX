@@ -40,9 +40,11 @@ export const PROCUREMENT_STATUSES = [
   'Pending Approval',
   'Pending',
   'Approved',
-  'Rejected',
+  'PO Created',
+  'Out for Delivery',
   'Fulfilled',
   'Registered',
+  'Rejected',
 ] as const;
 export type ProcurementStatus = (typeof PROCUREMENT_STATUSES)[number];
 
@@ -150,6 +152,15 @@ export interface ResourceRecord {
   location?: string;
   returnRequestedBy?: string;
   returnRequestedById?: string;
+  maintenanceIssue?: string;
+  maintenancePriority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  maintenanceRequestDate?: string;
+  maintenanceNotes?: string;
+  returnReason?: string;
+  returnNotes?: string;
+  routedFromReturn?: boolean;
+  returnDate?: string;
+  returnDateDisplay?: string;
 }
 
 export interface ProcurementRegistrationResourceInput
@@ -173,11 +184,31 @@ export interface ProcurementRecord {
   date: string;
   justification: string;
   vendor?: string;
+  vendorContact?: string;
   invoice?: string;
+  invoiceDate?: string;
+  invoiceAmount?: number | string;
+  paymentTerms?: string;
+  receivedDate?: string;
+  receivedBy?: string;
+  poNumber?: string;
+  poDate?: string;
+  poNotes?: string;
+  estimatedCost?: number | string;
+  estimatedDeliveryDate?: string;
+  carrier?: string;
+  trackingNumber?: string;
+  shippedDate?: string;
+  expectedDeliveryDate?: string;
+  deliveryNotes?: string;
   /** Resource specification / intent file — stored as a base64 data-URL */
   specFileName?: string;
   specFileType?: string;
   specFileDataUrl?: string;
+  /** Purchase order file — stored as a base64 data-URL */
+  poFileName?: string;
+  poFileType?: string;
+  poFileDataUrl?: string;
   /** Invoice file logged by Staff at purchase time — stored as a base64 data-URL */
   invoiceFileName?: string;
   invoiceFileType?: string;
@@ -203,6 +234,9 @@ export interface MaintenanceHistoryRecord {
   actionDate: string;
   status: MaintenanceActionStatus | 'Repaired';
   department: string;
+  resolutionNotes?: string;
+  cost?: number | string;
+  priority?: string;
 }
 
 export interface ReturnHistoryRecord {
@@ -213,8 +247,10 @@ export interface ReturnHistoryRecord {
   returnDate: string;
   processDate: string;
   condition: ResourceCondition | 'Bad';
-  finalStatus: Extract<ResourceStatus, 'Available' | 'Scrapped'>;
+  finalStatus: Extract<ResourceStatus, 'Available' | 'Scrapped'> | 'Maintenance' | 'Maintenance Requested';
   department: string;
+  returnReason?: string;
+  notes?: string;
 }
 
 export interface StockThresholdRecord {

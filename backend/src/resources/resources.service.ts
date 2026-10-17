@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { DepartmentResourceCatalogRecord, ResourceRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
-import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto } from './dto/resource.dto';
+import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto } from './dto/resource.dto';
 import {
   getActingUser,
   ensureActor,
@@ -32,9 +32,12 @@ export class ResourcesService {
       if (context.role === 'Dept Head' || context.role === 'Inventory Officer' || context.role === 'Maintenance Officer' || context.role === 'Procurement Officer') {
         items = items.filter((resource) => resource.department === user?.department);
       } else if (context.role === 'Requestor') {
+        const uName = user?.name ? user.name.toLowerCase().trim() : '';
         items = items.filter(
           (resource) =>
-            resource.assignedToId === user?.id || resource.assignedTo === user?.name
+            ((user?.id && resource.assignedToId === user.id) ||
+             (uName && resource.assignedTo && resource.assignedTo.toLowerCase().trim() === uName)) &&
+            ['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired'].includes(resource.status)
         );
       } else {
         items = [];
@@ -104,7 +107,7 @@ export class ResourcesService {
     return this.dataService.updateResource(id, payload);
   }
 
-  requestMaintenance(id: string, context: RequestContext): ResourceRecord {
+  requestMaintenance(id: string, dto: RequestMaintenanceDto | undefined, context: RequestContext): ResourceRecord {
     const resource = this.dataService.getResourceById(id);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${id} not found.`);
@@ -115,10 +118,15 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated or Available resources can go to maintenance.');
     }
 
-    return this.dataService.updateResource(id, { status: 'Maintenance Requested' });
+    return this.dataService.updateResource(id, {
+      status: 'Maintenance Requested',
+      maintenanceIssue: dto?.issue || resource.maintenanceIssue || 'General Maintenance Requested',
+      maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
+      maintenanceRequestDate: new Date().toLocaleDateString('en-US'),
+    });
   }
 
-  initiateReturn(id: string, context: RequestContext): ResourceRecord {
+  initiateReturn(id: string, dto: InitiateReturnDto | undefined, context: RequestContext): ResourceRecord {
     const resource = this.dataService.getResourceById(id);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${id} not found.`);
@@ -129,7 +137,11 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated resources can be returned.');
     }
 
-    return this.dataService.updateResource(id, { status: 'Returned' });
+    return this.dataService.updateResource(id, {
+      status: 'Returned',
+      returnReason: dto?.reason || 'Return Requested',
+      returnNotes: dto?.notes || '',
+    });
   }
 
   confirmRepaired(id: string, context: RequestContext): ResourceRecord {

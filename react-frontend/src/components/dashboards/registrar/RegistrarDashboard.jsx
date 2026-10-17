@@ -22,7 +22,7 @@ import RegistrarToast from './components/RegistrarToast';
  */
 const REGISTRAR_NAV_ITEMS = [
   { id: 'dashboard', target: '/dashboard/registrar', label: 'Dashboard', icon: 'dashboard', isDefault: true },
-  { id: 'procurements', target: '/dashboard/registrar/procurements', label: 'Procurement Approvals', icon: 'work' },
+  { id: 'procurements', target: '/dashboard/registrar/procurements', label: 'Department Indents', icon: 'assignment' },
   { id: 'requests', target: '/dashboard/registrar/requests', label: 'Global Requests Overview', icon: 'visibility' },
   { id: 'analytics', target: '/dashboard/registrar/analytics', label: 'System Analytics', icon: 'analytics' }
 ];

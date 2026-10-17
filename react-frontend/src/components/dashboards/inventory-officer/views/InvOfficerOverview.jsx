@@ -139,7 +139,29 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1e293b' }}>📦 Recent Inventory</h3>
-            <button onClick={() => onNavigate('inventory')} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>View all →</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => onNavigate('inventory')}
+                style={{
+                  background: '#2563eb',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '4px 10px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 14 }}>add</span>
+                Add Resource
+              </button>
+              <button onClick={() => onNavigate('inventory')} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>View all →</button>
+            </div>
           </div>
           {recentResources.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0', fontSize: 14 }}>No resources found.</div>

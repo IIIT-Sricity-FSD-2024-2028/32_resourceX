@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurements, logPurchase } from '../../../../services/procurementOfficer';
+import {
+  fetchProcurements,
+  createPurchaseOrder,
+  logPurchase
+} from '../../../../services/procurementOfficer';
 
 export default function ProcurementOrdersView({ addToast }) {
   const { user } = useAuth();
@@ -10,176 +14,712 @@ export default function ProcurementOrdersView({ addToast }) {
   const [loading, setLoading] = useState(true);
   const [formInputs, setFormInputs] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('Approved');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [previewFile, setPreviewFile] = useState(null);
 
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetchProcurements({ department });
-      setOrders(Array.isArray(res) ? res : []);
+      const raw = Array.isArray(res) ? res : [];
+      // Procurement Orders strictly manages active orders: Approved -> PO Created -> Fulfilled -> Registered
+      // Indents are managed in the dedicated "Department Indents" view
+      const list = raw.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status));
+      setOrders(list);
+
+      // Pre-fill sensible default form state
+      setFormInputs(prev => {
+        const next = { ...prev };
+        list.forEach(p => {
+          if (!next[p.id]) {
+            const numPart = p.id.replace(/[^0-9]/g, '') || String(Math.floor(100 + Math.random() * 900));
+            next[p.id] = {
+              vendor: p.vendor || '',
+              invoice: p.invoice || `INV-${numPart}`,
+              invoiceAmount: p.invoiceAmount || '',
+            };
+          }
+        });
+        return next;
+      });
     } catch (err) {
-      addToast(err.message || 'Failed to load orders.', 'error');
+      addToast(err.message || 'Failed to load procurement orders.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [addToast]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
   const handleInputChange = (procId, field, value) => {
-    setFormInputs(prev => ({ ...prev, [procId]: { ...(prev[procId] || {}), [field]: value } }));
+    setFormInputs(prev => ({
+      ...prev,
+      [procId]: { ...(prev[procId] || {}), [field]: value }
+    }));
   };
 
-  const handleFileChange = (procId, e) => {
+  const handleFileUpload = (procId, type, e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg'];
-    if (!allowed.includes(file.type)) { addToast('Unsupported file type. Use PDF, DOC, DOCX, PNG or JPG.', 'error'); return; }
-    if (file.size > 5 * 1024 * 1024) { addToast('File too large. Max 5 MB.', 'error'); return; }
+    if (!allowed.includes(file.type)) {
+      addToast('Please upload a PDF, DOC, DOCX, PNG, or JPG file.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      addToast('File too large. Maximum size is 10 MB.', 'error');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
-      handleInputChange(procId, 'file', file);
-      handleInputChange(procId, 'fileName', file.name);
-      handleInputChange(procId, 'fileDataUrl', ev.target.result);
+      setFormInputs(prev => ({
+        ...prev,
+        [procId]: {
+          ...(prev[procId] || {}),
+          [`${type}File`]: file,
+          [`${type}FileName`]: file.name,
+          [`${type}FileType`]: file.type,
+          [`${type}FileDataUrl`]: ev.target.result,
+        }
+      }));
+      addToast(`Selected file: ${file.name}`, 'info');
     };
     reader.readAsDataURL(file);
   };
 
-  const handleLogPurchase = async (procId) => {
-    const inputs = formInputs[procId] || {};
-    if (!inputs.vendor?.trim()) { addToast('Enter vendor name.', 'error'); return; }
-    if (!inputs.invoice?.trim()) { addToast('Enter invoice number.', 'error'); return; }
+  // Stage 1: Upload Purchase Order File -> PO Created
+  const handleUploadPO = async (proc) => {
+    const inputs = formInputs[proc.id] || {};
+    if (!inputs.poFileDataUrl && !inputs.poFileName) {
+      addToast('Please choose or upload a Purchase Order file.', 'error');
+      return;
+    }
+
     try {
-      setSubmittingId(procId);
-      await logPurchase(procId, {
-        vendor: inputs.vendor,
-        invoice: inputs.invoice,
-        invoiceFile: inputs.fileDataUrl,
-        invoiceFileName: inputs.fileName,
-        invoiceFileType: inputs.file?.type
+      setSubmittingId(proc.id);
+      const poNum = inputs.poFileName
+        ? inputs.poFileName.replace(/\.[^/.]+$/, '')
+        : `PO-${proc.id.replace(/[^0-9]/g, '')}`;
+
+      await createPurchaseOrder(proc.id, {
+        poNumber: poNum,
+        vendor: inputs.vendor?.trim() || proc.vendor || 'Authorized Supplier',
+        poFileName: inputs.poFileName,
+        poFileType: inputs.poFileType,
+        poFileDataUrl: inputs.poFileDataUrl,
       });
-      addToast('✅ Purchase logged successfully!', 'success');
-      setFormInputs(prev => { const n = { ...prev }; delete n[procId]; return n; });
+
+      addToast(`✅ Purchase order file uploaded! Status updated to PO Created.`, 'success');
       await loadOrders();
     } catch (err) {
-      addToast(err.message || 'Failed to log purchase.', 'error');
+      addToast(err.message || 'Failed to upload purchase order.', 'error');
     } finally {
       setSubmittingId(null);
     }
   };
 
-  const STATUS_COLORS = {
-    Approved: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
-    Fulfilled: { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
-    Registered: { bg: '#f5f3ff', text: '#7c3aed', border: '#ddd6fe' },
-    Pending: { bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
-    Rejected: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' },
+  // Stage 2: Upload Invoice & Fulfill
+  const handleUploadInvoiceAndFulfill = async (proc) => {
+    const inputs = formInputs[proc.id] || {};
+    if (!inputs.invoiceFileDataUrl && !inputs.invoice?.trim()) {
+      addToast('Please upload the invoice file or enter an invoice number.', 'error');
+      return;
+    }
+
+    try {
+      setSubmittingId(proc.id);
+      const invNum = inputs.invoice?.trim() || (inputs.invoiceFileName ? inputs.invoiceFileName.replace(/\.[^/.]+$/, '') : `INV-${proc.id.replace(/[^0-9]/g, '')}`);
+
+      await logPurchase(proc.id, {
+        vendor: inputs.vendor || proc.vendor || 'Vendor',
+        invoice: invNum,
+        invoiceAmount: inputs.invoiceAmount?.trim(),
+        invoiceFileName: inputs.invoiceFileName,
+        invoiceFileType: inputs.invoiceFileType,
+        invoiceFileDataUrl: inputs.invoiceFileDataUrl,
+      });
+
+      addToast('📦 Delivery & Invoice recorded! Order is now Fulfilled.', 'success');
+      await loadOrders();
+    } catch (err) {
+      addToast(err.message || 'Failed to save invoice.', 'error');
+    } finally {
+      setSubmittingId(null);
+    }
   };
 
-  const filterOptions = ['All', 'Approved', 'Fulfilled', 'Registered', 'Pending', 'Rejected'];
-  const displayed = orders.filter(o => statusFilter === 'All' || o.status === statusFilter);
+  const STATUS_CONFIG = {
+    'Approved': { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe', step: 1, label: 'Approved (Upload PO)' },
+    'PO Created': { bg: '#fef3c7', text: '#d97706', border: '#fde68a', step: 2, label: 'PO Uploaded (Upload Invoice)' },
+    'Fulfilled': { bg: '#ecfdf5', text: '#16a34a', border: '#86efac', step: 3, label: 'Fulfilled & Invoiced' },
+    'Registered': { bg: '#f5f3ff', text: '#7c3aed', border: '#ddd6fe', step: 4, label: 'In Inventory' },
+  };
+
+  const PIPELINE_STEPS = [
+    { num: 1, label: '1. Approved', icon: 'check_circle' },
+    { num: 2, label: '2. PO Uploaded', icon: 'description' },
+    { num: 3, label: '3. Fulfilled (Invoiced)', icon: 'receipt' },
+    { num: 4, label: '4. In Inventory', icon: 'inventory_2' },
+  ];
+
+  const getStepNumber = (status) => {
+    switch (status) {
+      case 'Approved': return 1;
+      case 'PO Created': return 2;
+      case 'Fulfilled': return 3;
+      case 'Registered': return 4;
+      default: return 1;
+    }
+  };
+
+  const filterTabs = ['All', 'Approved', 'PO Created', 'Fulfilled', 'Registered'];
+  const displayed = orders.filter(o => {
+    if (statusFilter === 'All') return true;
+    return o.status === statusFilter;
+  });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {/* Header and Filter Tabs */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Procurement Orders</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-            {orders.filter(o => o.status === 'Approved').length} orders awaiting purchase logging
+            Upload Purchase Orders and attach supplier invoices to fulfill orders.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 4, background: '#f1f5f9', borderRadius: 10, padding: 4, flexWrap: 'wrap' }}>
-          {filterOptions.map(f => (
-            <button key={f} onClick={() => setStatusFilter(f)}
-              style={{ padding: '6px 14px', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: statusFilter === f ? '#fff' : 'transparent', color: statusFilter === f ? '#1e293b' : '#64748b', boxShadow: statusFilter === f ? '0 1px 4px rgba(0,0,0,0.1)' : 'none' }}>
-              {f} {f !== 'All' ? `(${orders.filter(o => o.status === f).length})` : `(${orders.length})`}
-            </button>
-          ))}
+
+        <div style={{ display: 'flex', gap: 6, background: '#f1f5f9', borderRadius: 12, padding: 4, flexWrap: 'wrap' }}>
+          {filterTabs.map(tab => {
+            const count = tab === 'All'
+              ? orders.length
+              : orders.filter(o => o.status === tab).length;
+            const isSelected = statusFilter === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setStatusFilter(tab)}
+                style={{
+                  padding: '7px 14px',
+                  border: 'none',
+                  borderRadius: 9,
+                  fontSize: 12,
+                  fontWeight: isSelected ? 700 : 500,
+                  cursor: 'pointer',
+                  background: isSelected ? '#ffffff' : 'transparent',
+                  color: isSelected ? '#0F386E' : '#64748b',
+                  boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                <span>{tab}</span>
+                <span style={{
+                  fontSize: 11,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  background: isSelected ? '#eff6ff' : '#e2e8f0',
+                  color: isSelected ? '#2563eb' : '#475569',
+                  fontWeight: 700
+                }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      {/* Orders List */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading orders...</div>
       ) : displayed.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
-          <span className="material-icons" style={{ fontSize: 48, color: '#22c55e', display: 'block', marginBottom: 12 }}>shopping_cart</span>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>No orders to show</div>
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>Adjust your filter or wait for new approvals.</div>
+          <span className="material-icons" style={{ fontSize: 48, color: '#94a3b8', display: 'block', marginBottom: 12 }}>shopping_cart</span>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>No orders in this stage</div>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Select a different status filter tab above.</div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {displayed.map(proc => {
-            const sc = STATUS_COLORS[proc.status] || { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' };
+            const sc = STATUS_CONFIG[proc.status] || { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0', label: proc.status };
             const inputs = formInputs[proc.id] || {};
             const isSubmitting = submittingId === proc.id;
-            const showForm = proc.status === 'Approved' && !proc.vendor;
+            const currentStep = getStepNumber(proc.status);
+
             return (
-              <div key={proc.id} style={{ background: '#fff', border: `1px solid ${sc.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                {/* Order Header */}
-                <div style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, borderBottom: `1px solid ${sc.border}`, background: sc.bg }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '2px 8px', borderRadius: 6 }}>{proc.id}</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: '#1e293b' }}>{proc.resourceType || proc.item} × {proc.quantity}</span>
+              <div
+                key={proc.id}
+                style={{
+                  background: '#ffffff',
+                  border: `1px solid ${sc.border}`,
+                  borderRadius: 14,
+                  overflow: 'hidden',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}
+              >
+                {/* Order Top Summary Bar */}
+                <div
+                  style={{
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 12,
+                    background: sc.bg,
+                    borderBottom: `1px solid ${sc.border}`
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8', background: '#ffffff', padding: '4px 10px', borderRadius: 8, border: '1px solid #bfdbfe' }}>
+                      {proc.id}
+                    </span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                      {proc.resourceType || proc.item} × {proc.quantity}
+                    </span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      Department: <strong style={{ color: '#334155' }}>{proc.department}</strong>
+                    </span>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      Requested by: <strong style={{ color: '#334155' }}>{proc.requestedBy || proc.requester || 'User'}</strong>
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 12px', borderRadius: 20, background: '#fff', color: sc.text, border: `1px solid ${sc.border}` }}>{proc.status}</span>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>{proc.department} · {proc.date}</span>
+
+                  <span style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    background: '#ffffff',
+                    color: sc.text,
+                    border: `1px solid ${sc.border}`
+                  }}>
+                    {sc.label}
+                  </span>
+                </div>
+
+                {/* Progress Pipeline */}
+                <div style={{ padding: '0.85rem 1.25rem', background: '#fafbfc', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    {PIPELINE_STEPS.map(s => {
+                      const isDone = currentStep > s.num;
+                      const isCurrent = currentStep === s.num;
+                      const dotBg = isDone ? '#22c55e' : isCurrent ? '#2563eb' : '#e2e8f0';
+                      const textColor = isDone ? '#166534' : isCurrent ? '#1d4ed8' : '#94a3b8';
+
+                      return (
+                        <div key={s.num} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                          <div style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: '50%',
+                            background: dotBg,
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 12,
+                            fontWeight: 700,
+                            boxShadow: isCurrent ? '0 0 0 3px rgba(37,99,235,0.2)' : 'none'
+                          }}>
+                            {isDone ? (
+                              <span className="material-icons" style={{ fontSize: 16 }}>check</span>
+                            ) : (
+                              <span className="material-icons" style={{ fontSize: 15 }}>{s.icon}</span>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: isCurrent ? 700 : 500, color: textColor, marginTop: 4, textAlign: 'center' }}>
+                            {s.label}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Existing vendor info (logged) */}
-                {proc.vendor && (
-                  <div style={{ padding: '0.75rem 1.25rem', background: '#f8fafc', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>Vendor: <strong style={{ color: '#1e293b' }}>{proc.vendor}</strong></span>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>Invoice: <strong style={{ color: '#1e293b' }}>{proc.invoice}</strong></span>
-                  </div>
-                )}
+                {/* Stage Action Body */}
+                <div style={{ padding: '1.25rem' }}>
 
-                {/* Log Purchase form */}
-                {showForm && (
-                  <div style={{ padding: '1.25rem' }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginBottom: '1rem' }}>Log Purchase Details</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-                      {[
-                        { label: 'Vendor Name *', field: 'vendor', placeholder: 'e.g. Dell India Pvt Ltd' },
-                        { label: 'Invoice Number *', field: 'invoice', placeholder: 'e.g. INV-2024-001' },
-                      ].map(({ label, field, placeholder }) => (
-                        <div key={field}>
-                          <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 5 }}>{label}</label>
+                  {/* STAGE 1: Approved -> Upload Purchase Order File */}
+                  {proc.status === 'Approved' && (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.85rem' }}>
+                        <span className="material-icons" style={{ fontSize: 22, color: '#2563eb' }}>upload_file</span>
+                        <div>
+                          <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#1e293b' }}>
+                            Step 1: Upload Purchase Order File
+                          </h4>
+                          <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+                            Attach your official Purchase Order file (PDF, PNG, JPG, or DOC). No manual typing required.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+                        {/* File Upload Box */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 5 }}>
+                            Purchase Order Document *
+                          </label>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                              onChange={e => handleFileUpload(proc.id, 'po', e)}
+                              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 2, width: '100%', height: '100%' }}
+                            />
+                            <div style={{
+                              padding: '12px 14px',
+                              border: inputs.poFileName ? '2px solid #3b82f6' : '2px dashed #cbd5e1',
+                              borderRadius: 10,
+                              background: inputs.poFileName ? '#eff6ff' : '#ffffff',
+                              color: inputs.poFileName ? '#1d4ed8' : '#64748b',
+                              fontSize: 13,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              cursor: 'pointer'
+                            }}>
+                              <span className="material-icons" style={{ fontSize: 22, color: inputs.poFileName ? '#2563eb' : '#94a3b8' }}>
+                                {inputs.poFileName ? 'check_circle' : 'attach_file'}
+                              </span>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <strong style={{ display: 'block', fontSize: 13 }}>
+                                  {inputs.poFileName || 'Click to select PO file (PDF / Image)'}
+                                </strong>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>Supports PDF, PNG, JPG, DOC up to 10MB</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Vendor Name */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 5 }}>
+                            Vendor / Supplier Name (optional)
+                          </label>
                           <input
-                            value={inputs[field] || ''}
-                            onChange={e => handleInputChange(proc.id, field, e.target.value)}
-                            placeholder={placeholder}
-                            style={{ width: '100%', padding: '9px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                            value={inputs.vendor || ''}
+                            onChange={e => handleInputChange(proc.id, 'vendor', e.target.value)}
+                            placeholder="e.g. Dell, Cisco, OfficeSupplies Co"
+                            style={{ width: '100%', padding: '12px 14px', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
                           />
                         </div>
-                      ))}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 5 }}>Invoice File (optional)</label>
-                        <div style={{ position: 'relative' }}>
+                      </div>
+
+                      <button
+                        onClick={() => handleUploadPO(proc)}
+                        disabled={isSubmitting}
+                        style={{
+                          padding: '10px 24px',
+                          background: isSubmitting ? '#94a3b8' : '#2563eb',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 9,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 2px 6px rgba(37,99,235,0.25)'
+                        }}
+                      >
+                        <span className="material-icons" style={{ fontSize: 18 }}>cloud_upload</span>
+                        {isSubmitting ? 'Uploading...' : 'Save & Issue Purchase Order'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* STAGE 2: PO Created -> Upload Invoice & Fulfill */}
+                  {proc.status === 'PO Created' && (
+                    <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: '1.25rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: '0.85rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className="material-icons" style={{ fontSize: 22, color: '#7c3aed' }}>receipt_long</span>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#5b21b6' }}>
+                              Step 2: Upload Invoice File & Fulfill Order
+                            </h4>
+                            <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+                              Attach the final supplier invoice document to complete and fulfill the procurement order.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* View Attached PO File */}
+                        {proc.poFileName && (proc.poFileDataUrl || proc.poFile) && (
+                          <button
+                            onClick={() => setPreviewFile({
+                              name: proc.poFileName || 'Purchase Order',
+                              type: proc.poFileType,
+                              dataUrl: proc.poFileDataUrl || proc.poFile
+                            })}
+                            style={{
+                              padding: '6px 14px',
+                              background: '#ffffff',
+                              border: '1px solid #c4b5fd',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#7c3aed',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6
+                            }}
+                          >
+                            <span className="material-icons" style={{ fontSize: 16 }}>description</span>
+                            View Attached PO ({proc.poFileName})
+                          </button>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+                        {/* Invoice File Upload */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#5b21b6', marginBottom: 5 }}>
+                            Upload Invoice Document *
+                          </label>
+                          <div style={{ position: 'relative' }}>
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                              onChange={e => handleFileUpload(proc.id, 'invoice', e)}
+                              style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 2, width: '100%', height: '100%' }}
+                            />
+                            <div style={{
+                              padding: '12px 14px',
+                              border: inputs.invoiceFileName ? '2px solid #7c3aed' : '2px dashed #c4b5fd',
+                              borderRadius: 10,
+                              background: inputs.invoiceFileName ? '#f5f3ff' : '#ffffff',
+                              color: inputs.invoiceFileName ? '#5b21b6' : '#6b7280',
+                              fontSize: 13,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 10,
+                              cursor: 'pointer'
+                            }}>
+                              <span className="material-icons" style={{ fontSize: 22, color: inputs.invoiceFileName ? '#7c3aed' : '#94a3b8' }}>
+                                {inputs.invoiceFileName ? 'check_circle' : 'receipt'}
+                              </span>
+                              <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <strong style={{ display: 'block', fontSize: 13 }}>
+                                  {inputs.invoiceFileName || 'Click to select Invoice file (PDF / Image)'}
+                                </strong>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>Invoice scan, receipt, or bill</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Invoice Number */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#5b21b6', marginBottom: 5 }}>
+                            Invoice Number (optional)
+                          </label>
                           <input
-                            type="file"
-                            accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                            onChange={e => handleFileChange(proc.id, e)}
-                            style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 1 }}
+                            value={inputs.invoice || ''}
+                            onChange={e => handleInputChange(proc.id, 'invoice', e.target.value)}
+                            placeholder="e.g. INV-2026-9041"
+                            style={{ width: '100%', padding: '12px 14px', border: '1px solid #c4b5fd', borderRadius: 10, fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
                           />
-                          <div style={{ padding: '9px 12px', border: '1px dashed #cbd5e1', borderRadius: 8, fontSize: 12, color: inputs.fileName ? '#1e293b' : '#94a3b8', background: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span className="material-icons" style={{ fontSize: 16, color: '#64748b' }}>upload_file</span>
-                            {inputs.fileName || 'Upload PDF, DOC, PNG, JPG (max 5 MB)'}
+                        </div>
+
+                        {/* Total Amount */}
+                        <div>
+                          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#5b21b6', marginBottom: 5 }}>
+                            Total Bill Amount ($) (optional)
+                          </label>
+                          <input
+                            value={inputs.invoiceAmount || ''}
+                            onChange={e => handleInputChange(proc.id, 'invoiceAmount', e.target.value)}
+                            placeholder="e.g. $4,500"
+                            style={{ width: '100%', padding: '12px 14px', border: '1px solid #c4b5fd', borderRadius: 10, fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleUploadInvoiceAndFulfill(proc)}
+                        disabled={isSubmitting}
+                        style={{
+                          padding: '10px 24px',
+                          background: isSubmitting ? '#94a3b8' : '#7c3aed',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: 9,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          boxShadow: '0 2px 6px rgba(124,58,237,0.25)'
+                        }}
+                      >
+                        <span className="material-icons" style={{ fontSize: 18 }}>task_alt</span>
+                        {isSubmitting ? 'Saving...' : 'Record Invoice & Mark Fulfilled'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* STAGE 3 & 4: Fulfilled & Registered */}
+                  {(proc.status === 'Fulfilled' || proc.status === 'Registered') && (
+                    <div style={{
+                      background: proc.status === 'Registered' ? '#f5f3ff' : '#ecfdf5',
+                      border: `1px solid ${proc.status === 'Registered' ? '#ddd6fe' : '#a7f3d0'}`,
+                      borderRadius: 12,
+                      padding: '1.1rem 1.25rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span className="material-icons" style={{
+                          fontSize: 28,
+                          color: proc.status === 'Registered' ? '#7c3aed' : '#16a34a'
+                        }}>
+                          {proc.status === 'Registered' ? 'verified' : 'inventory_2'}
+                        </span>
+                        <div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                            {proc.status === 'Registered'
+                              ? 'Delivered & Assets Successfully Registered in Inventory'
+                              : 'Order Fulfilled — Ready for Inventory Officer to Ingest Assets'}
+                          </div>
+                          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                            Vendor: <strong>{proc.vendor || 'Supplier'}</strong> · Invoice: <strong>{proc.invoice || 'Logged'}</strong> {proc.poNumber ? `· PO: ${proc.poNumber}` : ''}
                           </div>
                         </div>
                       </div>
+
+                      {/* Document Quick View Buttons */}
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {proc.poFileName && (proc.poFileDataUrl || proc.poFile) && (
+                          <button
+                            onClick={() => setPreviewFile({
+                              name: proc.poFileName || 'Purchase Order',
+                              type: proc.poFileType,
+                              dataUrl: proc.poFileDataUrl || proc.poFile
+                            })}
+                            style={{
+                              padding: '6px 14px',
+                              background: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#2563eb',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6
+                            }}
+                          >
+                            <span className="material-icons" style={{ fontSize: 16 }}>description</span>
+                            View PO File
+                          </button>
+                        )}
+
+                        {(proc.invoiceFileName || proc.invoiceFile || proc.invoiceFileDataUrl) && (
+                          <button
+                            onClick={() => setPreviewFile({
+                              name: proc.invoiceFileName || `Invoice_${proc.id}`,
+                              type: proc.invoiceFileType,
+                              dataUrl: proc.invoiceFile || proc.invoiceFileDataUrl
+                            })}
+                            style={{
+                              padding: '6px 14px',
+                              background: '#ffffff',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: 8,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: '#16a34a',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6
+                            }}
+                          >
+                            <span className="material-icons" style={{ fontSize: 16 }}>receipt</span>
+                            View Invoice File
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <button onClick={() => handleLogPurchase(proc.id)} disabled={isSubmitting}
-                      style={{ padding: '10px 24px', background: isSubmitting ? '#94a3b8' : '#3b82f6', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="material-icons" style={{ fontSize: 18 }}>receipt</span>
-                      {isSubmitting ? 'Logging...' : 'Log Purchase'}
-                    </button>
-                  </div>
-                )}
+                  )}
+
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <div
+          onClick={() => setPreviewFile(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.7)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: 16,
+              padding: '1.5rem',
+              width: '100%',
+              maxWidth: 750,
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-icons" style={{ fontSize: 22, color: '#2563eb' }}>description</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>{previewFile.name}</h3>
+              </div>
+              <button
+                onClick={() => setPreviewFile(null)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 16, color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+            {previewFile.type?.startsWith('image/') ? (
+              <img
+                src={previewFile.dataUrl}
+                alt={previewFile.name}
+                style={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain', borderRadius: 8 }}
+              />
+            ) : (
+              <iframe
+                src={previewFile.dataUrl}
+                title={previewFile.name}
+                style={{ flex: 1, border: 'none', borderRadius: 8, minHeight: 460 }}
+              />
+            )}
+          </div>
         </div>
       )}
     </div>

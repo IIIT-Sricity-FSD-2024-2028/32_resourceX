@@ -118,21 +118,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       return;
     }
 
-    // Re-verify availability
-    try {
-      const avail = await fetchResourceAvailability(selectedDept, selectedType);
-      const currentAvailable = Number(avail?.availableCount || 0);
-
-      if (quantity > currentAvailable) {
-        addToast(
-          `❌ Quantity must be less than or equal to available inventory (${currentAvailable} available). Please reduce your quantity.`,
-          'error'
-        );
-        return;
-      }
-    } catch {
-      // Proceed if endpoint check is not strict
-    }
+    // Note: Requestors can request any quantity needed, even if exceeding current stock
 
     const newId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
     const dateStr = new Date().toLocaleDateString('en-US', {
