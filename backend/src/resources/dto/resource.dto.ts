@@ -145,3 +145,21 @@ export class InitiateReturnDto {
   notes?: string;
 }
 
+export class RequestExtensionDto {
+  @ApiProperty({ example: '2026-11-15', description: 'Proposed new return date in YYYY-MM-DD format' })
+  @IsString()
+  proposedReturnDate!: string;
+
+  @ApiProperty({ example: 'Project research milestone extended by 2 weeks' })
+  @IsString()
+  reason!: string;
+}
+
+export class RejectExtensionDto {
+  @ApiPropertyOptional({ example: 'Asset is scheduled for reallocation to another department' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+

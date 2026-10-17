@@ -46,11 +46,29 @@ export class NotificationsService {
                   id: notifId,
                   organizationId: context.organizationId || 'ORG-001',
                   title: `🚨 ACTION REQUIRED: Return Overdue Resource (${res.name || res.type})`,
-                  description: `URGENT: The scheduled return deadline for "${res.name || res.type}" (${res.id}) expired on ${display || retDate}. Please initiate return immediately from My Resources.`,
+                  description: `URGENT: The scheduled return deadline for "${res.name || res.type}" (${res.id}) expired on ${display || retDate}. Please initiate return or request an extension from My Resources immediately.`,
                   time: 'Just now',
                   read: false,
                   recipientRole: 'Requestor',
                 });
+              }
+            } else {
+              const diffMs = deadline.getTime() - now;
+              const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+              if (diffDays <= 3) {
+                const notifId = `NOTIF-DEADLINE-APPROACHING-${res.id}`;
+                const exists = this.dataService.getNotifications().some((n) => n.id === notifId);
+                if (!exists) {
+                  this.dataService.insertNotification({
+                    id: notifId,
+                    organizationId: context.organizationId || 'ORG-001',
+                    title: `⏰ DEADLINE APPROACHING: Return scheduled for ${res.name || res.type}`,
+                    description: `Reminder: "${res.name || res.type}" (${res.id}) is due for return in ${diffDays <= 1 ? '1 day (tomorrow)' : `${diffDays} days`} on ${display || retDate}. If you need more time, you can request an extension from My Resources.`,
+                    time: 'Just now',
+                    read: false,
+                    recipientRole: 'Requestor',
+                  });
+                }
               }
             }
           }

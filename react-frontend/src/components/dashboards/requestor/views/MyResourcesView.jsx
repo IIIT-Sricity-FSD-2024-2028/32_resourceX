@@ -5,7 +5,8 @@ import {
   fetchProcurements,
   requestResourceMaintenance,
   initiateResourceReturn,
-  confirmRepairedAllocation
+  confirmRepairedAllocation,
+  requestResourceExtension
 } from '../../../../services/requestor';
 
 export default function MyResourcesView({ addToast, onPreviewFile }) {
@@ -63,6 +64,10 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
   const [returnReason, setReturnReason] = useState('Project Completed');
   const [returnNotes, setReturnNotes] = useState('');
 
+  const [extensionModalItem, setExtensionModalItem] = useState(null);
+  const [proposedReturnDate, setProposedReturnDate] = useState('');
+  const [extensionReason, setExtensionReason] = useState('');
+
   const handleOpenMaintenance = (res) => {
     setMaintenanceModalItem(res);
     setMaintIssue('');
@@ -73,6 +78,44 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
     setReturnModalItem(res);
     setReturnReason('Project Completed');
     setReturnNotes('');
+  };
+
+  const handleOpenExtension = (res) => {
+    setExtensionModalItem(res);
+    // Suggest default extended date: 7 days after current returnDate, or 7 days from now
+    const base = res.returnDate ? new Date(res.returnDate) : new Date();
+    base.setDate(base.getDate() + 7);
+    setProposedReturnDate(base.toISOString().split('T')[0]);
+    setExtensionReason('');
+  };
+
+  const handleConfirmExtensionSubmit = async (e) => {
+    e.preventDefault();
+    if (!extensionModalItem) return;
+    if (!proposedReturnDate) {
+      addToast('Please select a proposed return date.', 'error');
+      return;
+    }
+    if (!extensionReason.trim()) {
+      addToast('Please provide a justification for the extension request.', 'error');
+      return;
+    }
+    const resId = extensionModalItem.id;
+    setActionLoadingId(resId);
+    try {
+      await requestResourceExtension(resId, {
+        proposedReturnDate,
+        reason: extensionReason.trim(),
+      });
+      addToast('Extension request submitted to Department Head for review.', 'success');
+      setExtensionModalItem(null);
+      await loadData();
+    } catch (err) {
+      console.error('Extension request failed:', err);
+      addToast(err.message || 'Failed to submit extension request.', 'error');
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
   const handleConfirmMaintenanceSubmit = async (e) => {
@@ -135,18 +178,32 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
     }
   };
 
-  const isOverdue = (res) => {
-    if (res.status !== 'Allocated') return false;
+  const getDeadlineStatus = (res) => {
+    if (res.status !== 'Allocated') {
+      return { isOverdue: false, isApproaching: false, daysLeft: null };
+    }
     const dStr = res.returnDate;
-    if (!dStr) return false;
+    if (!dStr) {
+      return { isOverdue: false, isApproaching: false, daysLeft: null };
+    }
     const parsed = Date.parse(dStr);
-    if (isNaN(parsed)) return false;
+    if (isNaN(parsed)) {
+      return { isOverdue: false, isApproaching: false, daysLeft: null };
+    }
     const deadline = new Date(parsed);
     deadline.setHours(23, 59, 59, 999);
-    return Date.now() > deadline.getTime();
+    const diffMs = deadline.getTime() - Date.now();
+    const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffMs < 0) {
+      return { isOverdue: true, isApproaching: false, daysLeft };
+    } else if (daysLeft <= 3) {
+      return { isOverdue: false, isApproaching: true, daysLeft };
+    }
+    return { isOverdue: false, isApproaching: false, daysLeft };
   };
 
-  const overdueItems = resources.filter(isOverdue);
+  const overdueItems = resources.filter((r) => getDeadlineStatus(r).isOverdue);
+  const approachingItems = resources.filter((r) => getDeadlineStatus(r).isApproaching && r.extensionStatus !== 'Pending');
 
   const filteredResources = resources.filter((res) => {
     if (!searchTerm.trim()) return true;
@@ -190,15 +247,88 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                 🚨 ACTION REQUIRED: {overdueItems.length} Allocated Resource{overdueItems.length > 1 ? 's are' : ' is'} Past Return Deadline
               </div>
               <div style={{ fontSize: 12, color: '#b91c1c', marginTop: 3 }}>
-                University policy requires immediate return once the allocated duration expires. Notifications have been dispatched. Please click "Force Return Now" below.
+                University policy requires prompt return once allocated duration expires. If you still need this resource, please click "Request Extension" or return it now.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => handleOpenExtension(overdueItems[0])}
+              style={{
+                background: '#f59e0b',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 16px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(245,158,11,0.3)'
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>update</span>
+              Request Extension
+            </button>
+            <button
+              onClick={() => handleOpenReturn(overdueItems[0])}
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '8px 16px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 8px rgba(220,38,38,0.3)'
+              }}
+            >
+              Return Overdue Asset →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Proactive Approaching Deadline Alert Banner */}
+      {approachingItems.length > 0 && (
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+            border: '2px solid #f59e0b',
+            borderRadius: 14,
+            padding: '1.1rem 1.35rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 14,
+            boxShadow: '0 4px 14px rgba(245,158,11,0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 32, color: '#d97706' }}>
+              schedule
+            </span>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#92400e' }}>
+                ⏰ DEADLINE APPROACHING: {approachingItems.length} Allocated Resource{approachingItems.length > 1 ? 's are' : ' is'} Due Within 3 Days
+              </div>
+              <div style={{ fontSize: 12, color: '#b45309', marginTop: 3 }}>
+                Return deadlines are approaching soon. Need more time to finish your tasks? You can request an extension for Department Head review.
               </div>
             </div>
           </div>
 
           <button
-            onClick={() => handleOpenReturn(overdueItems[0])}
+            onClick={() => handleOpenExtension(approachingItems[0])}
             style={{
-              background: '#dc2626',
+              background: '#d97706',
               color: '#ffffff',
               border: 'none',
               borderRadius: 8,
@@ -207,10 +337,14 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
               fontWeight: 700,
               cursor: 'pointer',
               whiteSpace: 'nowrap',
-              boxShadow: '0 2px 8px rgba(220,38,38,0.3)'
+              boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
             }}
           >
-            Return Overdue Asset →
+            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>update</span>
+            Request Extension →
           </button>
         </div>
       )}
@@ -251,7 +385,7 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                 <th>Return Deadline</th>
                 <th>Status</th>
                 <th>Invoice</th>
-                <th style={{ textAlign: 'right', minWidth: '220px' }}>Actions</th>
+                <th style={{ textAlign: 'right', minWidth: '240px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -269,12 +403,51 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                 </tr>
               ) : (
                 filteredResources.map((res) => {
-                  const overdue = isOverdue(res);
+                  const { isOverdue: overdue, isApproaching, daysLeft } = getDeadlineStatus(res);
                   let statusBadge = <span className="badge">{res.status}</span>;
                   let actions = null;
 
                   if (res.status === 'Allocated') {
-                    if (overdue) {
+                    if (res.extensionStatus === 'Pending') {
+                      statusBadge = (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <span className="badge allocated">{res.status}</span>
+                          <span
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1.5px solid #93c5fd',
+                              fontWeight: 700,
+                              fontSize: 11,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4
+                            }}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 13, color: '#2563eb' }}>hourglass_top</span>
+                            Extension Pending
+                          </span>
+                        </div>
+                      );
+                      actions = (
+                        <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#1d4ed8', fontWeight: 600, padding: '4px 8px', background: '#eff6ff', borderRadius: 6, border: '1px solid #bfdbfe' }}>
+                            ⏳ Under Dept Review
+                          </span>
+                          <button
+                            className="btn-danger"
+                            style={{ fontSize: '0.82rem', padding: '0.3rem 0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            disabled={actionLoadingId === res.id}
+                            onClick={() => handleOpenReturn(res)}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>assignment_return</span>
+                            Return
+                          </button>
+                        </div>
+                      );
+                    } else if (overdue) {
                       statusBadge = (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                           <span
@@ -300,6 +473,28 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                         <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', justifyContent: 'flex-end' }}>
                           <button
                             style={{
+                              background: '#f59e0b',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: 7,
+                              padding: '6px 12px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                              boxShadow: '0 2px 6px rgba(245,158,11,0.25)'
+                            }}
+                            disabled={actionLoadingId === res.id}
+                            onClick={() => handleOpenExtension(res)}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>update</span>
+                            Extend
+                          </button>
+                          <button
+                            style={{
                               background: '#dc2626',
                               color: '#ffffff',
                               border: 'none',
@@ -323,9 +518,54 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                         </div>
                       );
                     } else {
-                      statusBadge = <span className="badge allocated">{res.status}</span>;
+                      statusBadge = (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                          <span className="badge allocated">{res.status}</span>
+                          {isApproaching && (
+                            <span
+                              style={{
+                                padding: '2px 7px',
+                                borderRadius: 5,
+                                background: '#fffbeb',
+                                color: '#b45309',
+                                border: '1px solid #fcd34d',
+                                fontWeight: 700,
+                                fontSize: 10,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3
+                              }}
+                            >
+                              <span className="material-symbols-outlined" style={{ fontSize: 12 }}>schedule</span>
+                              Due in {daysLeft <= 1 ? 'Tomorrow' : `${daysLeft} days`}
+                            </span>
+                          )}
+                        </div>
+                      );
                       actions = (
                         <div style={{ display: 'flex', flexDirection: 'row', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button
+                            style={{
+                              background: isApproaching ? '#f59e0b' : '#3b82f6',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: 7,
+                              padding: '6px 12px',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              cursor: 'pointer',
+                              boxShadow: isApproaching ? '0 2px 6px rgba(245,158,11,0.25)' : '0 2px 6px rgba(59,130,246,0.25)'
+                            }}
+                            disabled={actionLoadingId === res.id}
+                            onClick={() => handleOpenExtension(res)}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: '15px' }}>update</span>
+                            Extend
+                          </button>
                           <button
                             className="btn-secondary"
                             style={{ fontSize: '0.82rem', padding: '0.3rem 0.8rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}
@@ -415,14 +655,22 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                       <td>
                         {res.returnDateDisplay || res.returnDate ? (
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: overdue ? 700 : 500, color: overdue ? '#dc2626' : '#334155', fontSize: '0.85rem' }}>
+                            <span style={{ fontWeight: overdue ? 700 : (isApproaching ? 700 : 500), color: overdue ? '#dc2626' : (isApproaching ? '#b45309' : '#334155'), fontSize: '0.85rem' }}>
                               {res.returnDateDisplay || res.returnDate}
                             </span>
-                            {overdue && (
+                            {res.extensionStatus === 'Pending' ? (
+                              <span style={{ fontSize: '0.72rem', color: '#1d4ed8', fontWeight: 600 }}>
+                                Req. Ext: {res.extensionProposedReturnDateDisplay || res.extensionProposedReturnDate}
+                              </span>
+                            ) : overdue ? (
                               <span style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: 700 }}>
                                 Past Deadline
                               </span>
-                            )}
+                            ) : isApproaching ? (
+                              <span style={{ fontSize: '0.72rem', color: '#d97706', fontWeight: 600 }}>
+                                Due Soon
+                              </span>
+                            ) : null}
                           </div>
                         ) : (
                           <span style={{ color: '#94a3b8', fontSize: '0.82rem' }}>—</span>
@@ -578,6 +826,98 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>assignment_turned_in</span>
                   {actionLoadingId === returnModalItem.id ? 'Processing...' : 'Confirm Return'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extension Request Modal */}
+      {extensionModalItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 500, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ background: '#f8fafc', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 22 }}>update</span>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Request Deadline Extension</h3>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>{extensionModalItem.type} — {extensionModalItem.id}</div>
+                </div>
+              </div>
+              <button onClick={() => setExtensionModalItem(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmExtensionSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+              <div style={{ padding: '10px 14px', background: '#f1f5f9', borderRadius: 10, fontSize: 12, color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <strong>Current Deadline:</strong>{' '}
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                    {extensionModalItem.returnDateDisplay || extensionModalItem.returnDate || 'Not specified'}
+                  </span>
+                </div>
+                <div>
+                  <strong>Serial Number:</strong>{' '}
+                  <span style={{ color: '#0f172a', fontWeight: 600 }}>
+                    {extensionModalItem.serialNumber || '—'}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                  New Proposed Return Date <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  value={proposedReturnDate}
+                  min={
+                    extensionModalItem.returnDate
+                      ? new Date(Date.parse(extensionModalItem.returnDate) + 86400000).toISOString().split('T')[0]
+                      : new Date().toISOString().split('T')[0]
+                  }
+                  onChange={(e) => setProposedReturnDate(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
+                />
+                <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                  Select the extended date until which you require this resource.
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                  Justification for Extension <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <textarea
+                  value={extensionReason}
+                  onChange={(e) => setExtensionReason(e.target.value)}
+                  placeholder="Detail why additional time is required (e.g., Client demo scheduled for next Friday, need extra days for code review and testing...)"
+                  rows={4}
+                  required
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: 13, outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setExtensionModalItem(null)}
+                  style={{ padding: '9px 16px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoadingId === extensionModalItem.id}
+                  style={{ padding: '9px 20px', background: '#d97706', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 18 }}>send</span>
+                  {actionLoadingId === extensionModalItem.id ? 'Submitting...' : 'Submit Extension Request'}
                 </button>
               </div>
             </form>

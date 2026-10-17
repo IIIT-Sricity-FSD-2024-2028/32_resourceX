@@ -299,73 +299,27 @@ Each institution's data is isolated from other institutions (multi-tenancy). The
 
 ---
 
-# Project Setup & Execution Instructions
+# Team & Individual Contributions
 
-## 1. Prerequisites
-- **Node.js**: v18.x or v20.x installed
-- **npm**: v9.x or v10.x installed
-- **Git**
+### J Prem Sahith (Roll: `S20240010089`)
 
-## 2. Dependencies & Tech Stack
-- **Frontend (`react-frontend`)**: React 19, React Router v7, Vite 8, Native CSS & Glassmorphism UI
-- **Backend (`backend`)**: NestJS 11, Express, Node.js, TypeScript, Multer, Class-Validator, Swagger
-- **Authentication**: JWT Bearer Tokens, Role-Based Access Control (RBAC), Multi-tab LocalStorage sync
+- **React Conversion of Registrar Portal:**
+  - Architected and implemented the complete React Registrar suite under [`react-frontend/src/components/dashboards/registrar/`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar).
+  - Built master dashboard router & layout ([`RegistrarDashboard.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/RegistrarDashboard.jsx)) synchronizing sidebar navigation, active tabs, and URL routes.
+  - Implemented the 4 core views:
+    - [`RegistrarOverview.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/views/RegistrarOverview.jsx): High-level KPI metric cards and real-time recent requests/procurements tables with resilient parallel data loading (`Promise.all`).
+    - [`ProcurementApprovalsView.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/views/ProcurementApprovalsView.jsx): Full procurement review lifecycle (approve, reject with mandatory justification, cost summaries).
+    - [`GlobalRequestsView.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/views/GlobalRequestsView.jsx): Cross-institution request audit table with dynamic backend department loading.
+    - [`SystemAnalyticsView.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/views/SystemAnalyticsView.jsx): Real-time departmental asset allocation and operational capacity visualization.
+  - Built supporting utilities:
+    - [`FilePreviewModal.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/components/FilePreviewModal.jsx): In-browser document viewer for specification sheets and vendor invoices (supports PDF iframe embedding, image zoom, Base64-to-Blob conversion, and downloads).
+    - [`RegistrarToast.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/dashboards/registrar/components/RegistrarToast.jsx): Non-intrusive floating feedback notification system.
+    - [`services/registrar.js`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/services/registrar.js): Frontend API client connecting to NestJS backend endpoints.
 
-## 3. Installation & Execution Steps
-
-### Step 1: Start the Backend Server
-Open a terminal in the project root:
-```bash
-cd backend
-npm install
-npm start
-```
-* Backend runs at: `http://localhost:3000`
-* Swagger API Documentation: `http://localhost:3000/api/docs`
-
-### Step 2: Start the React Frontend Application
-Open a second terminal in the project root:
-```bash
-cd react-frontend
-npm install
-npm run dev
-```
-* React Application runs at: `http://localhost:5173`
-
----
-
-# Testing & Evaluation Guide
-
-### Demo Test Credentials (All Roles)
-
-| Role | Email | Password | Default Landing Dashboard |
-| :--- | :--- | :--- | :--- |
-| **Requestor** | `ravi@resourcex.com` | `12345678` | `/dashboard/requestor` |
-| **Department Head** | `pradhyum@resourcex.com` | `12345678` | `/dashboard/dept-head` |
-| **Registrar** | `harsha@resourcex.com` | `12345678` | `/dashboard/registrar` |
-| **Staff** | `yaswanth@resourcex.com` | `12345678` | `/dashboard/staff` |
-| **System Admin** | `yashwath@resourcex.com` | `12345678` | `/dashboard/admin` |
-| **Platform Owner** | `owner@resourcex.com` | `password` | `/dashboard/owner` |
-| **Platform Employee** | `employee1@resourcex.com` | `password` | `/dashboard/employee` |
-
-### Core Working Functionalities to Test:
-1. **Multi-Role Authentication & Route Protection**:
-   - Log in using any role above.
-   - Verified that unauthenticated users attempting to access `/dashboard/*` are redirected to `/login` via `ProtectedRoute`.
-   - Verified that authenticated users visiting `/login` are automatically forwarded to their specific dashboard via `PublicOnlyRoute`.
-2. **Resource Request & Department Head Approval Workflow**:
-   - As **Requestor** (`ravi@resourcex.com`), submit a request for an item (e.g. Dell Laptop).
-   - Log out and log in as **Dept Head** (`pradhyum@resourcex.com`) to accept or reject the pending request.
-3. **Staff Allocation & Inventory Control**:
-   - Log in as **Staff** (`yaswanth@resourcex.com`).
-   - Navigate to **Allocations** to assign an available physical asset with a serial number to approved requests.
-4. **Registrar Procurement & Spec Document Upload**:
-   - As **Dept Head**, submit a procurement request with an attached specification file (`specFile`).
-   - The universal client dispatches multipart form data to backend storage.
-   - Log in as **Registrar** (`harsha@resourcex.com`) to review, accept, or reject the procurement.
-5. **System Admin User & Department Management**:
-   - Log in as **System Admin** (`yashwath@resourcex.com`).
-   - Add new users via controlled modal forms, assign departments, and suspend/reactivate accounts.
-
----
+- **Landing Page Architecture & Conversion (Lab 2):**
+  - Modularized and converted the static marketing site into a complete React application under [`react-frontend/src/components/landing/`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing).
+  - Built component tree: [`LandingPage.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/LandingPage.jsx), [`Navbar.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/Navbar.jsx), [`HeroSection.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/HeroSection.jsx), [`DepartmentsSection.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/DepartmentsSection.jsx), [`UsersSection.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/UsersSection.jsx), [`ResourcesSection.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/ResourcesSection.jsx), [`PartnersSection.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/PartnersSection.jsx), [`Footer.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/Footer.jsx).
+  - Created reusable UI elements: [`FeatureCard.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/FeatureCard.jsx) and [`RoleCard.jsx`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/RoleCard.jsx).
+  - Implemented automated **Scroll-Spy** using `IntersectionObserver` to dynamically update active navbar indicators during scrolling.
+  - Authored scoped stylesheets in [`landing.css`](file:///Users/premsahith/Desktop/Sk/fefed/new%20clne/react-frontend/src/components/landing/landing.css) ensuring responsive layouts across mobile, tablet, and desktop viewports.
 

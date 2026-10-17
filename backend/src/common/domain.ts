@@ -161,6 +161,13 @@ export interface ResourceRecord {
   routedFromReturn?: boolean;
   returnDate?: string;
   returnDateDisplay?: string;
+  extensionStatus?: 'None' | 'Pending' | 'Approved' | 'Rejected';
+  extensionProposedReturnDate?: string;
+  extensionProposedReturnDateDisplay?: string;
+  extensionReason?: string;
+  extensionRequestDate?: string;
+  extensionRequestedBy?: string;
+  extensionRequestedById?: string;
 }
 
 export interface ProcurementRegistrationResourceInput

@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, ForbiddenException 
 import { DepartmentResourceCatalogRecord, ResourceRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
-import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto } from './dto/resource.dto';
+import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto, RequestExtensionDto, RejectExtensionDto } from './dto/resource.dto';
 import {
   getActingUser,
   ensureActor,
@@ -174,4 +174,175 @@ export class ResourcesService {
     const orgId = context.organizationId || 'ORG-001';
     return this.dataService.updateResourceCatalog(orgId, dto.department, dto.resourceTypes);
   }
+
+  requestExtension(id: string, dto: RequestExtensionDto, context: RequestContext): ResourceRecord {
+    const user = ensureActor(this.dataService, context);
+    const resource = this.dataService.getResourceById(id);
+    if (!resource) {
+      throw new NotFoundException(`Resource with ID ${id} not found.`);
+    }
+
+    if (resource.status !== 'Allocated') {
+      throw new BadRequestException('Only Allocated resources can be requested for deadline extension.');
+    }
+
+    if (context.role === 'Requestor') {
+      if (resource.assignedToId && resource.assignedToId !== user.id && resource.assignedTo !== user.name) {
+        throw new ForbiddenException('You can only request extension for resources allocated to you.');
+      }
+    }
+
+    if (!dto.proposedReturnDate) {
+      throw new BadRequestException('Proposed return date is required.');
+    }
+
+    const proposedTime = Date.parse(dto.proposedReturnDate);
+    if (isNaN(proposedTime)) {
+      throw new BadRequestException('Invalid proposed return date format.');
+    }
+
+    if (resource.returnDate) {
+      const currTime = Date.parse(resource.returnDate);
+      if (!isNaN(currTime) && proposedTime <= currTime) {
+        throw new BadRequestException('Proposed return date must be strictly after the current return date.');
+      }
+    }
+
+    const displayDate = new Date(proposedTime).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    const updated = this.dataService.updateResource(id, {
+      extensionStatus: 'Pending',
+      extensionProposedReturnDate: dto.proposedReturnDate,
+      extensionProposedReturnDateDisplay: displayDate,
+      extensionReason: dto.reason || 'Need additional time to complete allocation work',
+      extensionRequestDate: new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+      extensionRequestedBy: user.name,
+      extensionRequestedById: user.id,
+    });
+
+    // Notify Department Head
+    this.dataService.insertNotification({
+      id: `NOTIF-EXT-REQ-${id}-${Date.now()}`,
+      organizationId: context.organizationId || resource.organizationId || 'ORG-001',
+      title: `📝 Extension Request: ${resource.name || resource.type}`,
+      description: `${user.name} requested an extension for "${resource.name || resource.type}" (${resource.id}) until ${displayDate}. Reason: ${dto.reason}`,
+      time: 'Just now',
+      read: false,
+      recipientRole: 'Dept Head',
+    });
+
+    // Notify Requestor
+    this.dataService.insertNotification({
+      id: `NOTIF-EXT-SUBMIT-${id}-${Date.now()}`,
+      organizationId: context.organizationId || resource.organizationId || 'ORG-001',
+      title: `⏳ Extension Submitted: ${resource.name || resource.type}`,
+      description: `Your extension request until ${displayDate} for "${resource.name || resource.type}" (${resource.id}) has been submitted for Department Head approval.`,
+      time: 'Just now',
+      read: false,
+      recipientRole: 'Requestor',
+    });
+
+    return updated;
+  }
+
+  approveExtension(id: string, context: RequestContext): ResourceRecord {
+    ensureActor(this.dataService, context);
+    if (context.role !== 'Dept Head' && context.role !== 'System Admin') {
+      throw new ForbiddenException('Only Department Heads or System Admins can approve resource extensions.');
+    }
+
+    const resource = this.dataService.getResourceById(id);
+    if (!resource) {
+      throw new NotFoundException(`Resource with ID ${id} not found.`);
+    }
+
+    ensureDepartmentScoped(this.dataService, context, resource.department);
+
+    if (resource.extensionStatus !== 'Pending') {
+      throw new BadRequestException('Resource does not have a pending extension request.');
+    }
+
+    const newReturnDate = resource.extensionProposedReturnDate || resource.returnDate;
+    const newReturnDateDisplay = resource.extensionProposedReturnDateDisplay || resource.returnDateDisplay;
+
+    const updated = this.dataService.updateResource(id, {
+      returnDate: newReturnDate,
+      returnDateDisplay: newReturnDateDisplay,
+      extensionStatus: 'Approved',
+    });
+
+    // Sync any linked requests
+    const requests = this.dataService.getRequests();
+    const matchingReq = requests.find((r) => r.assignedResources?.includes(id));
+    if (matchingReq) {
+      this.dataService.updateRequest(matchingReq.id, {
+        returnDate: newReturnDate,
+        returnDateDisplay: newReturnDateDisplay,
+      });
+    }
+
+    // Clean up any overdue notifications for this resource now that deadline is extended
+    const notifs = this.dataService.getNotifications();
+    const overdueNotif = notifs.find((n) => n.id === `NOTIF-RETURN-OVERDUE-${id}`);
+    if (overdueNotif) {
+      this.dataService.updateNotification(overdueNotif.id, { read: true });
+    }
+
+    // Notify Requestor
+    this.dataService.insertNotification({
+      id: `NOTIF-EXT-APP-${id}-${Date.now()}`,
+      organizationId: context.organizationId || resource.organizationId || 'ORG-001',
+      title: `✅ Extension Approved: ${resource.name || resource.type}`,
+      description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was APPROVED. New return deadline: ${newReturnDateDisplay || newReturnDate}.`,
+      time: 'Just now',
+      read: false,
+      recipientRole: 'Requestor',
+    });
+
+    return updated;
+  }
+
+  rejectExtension(id: string, dto: RejectExtensionDto | undefined, context: RequestContext): ResourceRecord {
+    ensureActor(this.dataService, context);
+    if (context.role !== 'Dept Head' && context.role !== 'System Admin') {
+      throw new ForbiddenException('Only Department Heads or System Admins can reject resource extensions.');
+    }
+
+    const resource = this.dataService.getResourceById(id);
+    if (!resource) {
+      throw new NotFoundException(`Resource with ID ${id} not found.`);
+    }
+
+    ensureDepartmentScoped(this.dataService, context, resource.department);
+
+    if (resource.extensionStatus !== 'Pending') {
+      throw new BadRequestException('Resource does not have a pending extension request.');
+    }
+
+    const updated = this.dataService.updateResource(id, {
+      extensionStatus: 'Rejected',
+    });
+
+    // Notify Requestor
+    this.dataService.insertNotification({
+      id: `NOTIF-EXT-REJ-${id}-${Date.now()}`,
+      organizationId: context.organizationId || resource.organizationId || 'ORG-001',
+      title: `❌ Extension Rejected: ${resource.name || resource.type}`,
+      description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was REJECTED.${dto?.reason ? ` Reason: ${dto.reason}.` : ''} Please return the asset by the current deadline (${resource.returnDateDisplay || resource.returnDate}).`,
+      time: 'Just now',
+      read: false,
+      recipientRole: 'Requestor',
+    });
+
+    return updated;
+  }
 }
+
