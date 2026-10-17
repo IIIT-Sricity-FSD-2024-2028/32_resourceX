@@ -4,7 +4,10 @@ import AdminModal from '../../admin/components/AdminModal';
 import {
   fetchDeptRequests,
   approveDeptRequest,
-  rejectDeptRequest
+  rejectDeptRequest,
+  fetchDeptResources,
+  approveResourceExtension,
+  rejectResourceExtension
 } from '../../../../services/deptHead';
 import { EmptyRow, LoadingBlock, ErrorBlock, padQty } from '../components/deptHeadUtils';
 
@@ -17,6 +20,7 @@ export default function DeptHeadIncomingRequests() {
   const { addToast = () => {} } = useOutletContext() || {};
 
   const [requests, setRequests] = useState([]);
+  const [extensionRequests, setExtensionRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -26,7 +30,10 @@ export default function DeptHeadIncomingRequests() {
     setIsLoading(true);
     setError(null);
     try {
-      const reqs = await fetchDeptRequests({ status: 'Pending' });
+      const [reqs, resList] = await Promise.all([
+        fetchDeptRequests({ status: 'Pending' }).catch(() => []),
+        fetchDeptResources().catch(() => [])
+      ]);
       const isExpired = (req) => {
         if (!req.requirementDate) return false;
         const parsed = Date.parse(req.requirementDate);
@@ -36,6 +43,10 @@ export default function DeptHeadIncomingRequests() {
         return Date.now() > deadline.getTime();
       };
       setRequests((reqs || []).filter(r => !isExpired(r)));
+
+      // Pending resource extension requests
+      const extPending = (resList || []).filter(r => r.extensionStatus === 'Pending');
+      setExtensionRequests(extPending);
     } catch (err) {
       setError(err.message || 'Failed to load incoming requests.');
       addToast(err.message || 'Error loading incoming requests', 'error');
@@ -75,6 +86,32 @@ export default function DeptHeadIncomingRequests() {
     }
   };
 
+  const handleApproveExtension = async (id) => {
+    setBusyId(id);
+    try {
+      await approveResourceExtension(id);
+      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
+      addToast('Deadline extension approved. Return deadline has been updated.', 'success');
+    } catch (err) {
+      addToast(`Extension approval failed: ${err.message}`, 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleRejectExtension = async (id) => {
+    setBusyId(id);
+    try {
+      await rejectResourceExtension(id, { reason: 'Department scheduling constraints' });
+      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
+      addToast('Deadline extension rejected.', 'info');
+    } catch (err) {
+      addToast(`Extension rejection failed: ${err.message}`, 'error');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const onConfirmReject = async () => {
     const id = rejectRequestId;
     setRejectRequestId(null);
@@ -85,16 +122,92 @@ export default function DeptHeadIncomingRequests() {
   return (
     <div className="view-section">
       <h1 className="page-title">Incoming Requests</h1>
-      <p className="page-subtitle">Review pending resource requests from your department staff.</p>
+      <p className="page-subtitle">Review pending resource requests and extension requests from your department staff.</p>
 
       {isLoading ? (
         <LoadingBlock text="Loading incoming requests..." />
       ) : error ? (
         <ErrorBlock text={error} onRetry={loadData} />
       ) : (
-        <div className="data-section">
-          <div className="data-section-header">
-            <div className="data-section-title">Pending Approvals</div>
+        <>
+          {/* Pending Resource Extension Requests */}
+          {extensionRequests.length > 0 && (
+            <div className="data-section" style={{ marginBottom: '2rem', border: '1.5px solid #fcd34d', background: '#fffdf5' }}>
+              <div className="data-section-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#d97706' }}>
+                    schedule
+                  </span>
+                  <div>
+                    <div className="data-section-title" style={{ color: '#92400e' }}>
+                      Pending Resource Extension Requests ({extensionRequests.length})
+                    </div>
+                    <div style={{ fontSize: 12, color: '#b45309', marginTop: 2 }}>
+                      Requesters requesting additional days for allocated departmental equipment
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Resource Code</th>
+                      <th>Resource Type</th>
+                      <th>Requestor</th>
+                      <th>Current Deadline</th>
+                      <th>Requested Extension</th>
+                      <th>Justification</th>
+                      <th style={{ textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extensionRequests.map((item) => (
+                      <tr key={item.id}>
+                        <td className="td-id">{item.id}</td>
+                        <td style={{ fontWeight: 600 }}>{item.name || item.type}</td>
+                        <td>{item.extensionRequestedBy || item.assignedTo || '—'}</td>
+                        <td style={{ color: '#64748b' }}>{item.returnDateDisplay || item.returnDate || '—'}</td>
+                        <td>
+                          <span style={{ fontWeight: 700, color: '#0F386E', background: '#e0f2fe', padding: '3px 8px', borderRadius: 6, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>event</span>
+                            {item.extensionProposedReturnDateDisplay || item.extensionProposedReturnDate}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.78rem', color: '#475569', maxWidth: 260 }}>
+                          {item.extensionReason || '—'}
+                        </td>
+                        <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            className="btn-primary btn-approve"
+                            disabled={busyId === item.id}
+                            onClick={() => handleApproveExtension(item.id)}
+                            style={{ background: '#059669', borderColor: '#059669', marginRight: 6 }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-danger btn-reject"
+                            disabled={busyId === item.id}
+                            onClick={() => handleRejectExtension(item.id)}
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          <div className="data-section">
+            <div className="data-section-header">
+              <div className="data-section-title">Pending Approvals</div>
             <button
               type="button"
               className="btn-secondary"
@@ -174,6 +287,7 @@ export default function DeptHeadIncomingRequests() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       <AdminModal

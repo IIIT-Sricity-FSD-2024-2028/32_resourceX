@@ -79,6 +79,21 @@ export const confirmRepairedAllocation = async (id) => {
   });
 };
 
+export const requestResourceExtension = async (id, payload = {}) => {
+  return await apiRequest(`/resources/${encodeURIComponent(id)}/request-extension`, {
+    method: 'POST',
+    body: payload,
+  });
+};
+
+export const fetchRequestorReturnHistory = async () => {
+  return await apiRequest('/returns/history');
+};
+
+export const fetchRequestorMaintenanceHistory = async () => {
+  return await apiRequest('/maintenance/history');
+};
+
 // ==========================================
 // 5. Procurement APIs
 // ==========================================

@@ -66,9 +66,9 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
 
   const statCards = [
     { label: 'Pending Allocations', value: stats.pendingAllocations ?? 0, icon: 'sync_alt', color: '#f59e0b', action: () => onNavigate('allocation-queue') },
+    { label: 'Pending Returns', value: stats.pendingReturns ?? 0, icon: 'assignment_return', color: '#d97706', action: () => onNavigate('returns') },
     { label: 'Total Resources', value: stats.totalResources ?? 0, icon: 'inventory_2', color: '#3b82f6', action: () => onNavigate('inventory') },
-    { label: 'Available', value: stats.available ?? 0, icon: 'check_circle', color: '#22c55e', action: () => onNavigate('inventory') },
-    { label: 'Allocated', value: stats.allocated ?? 0, icon: 'assignment_turned_in', color: '#8b5cf6', action: () => onNavigate('inventory') },
+    { label: 'Available Stock', value: stats.available ?? 0, icon: 'check_circle', color: '#22c55e', action: () => onNavigate('inventory') },
   ];
 
   if (loading) return (
@@ -80,6 +80,54 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+      {/* Pending Returns Banner */}
+      {(stats.pendingReturns ?? 0) > 0 && (
+        <div
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: 12,
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="material-icons" style={{ fontSize: 24, color: '#d97706' }}>
+              assignment_return
+            </span>
+            <div>
+              <strong style={{ fontSize: 14, color: '#92400e', display: 'block' }}>
+                Pending Return Inspections: {stats.pendingReturns} resource{stats.pendingReturns > 1 ? 's' : ''} returned by requesters
+              </strong>
+              <span style={{ fontSize: 12, color: '#78350f' }}>
+                Inspect physical assets to assess condition and restock to available inventory or route to maintenance.
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigate('returns')}
+            style={{
+              background: '#d97706',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              padding: '7px 14px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Inspect Returns →
+          </button>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
         {statCards.map(card => (

@@ -41,7 +41,7 @@ export default function DeptHeadProcurement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const [form, setForm] = useState({ resourceType: '', quantity: '', justification: '' });
+  const [form, setForm] = useState({ resourceType: '', quantity: '', justification: '', targetDate: '' });
   const [specFile, setSpecFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileWarning, setFileWarning] = useState(false);
@@ -131,6 +131,8 @@ export default function DeptHeadProcurement() {
       requestedById: user?.id,
       requesterRole: user?.role,
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      targetDate: form.targetDate || undefined,
+      expectedDeliveryDate: form.targetDate || undefined,
       justification: form.justification.trim()
     };
 
@@ -139,7 +141,7 @@ export default function DeptHeadProcurement() {
       const created = await createDeptProcurement(payload, specFile);
       if (created) setProcurements((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
       addToast('Procurement Request submitted and sent to Registrar for approval.', 'success');
-      setForm({ resourceType: '', quantity: '', justification: '' });
+      setForm({ resourceType: '', quantity: '', justification: '', targetDate: '' });
       setSpecFile(null);
     } catch (err) {
       addToast('❌ Failed to submit: ' + (err.message || 'Unknown error. Please try again.'), 'error');
@@ -189,6 +191,20 @@ export default function DeptHeadProcurement() {
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                 required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Target / Needed By Date (Suggested)
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}> (Desired fulfillment timeline · fulfillment accepted even if later)</span>
+              </label>
+              <input
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                className="form-control"
+                value={form.targetDate}
+                onChange={(e) => setForm({ ...form, targetDate: e.target.value })}
               />
             </div>
 
@@ -271,6 +287,7 @@ export default function DeptHeadProcurement() {
                     <th>Proc ID</th>
                     <th>Type</th>
                     <th>Qty</th>
+                    <th>Needed By</th>
                     <th>Status</th>
                     <th>Spec File</th>
                     <th>Invoice</th>
@@ -278,13 +295,22 @@ export default function DeptHeadProcurement() {
                 </thead>
                 <tbody>
                   {procurements.length === 0 ? (
-                    <EmptyRow colSpan={6} text="No procurement requests yet." />
+                    <EmptyRow colSpan={7} text="No procurement requests yet." />
                   ) : (
                     procurements.map((p) => (
                       <tr key={p.id}>
                         <td className="td-id">{p.id}</td>
                         <td>{p.resourceType || p.item}</td>
                         <td>{p.quantity}</td>
+                        <td style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                          {p.targetDateDisplay || p.targetDate ? (
+                            <span style={{ fontWeight: 500, color: '#334155' }}>
+                              📅 {p.targetDateDisplay || p.targetDate}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>—</span>
+                          )}
+                        </td>
                         <td><StatusBadge status={p.status} /></td>
                         <td><FileLink name={p.specFileName} onClick={() => openProcurementFile(p, 'spec')} /></td>
                         <td><FileLink name={p.invoiceFileName} onClick={() => openProcurementFile(p, 'invoice')} /></td>

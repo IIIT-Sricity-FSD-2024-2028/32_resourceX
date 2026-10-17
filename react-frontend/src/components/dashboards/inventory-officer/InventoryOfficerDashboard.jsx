@@ -6,10 +6,12 @@ import InvOfficerOverview from './views/InvOfficerOverview';
 import AllocationQueueView from './views/AllocationQueueView';
 import ResourceRegistrationView from './views/ResourceRegistrationView';
 import InventoryBoardView from './views/InventoryBoardView';
+import InventoryReturnsView from './views/InventoryReturnsView';
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'dashboard' },
   { id: 'allocation-queue', label: 'Allocation Queue', icon: 'sync_alt' },
+  { id: 'returns', label: 'Process Returns', icon: 'assignment_return' },
   { id: 'registration', label: 'Register Assets', icon: 'label' },
   { id: 'inventory', label: 'Inventory Board', icon: 'inventory_2' },
 ];
@@ -36,6 +38,7 @@ export default function InventoryOfficerDashboard() {
           <div style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
             {activeTab === 'overview' && <InvOfficerOverview onNavigate={setActiveTab} addToast={addToast} />}
             {activeTab === 'allocation-queue' && <AllocationQueueView addToast={addToast} />}
+            {activeTab === 'returns' && <InventoryReturnsView addToast={addToast} />}
             {activeTab === 'registration' && <ResourceRegistrationView addToast={addToast} />}
             {activeTab === 'inventory' && <InventoryBoardView addToast={addToast} />}
           </div>

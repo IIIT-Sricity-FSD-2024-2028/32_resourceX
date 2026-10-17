@@ -22,6 +22,13 @@ export class ReturnsService {
       return history;
     }
 
+    if (context.role === 'Requestor') {
+      const uName = user?.name ? user.name.trim().toLowerCase() : '';
+      return history.filter(
+        (item) => item.returnedBy && item.returnedBy.trim().toLowerCase() === uName
+      );
+    }
+
     return history.filter(
       (item) => item.department === user?.department || item.returnedBy === user?.name
     );

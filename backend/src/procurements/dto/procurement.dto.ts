@@ -87,6 +87,21 @@ export class CreateProcurementDto {
   @IsOptional()
   @IsString()
   specFileDataUrl?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-20', description: 'Needed by / target completion date' })
+  @IsOptional()
+  @IsString()
+  targetDate?: string;
+
+  @ApiPropertyOptional({ example: 'Nov 20, 2026' })
+  @IsOptional()
+  @IsString()
+  targetDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: '2026-11-20' })
+  @IsOptional()
+  @IsString()
+  expectedDeliveryDate?: string;
 }
 
 export class UpdateProcurementDto extends PartialType(CreateProcurementDto) {

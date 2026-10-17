@@ -8,7 +8,7 @@ import {
 } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { ResourcesService } from './resources.service';
-import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto } from './dto/resource.dto';
+import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto, RequestExtensionDto, RejectExtensionDto } from './dto/resource.dto';
 import { ResourcesExceptionFilter } from './filters/resources-exception.filter';
 
 @ApiTags('resources')
@@ -130,5 +130,32 @@ export class ResourcesController {
   @ApiCreatedResponse({ description: 'Catalog updated successfully.', type: DepartmentResourceCatalogResponseDto })
   updateCatalog(@Body() dto: UpdateCatalogDto, @Req() req: any) {
     return this.resourcesService.updateCatalog(dto, req.context);
+  }
+
+  @Post(':id/request-extension')
+  @Roles('Requestor', 'System Admin')
+  @ApiOperation({ summary: 'Request deadline extension for an allocated resource' })
+  @ApiParam({ name: 'id', example: 'RES-1049' })
+  @ApiOkResponse({ description: 'Extension requested successfully.', type: ResourceResponseDto })
+  requestExtension(@Param('id') id: string, @Body() dto: RequestExtensionDto, @Req() req: any) {
+    return this.resourcesService.requestExtension(id, dto, req.context);
+  }
+
+  @Post(':id/approve-extension')
+  @Roles('Dept Head', 'System Admin')
+  @ApiOperation({ summary: 'Approve deadline extension for an allocated resource' })
+  @ApiParam({ name: 'id', example: 'RES-1049' })
+  @ApiOkResponse({ description: 'Extension approved successfully.', type: ResourceResponseDto })
+  approveExtension(@Param('id') id: string, @Req() req: any) {
+    return this.resourcesService.approveExtension(id, req.context);
+  }
+
+  @Post(':id/reject-extension')
+  @Roles('Dept Head', 'System Admin')
+  @ApiOperation({ summary: 'Reject deadline extension for an allocated resource' })
+  @ApiParam({ name: 'id', example: 'RES-1049' })
+  @ApiOkResponse({ description: 'Extension rejected successfully.', type: ResourceResponseDto })
+  rejectExtension(@Param('id') id: string, @Body() dto: RejectExtensionDto, @Req() req: any) {
+    return this.resourcesService.rejectExtension(id, dto, req.context);
   }
 }

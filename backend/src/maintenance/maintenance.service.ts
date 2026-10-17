@@ -21,6 +21,13 @@ export class MaintenanceService {
       return history;
     }
 
+    if (context.role === 'Requestor') {
+      const uName = user?.name ? user.name.trim().toLowerCase() : '';
+      return history.filter(
+        (item) => item.allocatedTo && item.allocatedTo.trim().toLowerCase() === uName
+      );
+    }
+
     return history.filter(
       (item) => item.department === user?.department || item.allocatedTo === user?.name
     );

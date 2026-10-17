@@ -9,6 +9,7 @@ import RequestorOverview from './views/RequestorOverview';
 import RequestResourceView from './views/RequestResourceView';
 import MyRequestsView from './views/MyRequestsView';
 import MyResourcesView from './views/MyResourcesView';
+import RequestorHistoryView from './views/RequestorHistoryView';
 
 import './requestor.css';
 
@@ -18,13 +19,14 @@ import './requestor.css';
  * 2. Request Resource
  * 3. My Requests
  * 4. My Resources
- * 5. Procurement
+ * 5. History & Activity
  */
 const REQUESTOR_NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { id: 'request', label: 'Request Resource', icon: 'add_circle' },
   { id: 'my-requests', label: 'My Requests', icon: 'list_alt' },
-  { id: 'my-resources', label: 'My Resources', icon: 'inventory_2' }
+  { id: 'my-resources', label: 'My Resources', icon: 'inventory_2' },
+  { id: 'history', label: 'History & Activity', icon: 'history' }
 ];
 
 export default function RequestorDashboard() {
@@ -94,9 +96,15 @@ export default function RequestorDashboard() {
               <MyResourcesView
                 addToast={addToast}
                 onPreviewFile={handlePreviewFile}
+                onNavigateToHistory={() => handleTabChange('history')}
               />
             )}
 
+            {activeTab === 'history' && (
+              <RequestorHistoryView
+                addToast={addToast}
+              />
+            )}
 
           </div>
         </main>

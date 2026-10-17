@@ -3,13 +3,11 @@ import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import MaintOfficerOverview from './views/MaintOfficerOverview';
 import MaintenanceQueueView from './views/MaintenanceQueueView';
-import ReturnProcessView from './views/ReturnProcessView';
 import HistoryLogView from './views/HistoryLogView';
 
 const NAV_ITEMS = [
   { id: 'overview', label: 'Dashboard', icon: 'dashboard' },
   { id: 'maintenance-queue', label: 'Maintenance Queue', icon: 'build' },
-  { id: 'returns', label: 'Process Returns', icon: 'assignment_return' },
   { id: 'history', label: 'Activity History', icon: 'history' },
 ];
 
@@ -35,7 +33,6 @@ export default function MaintenanceOfficerDashboard() {
           <div style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
             {activeTab === 'overview' && <MaintOfficerOverview onNavigate={setActiveTab} addToast={addToast} />}
             {activeTab === 'maintenance-queue' && <MaintenanceQueueView addToast={addToast} />}
-            {activeTab === 'returns' && <ReturnProcessView addToast={addToast} />}
             {activeTab === 'history' && <HistoryLogView addToast={addToast} />}
           </div>
         </main>

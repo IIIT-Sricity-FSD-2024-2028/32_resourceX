@@ -161,6 +161,13 @@ export interface ResourceRecord {
   routedFromReturn?: boolean;
   returnDate?: string;
   returnDateDisplay?: string;
+  extensionStatus?: 'None' | 'Pending' | 'Approved' | 'Rejected';
+  extensionProposedReturnDate?: string;
+  extensionProposedReturnDateDisplay?: string;
+  extensionReason?: string;
+  extensionRequestDate?: string;
+  extensionRequestedBy?: string;
+  extensionRequestedById?: string;
 }
 
 export interface ProcurementRegistrationResourceInput
@@ -200,6 +207,8 @@ export interface ProcurementRecord {
   trackingNumber?: string;
   shippedDate?: string;
   expectedDeliveryDate?: string;
+  targetDate?: string;
+  targetDateDisplay?: string;
   deliveryNotes?: string;
   /** Resource specification / intent file — stored as a base64 data-URL */
   specFileName?: string;

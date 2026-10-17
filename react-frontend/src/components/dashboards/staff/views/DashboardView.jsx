@@ -18,6 +18,7 @@ export default function DashboardView({ onSwitchView, addToast }) {
     procurement: 0,
     returns: 0
   });
+  const [urgentProcCount, setUrgentProcCount] = useState(0);
   const [allocationItems, setAllocationItems] = useState([]);
   const [maintenanceItems, setMaintenanceItems] = useState([]);
 
@@ -41,6 +42,17 @@ export default function DashboardView({ onSwitchView, addToast }) {
       const returnResources = resources.filter((r) => r.status === 'Returned');
       const procTasks = procs.filter((p) => p.status === 'Approved');
 
+      const urgentProcs = procTasks.filter((p) => {
+        if (!p.targetDate) return false;
+        const target = new Date(p.targetDate);
+        if (isNaN(target.getTime())) return false;
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+        const diffDays = Math.round((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
+        return diffDays <= 3;
+      });
+
       setStats({
         allocations: approvedReqs.length,
         resources: resources.length,
@@ -48,6 +60,7 @@ export default function DashboardView({ onSwitchView, addToast }) {
         procurement: procTasks.length,
         returns: returnResources.length
       });
+      setUrgentProcCount(urgentProcs.length);
 
       setAllocationItems(approvedReqs.slice(0, 5));
       setMaintenanceItems(maintResources.slice(0, 5));
@@ -66,6 +79,47 @@ export default function DashboardView({ onSwitchView, addToast }) {
     <div className="view-section active">
       <h1 className="page-title">Staff Dashboard</h1>
       <p className="page-subtitle">Overview of operations and pending tasks.</p>
+
+      {/* Approaching Procurement Deadlines Alert Banner */}
+      {urgentProcCount > 0 && (
+        <div
+          style={{
+            marginBottom: '1.5rem',
+            padding: '0.9rem 1.25rem',
+            borderRadius: '10px',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #f59e0b',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '1.6rem', color: '#d97706' }}>
+              alarm_on
+            </span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.925rem' }}>
+                ⏰ Procurement Target Date Alert: {urgentProcCount} task{urgentProcCount > 1 ? 's' : ''} approaching deadline or past target date
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#78350f', marginTop: '2px' }}>
+                Check procurement fulfillment to log vendor and invoice details. Purchases can still be completed even if late.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ fontSize: '0.775rem', padding: '0.4rem 0.85rem', whiteSpace: 'nowrap' }}
+            onClick={() => onSwitchView && onSwitchView('procurement')}
+          >
+            Fulfill Tasks →
+          </button>
+        </div>
+      )}
 
       {/* 5 Stats Cards Grid matching staff.html */}
       <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
@@ -113,11 +167,18 @@ export default function DashboardView({ onSwitchView, addToast }) {
 
         <div
           className="stat-card"
-          style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: '1px solid var(--border-color, #e2e8f0)', cursor: 'pointer' }}
+          style={{ background: 'white', padding: '1.25rem', borderRadius: '12px', border: urgentProcCount > 0 ? '1px solid #f59e0b' : '1px solid var(--border-color, #e2e8f0)', cursor: 'pointer' }}
           onClick={() => onSwitchView && onSwitchView('procurement')}
         >
-          <div className="stat-title" style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600, textTransform: 'uppercase' }}>
-            Procurement Tasks
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="stat-title" style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 600, textTransform: 'uppercase' }}>
+              Procurement Tasks
+            </div>
+            {urgentProcCount > 0 && (
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px' }}>
+                ⏰ {urgentProcCount} Urgent
+              </span>
+            )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
             <div style={{ fontSize: '1.85rem', fontWeight: 700, color: '#0284c7' }}>{stats.procurement}</div>

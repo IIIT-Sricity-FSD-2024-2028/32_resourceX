@@ -18,7 +18,10 @@ export class ResourcesValidationMiddleware implements NestMiddleware {
         url.includes('/maintenance-request') ||
         url.includes('/initiate-return') ||
         url.includes('/confirm-repaired') ||
-        url.includes('/scrap');
+        url.includes('/scrap') ||
+        url.includes('/request-extension') ||
+        url.includes('/approve-extension') ||
+        url.includes('/reject-extension');
 
       if (!isActionRoute) {
         const isCatalogUpdate = url.endsWith('/catalog');

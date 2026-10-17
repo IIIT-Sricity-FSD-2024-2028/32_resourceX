@@ -417,6 +417,12 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
                         <strong style={{ color: '#0f172a', display: 'block', fontSize: 14 }}>
                           {p.resourceType || p.item}
                         </strong>
+                        {(p.targetDate || p.targetDateDisplay) && (
+                          <div style={{ fontSize: 11, color: '#0369a1', marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 3, background: '#e0f2fe', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
+                            <span className="material-icons" style={{ fontSize: 13 }}>event</span>
+                            Needed by: {p.targetDateDisplay || p.targetDate}
+                          </div>
+                        )}
                       </td>
 
                       {/* Quantity */}

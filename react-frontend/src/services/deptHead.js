@@ -45,6 +45,19 @@ export const fetchDeptResourceTypes = async (department) => {
   return entry ? [...(entry.resourceTypes || [])] : [];
 };
 
+export const approveResourceExtension = async (id) => {
+  return await apiRequest(`/resources/${encodeURIComponent(id)}/approve-extension`, {
+    method: 'POST'
+  });
+};
+
+export const rejectResourceExtension = async (id, payload = {}) => {
+  return await apiRequest(`/resources/${encodeURIComponent(id)}/reject-extension`, {
+    method: 'POST',
+    body: payload
+  });
+};
+
 // ==========================================
 // 4. Procurements
 // ==========================================

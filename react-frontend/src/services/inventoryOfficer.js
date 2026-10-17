@@ -49,23 +49,40 @@ export const registerProcurement = async (id, resources) =>
     body: { resources }
   });
 
+// ── Return Processing & History ───────────────────────────────────────────────
+
+export const fetchReturnHistory = async () =>
+  apiRequest('/returns/history');
+
+export const processReturn = async (resourceId, payload) => {
+  const body = typeof payload === 'string' ? { condition: payload } : payload;
+  return apiRequest(`/returns/${encodeURIComponent(resourceId)}/process`, {
+    method: 'POST',
+    body,
+  });
+};
+
 // ── Overview Stats ─────────────────────────────────────────────────────────────
 
 export const fetchInventoryOfficerStats = async (department) => {
-  const [requests, resources] = await Promise.all([
+  const [requests, resources, returnHistory] = await Promise.all([
     fetchAllRequests({ department }).catch(() => []),
-    fetchResources({ department }).catch(() => [])
+    fetchResources({ department }).catch(() => []),
+    fetchReturnHistory().catch(() => [])
   ]);
   const reqList = Array.isArray(requests) ? requests : [];
   const resList = Array.isArray(resources) ? resources : [];
+  const rList = Array.isArray(returnHistory) ? returnHistory : [];
   return {
     requests: reqList,
     resources: resList,
+    returnHistory: rList,
     stats: {
       pendingAllocations: reqList.filter(r => r.status === 'Approved').length,
       totalResources: resList.length,
       available: resList.filter(r => r.status === 'Available').length,
       allocated: resList.filter(r => r.status === 'Allocated').length,
+      pendingReturns: resList.filter(r => r.status === 'Returned').length,
       pendingRegistration: resList.filter(r => r.status === 'Returned').length,
     }
   };
