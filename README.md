@@ -365,15 +365,17 @@ npm run dev
 
 All institution-level accounts are pre-seeded under tenant `ORG-001` (Acme Corp):
 
+Email format: platform accounts are `owner@resourcex.com` and `employee{number}@resourcex.com`. Organization-level accounts use `{name}{roleCode}{organizationName}@gmail.com`, with role codes `re` Requestor, `rg` Registrar, `sa` System Admin, `dh` Department Head, `mo` Maintenance Officer, `io` Inventory Officer and `po` Procurement Officer. The backend enforces this when users and organizations are created. Sign in with email and password only; the dashboard is chosen from the account's role.
+
 | Role | Name | Email | Password | Primary Scope / Capabilities |
 | :--- | :--- | :--- | :--- | :--- |
-| **Requestor** | RAVI CHANDRA | `ravi@resourcex.com` | `12345678` | Resource requests, allocated assets, returns, maintenance tickets, and return/maintenance history logs |
-| **Department Head** | pradhyum | `pradhyum@resourcex.com` | `12345678` | Request approvals/rejections, department inventory monitoring, stock thresholds, procurement requests |
-| **Registrar** | HARSHA TEJ | `harsha@resourcex.com` | `12345678` | Institutional procurement approvals, vendor invoice previews, global asset analytics |
-| **Inventory Officer** | yaswanth kumar | `yaswanth@resourcex.com` | `12345678` | Resource inspection queue, return grading, destination dispatching (Available / Maintenance / Scrap), return history logs |
-| **Maintenance Officer** | Kumar Maint | `kumarmaint@resourcex.com` | `12345678` | Equipment diagnostics, maintenance tickets, repair status updates, scrap marking |
-| **Procurement Officer** | Kumar Proc | `kumarproc@resourcex.com` | `12345678` | Purchasing tasks, invoice & warranty entry, asset onboarding |
-| **System Admin** | yashwath | `yashwath@resourcex.com` | `12345678` | Institution user management, department configuration, role permissions |
+| **Requestor** | RAVI CHANDRA | `ravichandrareacmecorp@gmail.com` | `12345678` | Resource requests, allocated assets, returns, maintenance tickets, and return/maintenance history logs |
+| **Department Head** | pradhyum | `pradhyumdhacmecorp@gmail.com` | `12345678` | Request approvals/rejections, department inventory monitoring, stock thresholds, procurement requests |
+| **Registrar** | HARSHA TEJ | `harshatejrgacmecorp@gmail.com` | `12345678` | Institutional procurement approvals, vendor invoice previews, global asset analytics |
+| **Inventory Officer** | yaswanth kumar | `yaswanthkumarioacmecorp@gmail.com` | `12345678` | Resource inspection queue, return grading, destination dispatching (Available / Maintenance / Scrap), return history logs |
+| **Maintenance Officer** | Kumar Maint | `kumarmaintmoacmecorp@gmail.com` | `12345678` | Equipment diagnostics, maintenance tickets, repair status updates, scrap marking |
+| **Procurement Officer** | Kumar Proc | `kumarprocpoacmecorp@gmail.com` | `12345678` | Purchasing tasks, invoice & warranty entry, asset onboarding |
+| **System Admin** | yashwath | `yashwathsaacmecorp@gmail.com` | `12345678` | Institution user management, department configuration, role permissions |
 | **Platform Owner** | Platform Owner | `owner@resourcex.com` | `password` | Multi-tenant SaaS administration, subscription tiers, platform employee management, revenue analytics |
 | **Platform Employee** | Support Employee 1 | `employee1@resourcex.com` | `password` | Cross-tenant support tickets, tenant onboarding, broadcast announcements |
 
@@ -399,21 +401,21 @@ npm run build
 You can verify the complete end-to-end operational workflows:
 
 1. **Request & Allocation Workflow**:
-   - Log in as **Requestor** (`ravi@resourcex.com`) -> Submit a resource request.
-   - Log in as **Dept Head** (`pradhyum@resourcex.com`) -> Approve request.
-   - Log in as **Inventory Officer** (`yaswanth@resourcex.com`) -> Allocate available resource.
+   - Log in as **Requestor** (`ravichandrareacmecorp@gmail.com`) -> Submit a resource request.
+   - Log in as **Dept Head** (`pradhyumdhacmecorp@gmail.com`) -> Approve request.
+   - Log in as **Inventory Officer** (`yaswanthkumarioacmecorp@gmail.com`) -> Allocate available resource.
    - Requestor receives asset and marks it as received in "My Resources".
 
 2. **Resource Return & Inspection Workflow**:
    - In **Requestor** dashboard ("My Resources"), select an allocated asset and submit **Return Resource** with notes.
-   - Log in as **Inventory Officer** (`yaswanth@resourcex.com`) -> Open **Process Returns** view.
+   - Log in as **Inventory Officer** (`yaswanthkumarioacmecorp@gmail.com`) -> Open **Process Returns** view.
    - Inspect asset condition (e.g. *Good*, *Fair*, *Damaged*) and route to destination (*Available*, *Maintenance Requested*, or *Scrapped*).
    - In **Return History Logs**, verify the immutable audit entry.
    - Return to **Requestor** dashboard -> Open **History & Activity** -> Check **Return History** tab.
    - Confirm status badge displays clean **`✅ Return Accepted & Closed`** and **`Processed by Inventory`** without exposing internal warehouse routing details.
 
 3. **Maintenance Repair Workflow**:
-   - When an item is dispatched to maintenance from returns or logged by a user, log in as **Maintenance Officer** (`kumarmaint@resourcex.com`).
+   - When an item is dispatched to maintenance from returns or logged by a user, log in as **Maintenance Officer** (`kumarmaintmoacmecorp@gmail.com`).
    - View ticket under maintenance queue, process diagnostics, and mark as **Repaired**.
    - Requestor checks **Maintenance History** tab to view completed ticket, technician notes, and resolved status.
 

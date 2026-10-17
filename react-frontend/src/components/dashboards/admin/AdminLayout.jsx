@@ -27,7 +27,7 @@ export default function AdminLayout() {
       {/* Main Wrapper */}
       <div className="main-wrapper">
         {/* Top Header */}
-        <AppHeader hideSearch={true} />
+        <AppHeader />
 
         {/* Content Area */}
         <main className="content-area" >

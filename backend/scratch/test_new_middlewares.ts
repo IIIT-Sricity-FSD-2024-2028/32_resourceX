@@ -71,7 +71,7 @@ async function runMiddlewareTests() {
     name: 'Admin Login',
     method: 'POST',
     path: '/api/auth/login',
-    body: { email: 'yashwath@resourcex.com', password: '12345678' }
+    body: { email: 'yashwathsaacmecorp@gmail.com', password: '12345678' }
   });
   const adminToken = adminLogin.body.access_token;
 

@@ -118,6 +118,13 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated or Available resources can go to maintenance.');
     }
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Maintenance Officer',
+      department: resource.department,
+      title: 'Maintenance requested',
+      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${dto?.issue || 'General Maintenance Requested'}.`,
+    });
     return this.dataService.updateResource(id, {
       status: 'Maintenance Requested',
       maintenanceIssue: dto?.issue || resource.maintenanceIssue || 'General Maintenance Requested',
@@ -137,6 +144,20 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated resources can be returned.');
     }
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: resource.department,
+      title: 'Return initiated',
+      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}. Please inspect and accept it.`,
+    });
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Dept Head',
+      department: resource.department,
+      title: 'Return initiated',
+      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}.`,
+    });
     return this.dataService.updateResource(id, {
       status: 'Returned',
       returnReason: dto?.reason || 'Return Requested',

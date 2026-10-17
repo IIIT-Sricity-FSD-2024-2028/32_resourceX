@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { UserRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
+import { EMPLOYEE_EMAIL_PATTERN, validateOrgEmail } from '../common/email-format';
 import { CreateEmployeeDto, CreateUserDto, UpdateUserDto } from './dto/user.dto';
 
 @Injectable()
@@ -43,6 +44,9 @@ export class UsersService {
 
   /** Owner creates a new platform Employee */
   createEmployee({ name, email, password }: CreateEmployeeDto): UserRecord {
+    if (!EMPLOYEE_EMAIL_PATTERN.test(email.trim())) {
+      throw new BadRequestException('Employee email must be in the format employee{number}@resourcex.com (e.g. employee6@resourcex.com).');
+    }
     if (this.dataService.getUserByEmail(email)) {
       throw new BadRequestException('An account with this email already exists.');
     }
@@ -63,25 +67,105 @@ export class UsersService {
   }
 
   create(context: RequestContext, payload: CreateUserDto): UserRecord {
+    const orgId = context.organizationId || 'ORG-001';
+    const orgName = this.dataService.getOrganizationById(orgId)?.name || '';
+    const formatError = validateOrgEmail(payload.email, payload.role, orgName);
+    if (formatError) {
+      throw new BadRequestException(formatError);
+    }
+    if (this.dataService.getUserByEmail(payload.email)) {
+      throw new BadRequestException('An account with this email already exists.');
+    }
+    const department = this.resolveDepartment(orgId, payload.role, payload.department);
     const users = this.dataService.getUsers();
     const newId = `U${users.length + 1}_${Date.now()}`;
     const user: UserRecord = {
       id: newId,
       ...payload,
-      organizationId: context.organizationId || 'ORG-001',
+      department,
+      organizationId: orgId,
       status: payload.status || 'Active',
       preferences: { notifications: true }
     };
-    return this.dataService.insertUser(user);
+    if (!department) delete user.department;
+    const created = this.dataService.insertUser(user);
+    this.syncDepartmentHead(orgId, created);
+    return created;
   }
 
   update(id: string, payload: UpdateUserDto, context: RequestContext): UserRecord {
-    this.getScopedUser(id, context);
-    return this.dataService.updateUser(id, payload);
+    const existing = this.getScopedUser(id, context);
+    const orgId = existing.organizationId || context.organizationId || 'ORG-001';
+    const updates: UpdateUserDto = { ...payload };
+    // Passwords are not changed through the edit-access form
+    delete updates.password;
+    if (updates.email && updates.email.toLowerCase() !== existing.email.toLowerCase()) {
+      const orgName = this.dataService.getOrganizationById(orgId)?.name || '';
+      const formatError = validateOrgEmail(updates.email, updates.role || existing.role, orgName);
+      if (formatError) {
+        throw new BadRequestException(formatError);
+      }
+      const clash = this.dataService.getUserByEmail(updates.email);
+      if (clash && clash.id !== id) {
+        throw new BadRequestException('An account with this email already exists.');
+      }
+    }
+    const role = updates.role || existing.role;
+    if (updates.role !== undefined || updates.department !== undefined) {
+      updates.department = this.resolveDepartment(orgId, role, updates.department ?? existing.department, id);
+    }
+    const updated = this.dataService.updateUser(id, updates);
+    // Release the old department if this user stopped heading it
+    if (existing.role === 'Dept Head' && existing.department &&
+        (updated.role !== 'Dept Head' || updated.department !== existing.department)) {
+      this.clearDepartmentHead(orgId, existing.department, existing.name);
+    }
+    this.syncDepartmentHead(orgId, updated);
+    return updated;
+  }
+
+  /**
+   * Requestors and Registrars are general actors (no department). A Dept Head needs a department
+   * that does not already have a head (one head per department).
+   */
+  private resolveDepartment(orgId: string, role: string, department?: string, selfId?: string): string | undefined {
+    if (role === 'Requestor' || role === 'Registrar' || role === 'System Admin' || role === 'Owner' || role === 'Employee') {
+      return undefined;
+    }
+    if (role === 'Dept Head') {
+      if (!department) {
+        throw new BadRequestException('A department is required for a Department Head.');
+      }
+      const dept = this.dataService.getDepartments().find((d) => d.organizationId === orgId && d.name === department);
+      if (!dept) {
+        throw new BadRequestException(`Department "${department}" not found.`);
+      }
+      const other = this.dataService
+        .getUsers()
+        .find((u) => u.id !== selfId && u.organizationId === orgId && u.role === 'Dept Head' && u.department === department && u.status !== 'Inactive');
+      if (other) {
+        throw new BadRequestException(`Department "${department}" already has a head (${other.name}).`);
+      }
+    }
+    return department;
+  }
+
+  private syncDepartmentHead(orgId: string, user: UserRecord): void {
+    if (user.role !== 'Dept Head' || !user.department) return;
+    const dept = this.dataService.getDepartments().find((d) => d.organizationId === orgId && d.name === user.department);
+    if (dept) this.dataService.updateDepartment(dept.id, { head: user.name });
+  }
+
+  private clearDepartmentHead(orgId: string, departmentName: string, headName: string): void {
+    const dept = this.dataService.getDepartments().find((d) => d.organizationId === orgId && d.name === departmentName);
+    if (dept && dept.head === headName) this.dataService.updateDepartment(dept.id, { head: '' });
   }
 
   deactivate(id: string, context: RequestContext): UserRecord {
-    this.getScopedUser(id, context);
+    const existing = this.getScopedUser(id, context);
+    if (existing.role === 'Dept Head' && existing.department) {
+      this.clearDepartmentHead(existing.organizationId || context.organizationId || 'ORG-001', existing.department, existing.name);
+    }
     return this.dataService.updateUser(id, { status: 'Inactive' });
   }
 

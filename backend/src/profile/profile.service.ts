@@ -9,12 +9,13 @@ import { getActingUser } from '../common/utils';
 export class ProfileService {
   constructor(private readonly dataService: DataService) {}
 
-  getMe(context: RequestContext): UserRecord {
+  getMe(context: RequestContext): UserRecord & { organizationName?: string } {
     const user = getActingUser(this.dataService, context);
     if (!user) {
       throw new NotFoundException('Active user profile not found.');
     }
-    return user;
+    const org = this.dataService.getOrganizationById(user.organizationId || '');
+    return { ...user, organizationName: org?.name };
   }
 
   updateProfile(context: RequestContext, payload: UpdateProfileDto): UserRecord {

@@ -73,7 +73,7 @@ export default function OwnerCreateEmployee() {
             <input
               type="email"
               className="form-control"
-              placeholder="e.g. priya@resourcex.com"
+              placeholder="e.g. employee6@resourcex.com"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}

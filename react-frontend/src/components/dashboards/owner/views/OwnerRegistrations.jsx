@@ -67,17 +67,18 @@ export default function OwnerRegistrations() {
               <th>Organization Name</th>
               <th>Admin Email</th>
               <th>Plan</th>
+              <th>Proof Documents</th>
               <th>Action</th>
             </tr>
           </thead>
           <tbody id="regTableBody">
             {isLoading ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading...</td>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading...</td>
               </tr>
             ) : pending.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   No pending registrations. All caught up! ✅
                 </td>
               </tr>
@@ -88,6 +89,23 @@ export default function OwnerRegistrations() {
                   <td><strong>{org.name}</strong></td>
                   <td>{org.adminEmail}</td>
                   <td>{org.subscriptionPlanId || '—'}</td>
+                  <td style={{ fontSize: '0.8rem' }}>
+                    {org.adminProofFileDataUrl ? (
+                      <a href={org.adminProofFileDataUrl} download={org.adminProofFileName || 'admin-proof'}>
+                        System Admin proof
+                      </a>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>No admin proof</span>
+                    )}
+                    <br />
+                    {org.orgProofFileDataUrl ? (
+                      <a href={org.orgProofFileDataUrl} download={org.orgProofFileName || 'organization-proof'}>
+                        Organization details
+                      </a>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>No organization proof</span>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"

@@ -16,6 +16,7 @@ export default function AdminSubscription() {
   const [myOrg, setMyOrg] = useState(null);
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showPlans, setShowPlans] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -43,6 +44,7 @@ export default function AdminSubscription() {
       addToast('Subscription plan updated successfully', 'success');
       const updatedOrg = await fetchAdminOrganization();
       setMyOrg(updatedOrg);
+      setShowPlans(false);
     } catch (err) {
       addToast(err.message || 'Failed to update subscription.', 'error');
     }
@@ -78,6 +80,16 @@ export default function AdminSubscription() {
                 <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#64748b' }}>
                   No expiry (In-Memory)
                 </div>
+                {!showPlans && (
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ marginTop: '0.75rem' }}
+                    onClick={() => setShowPlans(true)}
+                  >
+                    Update Plan
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -86,10 +98,14 @@ export default function AdminSubscription() {
         </div>
       </div>
 
-      {/* Available Plans */}
+      {/* Available Plans (shown only after clicking Update Plan) */}
+      {showPlans && (
       <div className="data-section" style={{ marginTop: '1.5rem' }}>
         <div className="data-section-header">
           <div className="data-section-title">Available Plans</div>
+          <button type="button" className="btn-secondary" onClick={() => setShowPlans(false)}>
+            Cancel
+          </button>
         </div>
         <div
           id="subscription-plans-grid"
@@ -172,6 +188,7 @@ export default function AdminSubscription() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -76,6 +76,15 @@ export interface OrganizationRecord {
   assignedEmployeeId?: string;
   subscriptionExpiryDate?: string;
   revenueGenerated?: number;
+  adminName?: string;
+  /** Proof of the System Admin's identity (uploaded at registration) */
+  adminProofFileName?: string;
+  adminProofFileType?: string;
+  adminProofFileDataUrl?: string;
+  /** Supporting document for the organization's details (uploaded at registration) */
+  orgProofFileName?: string;
+  orgProofFileType?: string;
+  orgProofFileDataUrl?: string;
 }
 
 export interface QueryRecord {
@@ -232,6 +241,10 @@ export interface NotificationRecord {
   time: string;
   read: boolean;
   recipientRole: RecipientRole;
+  /** When set, only users of this department (for department-scoped roles) see the notification */
+  department?: string;
+  /** When set, only this specific user sees the notification */
+  recipientUserId?: string;
 }
 
 export interface MaintenanceHistoryRecord {

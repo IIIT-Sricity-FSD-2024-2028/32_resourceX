@@ -94,7 +94,15 @@ export class RequestsService {
       date: payload.date || new Date().toLocaleDateString('en-US'),
     };
 
-    return this.dataService.insertRequest(request);
+    const saved = this.dataService.insertRequest(request);
+    this.dataService.notify({
+      organizationId: saved.organizationId,
+      recipientRole: 'Dept Head',
+      department: saved.department,
+      title: 'New resource request',
+      description: `${saved.requestor} requested ${saved.quantity} x ${saved.resourceType} (${saved.id}). Review it in Incoming Requests.`,
+    });
+    return saved;
   }
 
   update(id: string, payload: UpdateRequestDto): RequestRecord {
@@ -113,7 +121,22 @@ export class RequestsService {
     if (request.status !== 'Pending') {
       throw new BadRequestException('Can only approve pending requests.');
     }
-    return this.dataService.updateRequest(id, { status: 'Approved' });
+    const approved = this.dataService.updateRequest(id, { status: 'Approved' });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Request approved',
+      description: `Your request ${id} for ${request.resourceType} was approved by the department head.`,
+    });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: request.department,
+      title: 'Request ready for allocation',
+      description: `Request ${id} (${request.quantity} x ${request.resourceType}) was approved and awaits allocation.`,
+    });
+    return approved;
   }
 
   reject(id: string, context?: RequestContext): RequestRecord {
@@ -127,7 +150,15 @@ export class RequestsService {
     if (request.status !== 'Pending') {
       throw new BadRequestException('Can only reject pending requests.');
     }
-    return this.dataService.updateRequest(id, { status: 'Rejected' });
+    const rejected = this.dataService.updateRequest(id, { status: 'Rejected' });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Request rejected',
+      description: `Your request ${id} for ${request.resourceType} was rejected by the department head.`,
+    });
+    return rejected;
   }
 
   allocate(id: string, resourceIds: string[], context: RequestContext): RequestRecord {
@@ -171,10 +202,25 @@ export class RequestsService {
       });
     }
 
-    return this.dataService.updateRequest(id, {
+    const allocated = this.dataService.updateRequest(id, {
       status: 'Allocated',
       assignedResources: resourceIds.join(', ')
     });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Resource allocated',
+      description: `${request.quantity} x ${request.resourceType} was allocated for request ${id}. Please confirm receipt.`,
+    });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Dept Head',
+      department: request.department,
+      title: 'Resource allocated',
+      description: `Request ${id} from ${request.requestor} (${request.resourceType}) has been allocated.`,
+    });
+    return allocated;
   }
 
   delete(id: string): RequestRecord {

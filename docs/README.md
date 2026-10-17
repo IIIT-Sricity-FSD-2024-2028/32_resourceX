@@ -53,8 +53,8 @@ To get a token, send a `POST` request to `/api/auth/login` with user credentials
 
 The system has mock data with the following test credentials:
 
-- **Requestor**: `ravi@resourcex.com` / `12345678` (ID: `U1`)
-- **Dept Head**: `pradhyum@resourcex.com` / `12345678` (ID: `U2`)
-- **Registrar**: `harsha@resourcex.com` / `12345678` (ID: `U3`)
-- **Staff**: `prem@resourcex.com` / `12345678` (ID: `U4`)
-- **System Admin**: `yashwath@resourcex.com` / `12345678` (ID: `U5`)
+- **Requestor**: `ravichandrareacmecorp@gmail.com` / `12345678` (ID: `U1`)
+- **Dept Head**: `pradhyumdhacmecorp@gmail.com` / `12345678` (ID: `U2`)
+- **Registrar**: `harshatejrgacmecorp@gmail.com` / `12345678` (ID: `U3`)
+- **Staff**: `yaswanthkumarioacmecorp@gmail.com` / `12345678` (ID: `U4`)
+- **System Admin**: `yashwathsaacmecorp@gmail.com` / `12345678` (ID: `U5`)
