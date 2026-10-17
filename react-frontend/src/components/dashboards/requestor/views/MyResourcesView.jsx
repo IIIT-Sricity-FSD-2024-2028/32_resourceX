@@ -8,12 +8,16 @@ import {
   confirmRepairedAllocation,
   requestResourceExtension
 } from '../../../../services/requestor';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToHistory }) {
   const { user } = useAuth();
   const [resources, setResources] = useState([]);
   const [procurements, setProcurements] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [deptFilter, setDeptFilter] = useState('All');
+  const [deadlineFilter, setDeadlineFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
@@ -206,17 +210,19 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
   const overdueItems = resources.filter((r) => getDeadlineStatus(r).isOverdue);
   const approachingItems = resources.filter((r) => getDeadlineStatus(r).isApproaching && r.extensionStatus !== 'Pending');
 
-  const filteredResources = resources.filter((res) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    return (
-      (res.id && res.id.toLowerCase().includes(term)) ||
-      (res.name && res.name.toLowerCase().includes(term)) ||
-      (res.type && res.type.toLowerCase().includes(term)) ||
-      (res.department && res.department.toLowerCase().includes(term)) ||
-      (res.status && res.status.toLowerCase().includes(term))
-    );
-  });
+  const deadlineLabel = (res) => {
+    const d = getDeadlineStatus(res);
+    if (d.isOverdue) return 'Overdue';
+    if (d.isApproaching) return 'Due Soon';
+    return 'On Track';
+  };
+
+  const filteredResources = resources.filter((res) =>
+    (statusFilter === 'All' || res.status === statusFilter) &&
+    (deptFilter === 'All' || res.department === deptFilter) &&
+    (deadlineFilter === 'All' || deadlineLabel(res) === deadlineFilter) &&
+    matchesSearch(searchTerm, res.id, res.name, res.type, res.department, res.status, res.date, res.returnDateDisplay, res.returnDate, res.invoice)
+  );
 
   return (
     <div className="view-section">
@@ -368,27 +374,19 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
       <div className="data-section">
         <div className="data-section-header">
           <div className="data-section-title">Allocated Assets</div>
-          <div className="search-bar" style={{ width: '260px' }}>
-            <span className="material-symbols-outlined search-icon" style={{ fontSize: '18px' }}>
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <span
-                className="clear-btn"
-                style={{ display: 'inline-flex' }}
-                onClick={() => setSearchTerm('')}
-              >
-                ✕
-              </span>
-            )}
-          </div>
         </div>
+        <TableToolbar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder="Search by code, type, department, status or date..."
+          filters={[
+            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(resources, 'status') },
+            { label: 'All Departments', value: deptFilter, onChange: setDeptFilter, options: uniqueOptions(resources, 'department') },
+            { label: 'All Deadlines', value: deadlineFilter, onChange: setDeadlineFilter, options: ['Overdue', 'Due Soon', 'On Track'] },
+          ]}
+          resultCount={filteredResources.length}
+          totalCount={resources.length}
+        />
 
         <div className="table-responsive">
           <table className="table">
@@ -414,7 +412,7 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
               ) : filteredResources.length === 0 ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                    {searchTerm ? 'No resources match your search.' : 'No resources currently allocated to you.'}
+                    {resources.length > 0 ? 'No resources match your search or filters.' : 'No resources currently allocated to you.'}
                   </td>
                 </tr>
               ) : (

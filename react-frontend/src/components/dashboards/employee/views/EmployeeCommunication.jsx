@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import AnnouncementModal from '../components/AnnouncementModal';
 import RepliesModal from '../components/RepliesModal';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchEmployeeInstitutions,
   fetchEmployeeAnnouncements,
@@ -20,6 +21,10 @@ export default function EmployeeCommunication() {
   const [institutions, setInstitutions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [targetFilter, setTargetFilter] = useState('All');
+  const [replyFilter, setReplyFilter] = useState('All');
 
   // Modal state
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -44,6 +49,14 @@ export default function EmployeeCommunication() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const targetLabel = (a) => (a.targetOrgId === 'ALL' ? 'All Institutions (Broadcast)' : a.targetOrgId);
+  const visibleAnnouncements = [...announcements].reverse().filter((a) =>
+    (typeFilter === 'All' || a.type === typeFilter) &&
+    (targetFilter === 'All' || targetLabel(a) === targetFilter) &&
+    (replyFilter === 'All' || (replyFilter === 'Replied') === Boolean(a.adminReply)) &&
+    matchesSearch(search, a.id, targetLabel(a), a.type, a.title, a.message, a.date, a.adminReply)
+  );
 
   const handleCreate = async (payload) => {
     try {
@@ -70,6 +83,18 @@ export default function EmployeeCommunication() {
       </div>
 
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ID, institution, title or message..."
+          filters={[
+            { label: 'All Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(announcements, 'type') },
+            { label: 'All Targets', value: targetFilter, onChange: setTargetFilter, options: uniqueOptions(announcements, targetLabel) },
+            { label: 'All Replies', value: replyFilter, onChange: setReplyFilter, options: ['Replied', 'No Reply'] },
+          ]}
+          resultCount={visibleAnnouncements.length}
+          totalCount={announcements.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -87,14 +112,14 @@ export default function EmployeeCommunication() {
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading...</td>
               </tr>
-            ) : announcements.length === 0 ? (
+            ) : visibleAnnouncements.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No announcements sent yet.
+                  {announcements.length === 0 ? 'No announcements sent yet.' : 'No announcements match your search or filters.'}
                 </td>
               </tr>
             ) : (
-              [...announcements].reverse().map((a) => (
+              visibleAnnouncements.map((a) => (
                 <tr key={a.id}>
                   <td>{a.id}</td>
                   <td>{a.targetOrgId === 'ALL' ? <em>All Institutions (Broadcast)</em> : a.targetOrgId}</td>

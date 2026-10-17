@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import NewTicketModal from '../components/NewTicketModal';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchAdminSupportTickets,
   createAdminSupportTicket
@@ -18,6 +19,9 @@ export default function AdminSupport() {
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [replyFilter, setReplyFilter] = useState('All');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -52,6 +56,12 @@ export default function AdminSupport() {
     }
   };
 
+  const visibleTickets = [...tickets].reverse().filter((t) =>
+    (statusFilter === 'All' || (t.status || 'Open') === statusFilter) &&
+    (replyFilter === 'All' || (replyFilter === 'Replied') === Boolean(t.reply)) &&
+    matchesSearch(search, t.id, t.title, t.description, t.date, t.reply)
+  );
+
   const getStatusBadge = (status) => {
     if (status === 'Open') {
       return <span className="badge pending">Open</span>;
@@ -83,6 +93,17 @@ export default function AdminSupport() {
       </div>
 
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ticket ID, title, description or reply..."
+          filters={[
+            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(tickets, (t) => t.status || 'Open') },
+            { label: 'All Replies', value: replyFilter, onChange: setReplyFilter, options: ['Replied', 'Awaiting Reply'] },
+          ]}
+          resultCount={visibleTickets.length}
+          totalCount={tickets.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -101,14 +122,16 @@ export default function AdminSupport() {
                   Loading...
                 </td>
               </tr>
-            ) : tickets.length === 0 ? (
+            ) : visibleTickets.length === 0 ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No queries raised yet. Click "Raise New Query" to get help.
+                  {tickets.length === 0
+                    ? 'No queries raised yet. Click "Raise New Query" to get help.'
+                    : 'No queries match your search or filters.'}
                 </td>
               </tr>
             ) : (
-              [...tickets].reverse().map((t) => (
+              visibleTickets.map((t) => (
                 <tr key={t.id}>
                   <td>{t.id}</td>
                   <td>

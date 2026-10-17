@@ -1,24 +1,27 @@
 import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateDepartmentDto {
-  @ApiProperty({ example: 'D101' })
+  @ApiPropertyOptional({ example: 'DEPT-001', description: 'Ignored: a unique id is generated per organization.' })
+  @IsOptional()
   @IsString()
-  id!: string;
+  id?: string;
 
   @ApiProperty({ example: 'IT Services' })
   @IsString()
   name!: string;
 
-  @ApiProperty({ example: 'Pradhyum' })
+  @ApiPropertyOptional({ example: 'Pradhyum', description: 'Assigned automatically when a Dept Head user is created for the department.' })
+  @IsOptional()
   @IsString()
-  head!: string;
+  head?: string;
 
-  @ApiProperty({ example: 12 })
+  @ApiPropertyOptional({ example: 12 })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  memberCount!: number;
+  memberCount?: number;
 }
 
 export class UpdateDepartmentDto extends PartialType(CreateDepartmentDto) {}

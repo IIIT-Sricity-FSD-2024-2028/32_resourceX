@@ -44,6 +44,13 @@ export class MaintenanceService {
       throw new BadRequestException('Only maintenance-requested resources can be accepted.');
     }
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: resource.assignedToId,
+      title: 'Maintenance started',
+      description: `${resource.name || resource.type} (${resource.id}) has been accepted for maintenance.`,
+    });
     return this.dataService.updateResource(resourceId, {
       status: 'Maintenance',
       maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
@@ -93,6 +100,20 @@ export class MaintenanceService {
       priority,
     });
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: resource.assignedToId,
+      title: status === 'Repaired' ? 'Resource repaired' : 'Resource scrapped',
+      description: `${resource.name || resource.type} (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'}.`,
+    });
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Dept Head',
+      department: resource.department,
+      title: status === 'Repaired' ? 'Resource repaired' : 'Resource scrapped',
+      description: `${resource.name || resource.type} (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'} by maintenance.`,
+    });
     // Update resource state
     return this.dataService.updateResource(resourceId, {
       status: finalStatus,

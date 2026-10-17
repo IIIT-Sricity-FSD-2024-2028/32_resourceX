@@ -5,9 +5,32 @@ import { renderRoleBadge } from './AdminOverview';
 import {
   fetchAdminUsers,
   fetchAdminDepartments,
+  fetchAdminOrganization,
   createAdminUser,
   updateAdminUser
 } from '../../../../services/admin';
+import DocumentUpload, { DocumentLink } from '../../../common/DocumentUpload';
+
+// Organization-level email format: {name}{roleCode}{organizationName}@gmail.com
+const ROLE_EMAIL_CODES = {
+  Requestor: 're',
+  Registrar: 'rg',
+  'System Admin': 'sa',
+  'Dept Head': 'dh',
+  'Maintenance Officer': 'mo',
+  'Inventory Officer': 'io',
+  'Procurement Officer': 'po'
+};
+const slug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+const ROLE_OPTIONS = [
+  'Requestor',
+  'Dept Head',
+  'Registrar',
+  'Inventory Officer',
+  'Maintenance Officer',
+  'Procurement Officer'
+];
 
 /**
  * Exact replica of user-manage-view from admin.html
@@ -18,6 +41,7 @@ export default function AdminUsers() {
 
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [orgName, setOrgName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   // Add User Modal state
@@ -27,6 +51,8 @@ export default function AdminUsers() {
   const [addRole, setAddRole] = useState('Requestor');
   const [addDept, setAddDept] = useState('');
   const [addPassword, setAddPassword] = useState('');
+  const [addDocument, setAddDocument] = useState(null);
+  const [addFormKey, setAddFormKey] = useState(0);
 
   // Edit User Modal state
   const [editUser, setEditUser] = useState(null);
@@ -34,7 +60,11 @@ export default function AdminUsers() {
   const [editRole, setEditRole] = useState('Requestor');
   const [editDept, setEditDept] = useState('');
   const [editStatus, setEditStatus] = useState('Active');
-  const [editPassword, setEditPassword] = useState('');
+
+  // Search & filters
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   // Deactivate User Modal state
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -42,10 +72,12 @@ export default function AdminUsers() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [uList, dList] = await Promise.all([
+      const [uList, dList, org] = await Promise.all([
         fetchAdminUsers(),
-        fetchAdminDepartments().catch(() => [])
+        fetchAdminDepartments().catch(() => []),
+        fetchAdminOrganization().catch(() => null)
       ]);
+      setOrgName(org?.name || '');
       setUsers(uList || []);
       setDepartments(dList || []);
       if (dList && dList.length > 0 && !addDept) {
@@ -63,14 +95,64 @@ export default function AdminUsers() {
   }, []);
 
   const displayUsers = [...users].reverse();
-  const managableUsers = displayUsers.filter((u) => u.role !== 'System Admin');
+  const allManagable = displayUsers.filter((u) => u.role !== 'System Admin');
+
+  const query = search.trim().toLowerCase();
+  const managableUsers = allManagable.filter((u) => {
+    if (roleFilter !== 'All' && u.role !== roleFilter) return false;
+    if (statusFilter !== 'All' && (u.status || 'Active') !== statusFilter) return false;
+    if (query && !(u.name || '').toLowerCase().includes(query) && !(u.email || '').toLowerCase().includes(query)) {
+      return false;
+    }
+    return true;
+  });
+
+  // Requestors and Registrars are general actors and are not classified by department
+  const roleHasDepartment = (role) => role !== 'Registrar' && role !== 'Requestor';
+
+  // One department can have only one head: for Dept Head only offer departments without an active head
+  const departmentsForRole = (role, selfId) => {
+    if (role !== 'Dept Head') return departments;
+    const headed = new Set(
+      users
+        .filter((u) => u.role === 'Dept Head' && u.status !== 'Inactive' && u.id !== selfId)
+        .map((u) => u.department)
+    );
+    return departments.filter((d) => !headed.has(d.name));
+  };
+
+  const orgSlug = slug(orgName);
+  const emailSuffix = (role) => `${ROLE_EMAIL_CODES[role] || ''}${orgSlug}@gmail.com`;
+  const emailError = (email, role) => {
+    const value = email.trim().toLowerCase();
+    const suffix = emailSuffix(role);
+    const local = value.slice(0, Math.max(0, value.length - suffix.length));
+    return !value.endsWith(suffix) || !/^[a-z0-9]+$/.test(local) ? `Email must look like {name}${suffix}` : '';
+  };
+
+  const addDeptOptions = departmentsForRole(addRole);
+  const editDeptOptions = departmentsForRole(editRole, editUser?.id);
+
+  const handleAddRoleChange = (role) => {
+    setAddRole(role);
+    const opts = departmentsForRole(role);
+    if (!opts.some((d) => d.name === addDept)) setAddDept(opts[0]?.name || '');
+  };
+
+  const handleEditRoleChange = (role) => {
+    setEditRole(role);
+    const opts = departmentsForRole(role, editUser?.id);
+    if (!opts.some((d) => d.name === editDept)) setEditDept(opts[0]?.name || '');
+  };
 
   const openAddModal = () => {
     setAddName('');
     setAddEmail('');
     setAddRole('Requestor');
-    setAddDept(departments[0]?.name || '');
+    setAddDept(departmentsForRole('Requestor')[0]?.name || '');
     setAddPassword('');
+    setAddDocument(null);
+    setAddFormKey((k) => k + 1);
     setIsAddOpen(true);
   };
 
@@ -90,8 +172,24 @@ export default function AdminUsers() {
       addToast('Please enter a valid email address.', 'error');
       return;
     }
-    if (addPassword.trim().length < 6) {
-      addToast('Password must be at least 6 characters long.', 'error');
+    if (addPassword.trim().length < 8) {
+      addToast('Password must be at least 8 characters long.', 'error');
+      return;
+    }
+    if (!addDocument) {
+      addToast('Please upload a document for the new user.', 'error');
+      return;
+    }
+    if (orgSlug && emailError(addEmail, addRole)) {
+      addToast(`${emailError(addEmail, addRole)} (e.g. ${slug(addName.split(' ')[0] || 'john')}${emailSuffix(addRole)}).`, 'error');
+      return;
+    }
+    if (users.some((u) => (u.email || '').toLowerCase() === addEmail.trim().toLowerCase())) {
+      addToast('A user with this email already exists.', 'error');
+      return;
+    }
+    if (addRole === 'Dept Head' && !addDept) {
+      addToast('No department without a head is available. Create a department first.', 'error');
       return;
     }
 
@@ -102,8 +200,9 @@ export default function AdminUsers() {
         email: addEmail.trim(),
         password: addPassword.trim(),
         role: addRole,
-        department: addDept || departments[0]?.name || 'Engineering',
-        status: 'Active'
+        ...(roleHasDepartment(addRole) ? { department: addDept || departments[0]?.name } : {}),
+        status: 'Active',
+        ...addDocument
       });
       addToast('New user successfully added.', 'success');
       setIsAddOpen(false);
@@ -119,7 +218,6 @@ export default function AdminUsers() {
     setEditRole(user.role || 'Requestor');
     setEditDept(user.department || (departments[0]?.name || ''));
     setEditStatus(user.status || 'Active');
-    setEditPassword('');
   };
 
   const handleSaveEdit = async () => {
@@ -132,8 +230,8 @@ export default function AdminUsers() {
       addToast('Name can only contain characters and numbers.', 'error');
       return;
     }
-    if (editPassword && editPassword.length < 6) {
-      addToast('Password must be at least 6 characters long.', 'error');
+    if (editRole === 'Dept Head' && !editDept) {
+      addToast('Select a department without a head for the Department Head role.', 'error');
       return;
     }
 
@@ -141,12 +239,9 @@ export default function AdminUsers() {
       const updates = {
         name: editName.trim(),
         role: editRole,
-        department: editDept,
+        ...(roleHasDepartment(editRole) ? { department: editDept } : {}),
         status: editStatus
       };
-      if (editPassword) {
-        updates.password = editPassword;
-      }
       await updateAdminUser(editUser.id, updates);
       addToast('User details updated permanently.', 'success');
       setEditUser(null);
@@ -185,12 +280,45 @@ export default function AdminUsers() {
             + Add New User
           </button>
         </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
+          <input
+            type="text"
+            className="form-control"
+            style={{ flex: '1 1 260px', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            placeholder="Search by user name or email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="form-control"
+            style={{ padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="All">All System Roles</option>
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+          <select
+            className="form-control"
+            style={{ padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+        </div>
         <table className="table">
           <thead>
             <tr>
               <th>Name</th>
               <th>System Role</th>
               <th>Department Access</th>
+              <th>Document</th>
               <th>Status</th>
               <th style={{ textAlign: 'right' }}>Action</th>
             </tr>
@@ -198,13 +326,13 @@ export default function AdminUsers() {
           <tbody id="all-users-tbody">
             {isLoading ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   Loading users...
                 </td>
               </tr>
             ) : managableUsers.length === 0 ? (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   No users found.
                 </td>
               </tr>
@@ -218,7 +346,8 @@ export default function AdminUsers() {
                     </div>
                   </td>
                   <td>{renderRoleBadge(u.role)}</td>
-                  <td>{u.department}</td>
+                  <td>{u.department || '—'}</td>
+                  <td><DocumentLink record={u} /></td>
                   <td>
                     <span className="badge allocated">{u.status || 'Active'}</span>
                   </td>
@@ -274,10 +403,13 @@ export default function AdminUsers() {
             type="email"
             className="form-control"
             style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="user@resourcex.com"
+            placeholder={`e.g. john${emailSuffix(addRole)}`}
             value={addEmail}
             onChange={(e) => setAddEmail(e.target.value)}
           />
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+            Format: {'{name}'}{emailSuffix(addRole)}
+          </div>
         </div>
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>System Role</label>
@@ -285,42 +417,54 @@ export default function AdminUsers() {
             className="form-control"
             style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
             value={addRole}
-            onChange={(e) => setAddRole(e.target.value)}
+            onChange={(e) => handleAddRoleChange(e.target.value)}
           >
-            <option value="Requestor">Requestor</option>
-            <option value="Dept Head">Dept Head</option>
-            <option value="Registrar">Registrar</option>
-            <option value="Inventory Officer">Inventory Officer</option>
-            <option value="Maintenance Officer">Maintenance Officer</option>
-            <option value="Procurement Officer">Procurement Officer</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={addDept}
-            onChange={(e) => setAddDept(e.target.value)}
-          >
-            {departments.map((d) => (
-              <option key={d.id} value={d.name}>
-                {d.name}
-              </option>
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </div>
+        {roleHasDepartment(addRole) && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+              value={addDept}
+              onChange={(e) => setAddDept(e.target.value)}
+            >
+              {addDeptOptions.length === 0 && <option value="">No department without a head</option>}
+              {addDeptOptions.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            {addRole === 'Dept Head' && (
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                Only departments without a head are listed (one head per department).
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Password</label>
           <input
             type="password"
             className="form-control"
             style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="Enter temporary password"
+            placeholder="Enter temporary password (min 8 characters)"
             value={addPassword}
             onChange={(e) => setAddPassword(e.target.value)}
           />
         </div>
+        <DocumentUpload
+          label="User Document"
+          required
+          onChange={setAddDocument}
+          resetKey={addFormKey}
+          hint="ID proof or employment details. PDF, PNG or JPG, up to 5 MB."
+        />
       </AdminModal>
 
       {/* Edit User Modal */}
@@ -347,31 +491,36 @@ export default function AdminUsers() {
             className="form-control"
             style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
             value={editRole}
-            onChange={(e) => setEditRole(e.target.value)}
+            onChange={(e) => handleEditRoleChange(e.target.value)}
           >
-            <option value="Requestor">Requestor</option>
-            <option value="Dept Head">Dept Head</option>
-            <option value="Registrar">Registrar</option>
-            <option value="Inventory Officer">Inventory Officer</option>
-            <option value="Maintenance Officer">Maintenance Officer</option>
-            <option value="Procurement Officer">Procurement Officer</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editDept}
-            onChange={(e) => setEditDept(e.target.value)}
-          >
-            {departments.map((d) => (
-              <option key={d.id} value={d.name}>
-                {d.name}
-              </option>
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r} value={r}>{r}</option>
             ))}
           </select>
         </div>
+        {roleHasDepartment(editRole) && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
+            <select
+              className="form-control"
+              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+              value={editDept}
+              onChange={(e) => setEditDept(e.target.value)}
+            >
+              {editDeptOptions.length === 0 && <option value="">No department without a head</option>}
+              {editDeptOptions.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            {editRole === 'Dept Head' && (
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                Only departments without a head are listed (one head per department).
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ marginBottom: '1rem' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Account Status</label>
           <select
@@ -384,22 +533,6 @@ export default function AdminUsers() {
             <option value="Inactive">Inactive</option>
             <option value="Suspended">Suspended</option>
           </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-            New Password{' '}
-            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'normal' }}>
-              (Leave blank to keep current)
-            </span>
-          </label>
-          <input
-            type="password"
-            placeholder="Enter new password"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editPassword}
-            onChange={(e) => setEditPassword(e.target.value)}
-          />
         </div>
       </AdminModal>
 

@@ -5,6 +5,7 @@ import {
   fetchProcurements,
   fetchResources
 } from '../../../../services/registrar';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 /**
  * 0. Dashboard View (replicates dashboard-view from registrar.html & registrar.js)
@@ -16,6 +17,8 @@ export default function RegistrarOverview({ onSwitchView }) {
   const [procurements, setProcurements] = useState([]);
   const [resources, setResources] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestSearch, setRequestSearch] = useState('');
+  const [indentSearch, setIndentSearch] = useState('');
 
   // Load all initial data simultaneously (like refreshData() in registrar.js)
   const refreshData = async () => {
@@ -54,8 +57,12 @@ export default function RegistrarOverview({ onSwitchView }) {
       procurements.filter((p) => p.status === 'Approved').length;
 
   // Filter 5 recent requests and 5 actionable procurements
-  const recentRequests = requests.slice(0, 5);
-  const actionableProcurements = procurements.filter((p) => p.status === 'Pending').slice(0, 5);
+  const recentRequests = requests
+    .filter((r) => matchesSearch(requestSearch, r.id, r.department, r.status, r.resourceType))
+    .slice(0, 5);
+  const actionableProcurements = procurements
+    .filter((p) => p.status === 'Pending' && matchesSearch(indentSearch, p.id, p.department, p.resourceType, p.item))
+    .slice(0, 5);
 
   return (
     <div id="dashboard-view" className="view-section active">
@@ -112,6 +119,7 @@ export default function RegistrarOverview({ onSwitchView }) {
               View All
             </button>
           </div>
+          <TableToolbar search={requestSearch} onSearchChange={setRequestSearch} placeholder="Search by ID, department or status..." />
           <table className="table">
             <thead>
               <tr>
@@ -124,7 +132,7 @@ export default function RegistrarOverview({ onSwitchView }) {
               {recentRequests.length === 0 ? (
                 <tr>
                   <td colSpan="3" style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>
-                    {loading ? 'Loading...' : 'No recent requests.'}
+                    {loading ? 'Loading...' : requestSearch.trim() ? 'No requests match your search.' : 'No recent requests.'}
                   </td>
                 </tr>
               ) : (
@@ -164,6 +172,7 @@ export default function RegistrarOverview({ onSwitchView }) {
               View All
             </button>
           </div>
+          <TableToolbar search={indentSearch} onSearchChange={setIndentSearch} placeholder="Search by indent ID, department or resource..." />
           <table className="table">
             <thead>
               <tr>
@@ -178,7 +187,7 @@ export default function RegistrarOverview({ onSwitchView }) {
               {actionableProcurements.length === 0 ? (
                 <tr>
                   <td colSpan="5" style={{ textAlign: 'center', padding: '1rem', color: '#64748b' }}>
-                    {loading ? 'Loading...' : 'No pending department indents.'}
+                    {loading ? 'Loading...' : indentSearch.trim() ? 'No indents match your search.' : 'No pending department indents.'}
                   </td>
                 </tr>
               ) : (

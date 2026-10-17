@@ -5,12 +5,15 @@ import {
   confirmReceipt,
   fetchRequestorSummary
 } from '../../../../services/requestor';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 export default function MyRequestsView({ addToast, onNavigateToResources }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [summary, setSummary] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [deptFilter, setDeptFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
@@ -58,9 +61,11 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
   const allocatedCount = summary?.allocatedRequests ?? myRequests.filter((r) => r.status === 'Allocated').length;
 
   // Filter requests
-  const filteredRequests = statusFilter === 'All'
-    ? myRequests
-    : myRequests.filter((r) => r.status === statusFilter);
+  const filteredRequests = myRequests.filter((r) =>
+    (statusFilter === 'All' || r.status === statusFilter) &&
+    (deptFilter === 'All' || r.department === deptFilter) &&
+    matchesSearch(search, r.id, r.department, r.resourceType, r.quantity, r.date, r.status, r.justification)
+  );
 
   return (
     <div className="view-section">
@@ -113,34 +118,18 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
       <div className="data-section">
         <div className="data-section-header">
           <div className="data-section-title">Active Requests</div>
-          <div className="data-filters" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: '#64748b' }}>
-                filter_list
-              </span>
-              <select
-                id="req-status-filter"
-                className="form-control"
-                style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem', borderRadius: '6px', minWidth: '140px' }}
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Approved">Approved</option>
-                <option value="Allocated">Allocated</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
-            <button
-              className="btn-secondary"
-              style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem' }}
-              onClick={() => setStatusFilter('All')}
-            >
-              Reset
-            </button>
-          </div>
         </div>
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by Request ID, department, resource type or date..."
+          filters={[
+            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: ['Pending', 'Approved', 'Allocated', 'Completed', 'Rejected'] },
+            { label: 'All Departments', value: deptFilter, onChange: setDeptFilter, options: uniqueOptions(myRequests, 'department') },
+          ]}
+          resultCount={filteredRequests.length}
+          totalCount={myRequests.length}
+        />
 
         <div className="table-responsive">
           <table className="table">
@@ -165,7 +154,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
               ) : filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                    No requests found for this filter.
+                    No requests match your search or filters.
                   </td>
                 </tr>
               ) : (

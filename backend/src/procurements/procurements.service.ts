@@ -100,7 +100,24 @@ export class ProcurementsService {
       date: payload.date || new Date().toLocaleDateString('en-US'),
     };
 
-    return this.dataService.insertProcurement(procurement);
+    const saved = this.dataService.insertProcurement(procurement);
+    if (saved.status === 'Pending Approval') {
+      this.dataService.notify({
+        organizationId: saved.organizationId,
+        recipientRole: 'Dept Head',
+        department: saved.department,
+        title: 'Procurement needs approval',
+        description: `${saved.requestedBy} raised procurement ${saved.id} for ${saved.item || saved.resourceType}.`,
+      });
+    } else if (saved.status === 'Pending') {
+      this.dataService.notify({
+        organizationId: saved.organizationId,
+        recipientRole: 'Registrar',
+        title: 'Procurement awaiting approval',
+        description: `Procurement ${saved.id} for ${saved.item || saved.resourceType} (${saved.department}) awaits registrar approval.`,
+      });
+    }
+    return saved;
   }
 
   update(id: string, payload: UpdateProcurementDto, context?: RequestContext): ProcurementRecord {
@@ -128,7 +145,21 @@ export class ProcurementsService {
       throw new BadRequestException('Can only approve pending department approval.');
     }
 
-    return this.dataService.updateProcurement(id, { status: 'Pending' });
+    const updated = this.dataService.updateProcurement(id, { status: 'Pending' });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Registrar',
+      title: 'Procurement awaiting approval',
+      description: `Procurement ${id} for ${procurement.item || procurement.resourceType} (${procurement.department}) was approved by the department head.`,
+    });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: procurement.requestedById,
+      title: 'Procurement forwarded to Registrar',
+      description: `Your procurement ${id} was approved by the department head.`,
+    });
+    return updated;
   }
 
   departmentReject(id: string, context: RequestContext): ProcurementRecord {
@@ -142,7 +173,15 @@ export class ProcurementsService {
       throw new BadRequestException('Can only reject pending department approval.');
     }
 
-    return this.dataService.updateProcurement(id, { status: 'Rejected' });
+    const rejected = this.dataService.updateProcurement(id, { status: 'Rejected' });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: procurement.requestedById,
+      title: 'Procurement rejected',
+      description: `Your procurement ${id} was rejected by the department head.`,
+    });
+    return rejected;
   }
 
   registrarApprove(id: string): ProcurementRecord {
@@ -155,7 +194,22 @@ export class ProcurementsService {
       throw new BadRequestException('Can only approve pending registrar approval.');
     }
 
-    return this.dataService.updateProcurement(id, { status: 'Approved' });
+    const approved = this.dataService.updateProcurement(id, { status: 'Approved' });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Procurement Officer',
+      department: procurement.department,
+      title: 'Procurement approved',
+      description: `Procurement ${id} for ${procurement.item || procurement.resourceType} was approved. Create the purchase order.`,
+    });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Dept Head',
+      department: procurement.department,
+      title: 'Procurement approved by Registrar',
+      description: `Procurement ${id} for ${procurement.item || procurement.resourceType} was approved.`,
+    });
+    return approved;
   }
 
   registrarReject(id: string): ProcurementRecord {
@@ -168,7 +222,15 @@ export class ProcurementsService {
       throw new BadRequestException('Can only reject pending registrar approval.');
     }
 
-    return this.dataService.updateProcurement(id, { status: 'Rejected' });
+    const rejected = this.dataService.updateProcurement(id, { status: 'Rejected' });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Dept Head',
+      department: procurement.department,
+      title: 'Procurement rejected by Registrar',
+      description: `Procurement ${id} for ${procurement.item || procurement.resourceType} was rejected.`,
+    });
+    return rejected;
   }
 
   createPurchaseOrder(id: string, dto: CreatePurchaseOrderDto, context: RequestContext): ProcurementRecord {
@@ -241,6 +303,20 @@ export class ProcurementsService {
     const rawId = id.replace(/[^0-9]/g, '') || Date.now().toString().slice(-4);
     const invoiceNumber = dto.invoice?.trim() || dto.invoiceFileName?.replace(/\.[^/.]+$/, '') || `INV-${rawId}`;
 
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: procurement.department,
+      title: 'Procurement fulfilled',
+      description: `Procurement ${id} (${procurement.quantity} x ${procurement.resourceType}) was delivered. Register the new resources.`,
+    });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Dept Head',
+      department: procurement.department,
+      title: 'Procurement fulfilled',
+      description: `Procurement ${id} for ${procurement.item || procurement.resourceType} has been fulfilled.`,
+    });
     return this.dataService.updateProcurement(id, {
       status: 'Fulfilled',
       vendor: dto.vendor?.trim() || procurement.vendor || 'Authorized Vendor',

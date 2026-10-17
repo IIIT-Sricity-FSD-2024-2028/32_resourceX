@@ -7,6 +7,7 @@ import {
   createDeptProcurement
 } from '../../../../services/deptHead';
 import { StatusBadge, EmptyRow, ErrorBlock, FileLink, LoadingBlock } from '../components/deptHeadUtils';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -45,6 +46,15 @@ export default function DeptHeadProcurement() {
   const [specFile, setSpecFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileWarning, setFileWarning] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const procType = (p) => p.resourceType || p.item;
+  const visibleProcurements = procurements.filter((p) =>
+    (statusFilter === 'All' || p.status === statusFilter) &&
+    (typeFilter === 'All' || procType(p) === typeFilter) &&
+    matchesSearch(search, p.id, procType(p), p.status, p.targetDateDisplay, p.targetDate, p.justification, p.vendor)
+  );
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -275,6 +285,17 @@ export default function DeptHeadProcurement() {
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
             </button>
           </div>
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search by Proc ID, type, status or date..."
+            filters={[
+              { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(procurements, 'status') },
+              { label: 'All Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(procurements, procType) },
+            ]}
+            resultCount={visibleProcurements.length}
+            totalCount={procurements.length}
+          />
           {isLoading ? (
             <LoadingBlock text="Loading procurements..." />
           ) : error ? (
@@ -294,10 +315,10 @@ export default function DeptHeadProcurement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {procurements.length === 0 ? (
-                    <EmptyRow colSpan={7} text="No procurement requests yet." />
+                  {visibleProcurements.length === 0 ? (
+                    <EmptyRow colSpan={7} text={procurements.length === 0 ? 'No procurement requests yet.' : 'No procurement requests match your search.'} />
                   ) : (
-                    procurements.map((p) => (
+                    visibleProcurements.map((p) => (
                       <tr key={p.id}>
                         <td className="td-id">{p.id}</td>
                         <td>{p.resourceType || p.item}</td>

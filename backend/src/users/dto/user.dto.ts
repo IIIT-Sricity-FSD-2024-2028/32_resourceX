@@ -1,11 +1,31 @@
 import { PartialType } from '@nestjs/swagger';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import { ArrayUnique, IsArray, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { ROLES } from '../../common/roles';
 import { USER_STATUSES } from '../../common/domain';
 import { PASSWORD_PATTERN, PASSWORD_RULE_MESSAGE } from '../../common/password';
 
-export class CreateEmployeeDto {
+/** Document uploaded with an account (PDF, PNG or JPG up to 5 MB, sent as a data URL) */
+export class UserDocumentDto {
+  @ApiProperty({ example: 'aadhaar.pdf' })
+  @IsString()
+  @IsNotEmpty({ message: 'Please upload a document for this account.' })
+  @MaxLength(100)
+  documentFileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @Matches(/^(application\/pdf|image\/png|image\/jpeg)$/, { message: 'Document must be a PDF, PNG or JPG file.' })
+  documentFileType!: string;
+
+  @ApiProperty({ description: 'File contents as a data URL' })
+  @IsString()
+  @MaxLength(8_000_000, { message: 'Document is too large (max 5 MB).' })
+  @Matches(/^data:/, { message: 'Document file is invalid.' })
+  documentFileDataUrl!: string;
+}
+
+export class CreateEmployeeDto extends UserDocumentDto {
   @ApiProperty({ example: 'Priya Sharma' })
   @IsString()
   @IsNotEmpty()
@@ -21,7 +41,7 @@ export class CreateEmployeeDto {
   password!: string;
 }
 
-export class CreateUserDto {
+export class CreateUserDto extends UserDocumentDto {
   @ApiProperty({ example: 'U201' })
   @IsString()
   id!: string;
@@ -51,6 +71,22 @@ export class CreateUserDto {
   @IsString()
   @MinLength(6)
   password!: string;
+}
+
+export class UpdateEmployeeDto extends PartialType(UserDocumentDto) {
+  @ApiPropertyOptional({ example: 'Priya Sharma' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty({ message: 'Name cannot be empty.' })
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional({ example: ['ORG-001', 'ORG-004'], description: 'Full list of organizations this employee manages' })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  organizationIds?: string[];
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {

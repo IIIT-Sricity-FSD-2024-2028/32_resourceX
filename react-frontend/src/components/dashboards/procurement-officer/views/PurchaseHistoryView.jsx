@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchProcurements } from '../../../../services/procurementOfficer';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STATUS_COLORS = {
   Approved: { bg: '#eff6ff', text: '#2563eb' },
@@ -16,6 +17,7 @@ export default function PurchaseHistoryView({ addToast }) {
   const [procurements, setProcurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
   const [previewFile, setPreviewFile] = useState(null);
 
   const loadData = useCallback(async () => {
@@ -35,15 +37,10 @@ export default function PurchaseHistoryView({ addToast }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = procurements.filter(p => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return p.id?.toLowerCase().includes(q) ||
-      p.vendor?.toLowerCase().includes(q) ||
-      p.poNumber?.toLowerCase().includes(q) ||
-      p.invoice?.toLowerCase().includes(q) ||
-      (p.resourceType || p.item || '').toLowerCase().includes(q);
-  });
+  const filtered = procurements.filter(p =>
+    (statusFilter === 'All' || p.status === statusFilter) &&
+    matchesSearch(searchQuery, p.id, p.vendor, p.poNumber, p.invoice, p.resourceType, p.item, p.status, p.date, p.receivedDate)
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -54,13 +51,19 @@ export default function PurchaseHistoryView({ addToast }) {
             All purchase orders, supplier invoices, and fulfilled procurements ({filtered.length} entries)
           </p>
         </div>
-        <input
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search by ID, PO, vendor, invoice..."
-          style={{ padding: '8px 14px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, width: 280, outline: 'none', background: '#fff' }}
-        />
       </div>
+
+      <TableToolbar
+        standalone
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        placeholder="Search by order ID, item, PO #, vendor, invoice or date..."
+        filters={[
+          { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(procurements, 'status') },
+        ]}
+        resultCount={filtered.length}
+        totalCount={procurements.length}
+      />
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading history...</div>

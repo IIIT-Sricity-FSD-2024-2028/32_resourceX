@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import EmployeeModal from '../components/EmployeeModal';
 import { renderStatusBadge } from './EmployeeOverview';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchEmployeeInstitutions,
   suspendEmployeeInstitution,
@@ -9,7 +10,6 @@ import {
 } from '../../../../services/employee';
 import { useAuth } from '../../../../context/AuthContext';
 
-const FILTERS = ['All', 'Active', 'Suspended'];
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
 /**
@@ -24,6 +24,7 @@ export default function EmployeeInstitutions() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState('All');
 
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
@@ -43,13 +44,10 @@ export default function EmployeeInstitutions() {
     loadData();
   }, []);
 
-  const q = search.trim().toLowerCase();
-  const list = (filter === 'All' ? institutions : institutions.filter((o) => o.status === filter)).filter(
-    (o) =>
-      !q ||
-      o.name.toLowerCase().includes(q) ||
-      o.id.toLowerCase().includes(q) ||
-      o.adminEmail.toLowerCase().includes(q)
+  const list = institutions.filter((o) =>
+    (filter === 'All' || o.status === filter) &&
+    (planFilter === 'All' || o.subscriptionPlanId === planFilter) &&
+    matchesSearch(search, o.name, o.id, o.adminEmail, o.adminName, o.subscriptionPlanId)
   );
 
   const handleConfirmAction = async () => {
@@ -71,29 +69,18 @@ export default function EmployeeInstitutions() {
       <h1 className="page-title">Institution Management</h1>
       <p className="page-subtitle">Manage institution accounts assigned to you — activate or suspend.</p>
 
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className={filter === f ? 'btn-primary' : 'btn-secondary'}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-        <input
-          type="text"
-          id="orgSearch"
-          className="form-control"
-          style={{ maxWidth: '260px', marginLeft: 'auto' }}
-          placeholder="Search institution..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ID, institution name or admin email..."
+          filters={[
+            { label: 'All Statuses', value: filter, onChange: setFilter, options: ['Active', 'Suspended', 'Pending'] },
+            { label: 'All Plans', value: planFilter, onChange: setPlanFilter, options: uniqueOptions(institutions, 'subscriptionPlanId') },
+          ]}
+          resultCount={list.length}
+          totalCount={institutions.length}
+        />
         <table className="table">
           <thead>
             <tr>

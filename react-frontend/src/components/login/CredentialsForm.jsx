@@ -1,19 +1,16 @@
 import React, { useState } from 'react';
-import { fetchMockUser } from '../../services/auth';
-
 export default function CredentialsForm({
-  selectedRole,
-  isPlatformRole,
   onSubmit,
   isSubmitting,
   authError,
-  onBack
+  successMessage,
+  onRegisterOrg,
+  onForgotPassword
 }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
-  const [isQuickLoading, setIsQuickLoading] = useState(false);
 
   const validateEmail = (val) => {
     if (!val.trim()) {
@@ -45,40 +42,17 @@ export default function CredentialsForm({
     onSubmit({ email, password });
   };
 
-  const handleQuickLogin = async () => {
-    setIsQuickLoading(true);
-    setEmailError('');
-    try {
-      const mock = await fetchMockUser(selectedRole);
-      if (mock && mock.email) {
-        setEmail(mock.email);
-        const pwd = mock.password || (selectedRole === 'Owner' || selectedRole === 'Employee' ? 'password' : '12345678');
-        setPassword(pwd);
-        // Automatically submit with mock credentials
-        onSubmit({ email: mock.email, password: pwd });
-      } else {
-        alert('No mock user available for this role.');
-      }
-    } catch {
-      alert('Failed to load mock user.');
-    } finally {
-      setIsQuickLoading(false);
-    }
-  };
-
   return (
     <div className="credentials-step">
-      {onBack && (
-        <button type="button" className="login-back-btn" onClick={onBack}>
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
-          Back to Roles
-        </button>
-      )}
-
       <h2 className="login-title">Welcome Back</h2>
-      <p className="login-subtitle">
-        Sign in as <strong>{selectedRole || 'User'}</strong>
-      </p>
+      <p className="login-subtitle">Sign in with your email and password. Your dashboard opens automatically.</p>
+
+      {successMessage && !authError && (
+        <div className="login-info-banner">
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>check_circle</span>
+          <span>{successMessage}</span>
+        </div>
+      )}
 
       {authError && (
         <div className="login-error-banner">
@@ -94,7 +68,7 @@ export default function CredentialsForm({
             id="email-input"
             type="email"
             className={`login-form-control ${emailError ? 'error' : ''}`}
-            placeholder="e.g. user@institution.edu"
+            placeholder="Enter your registered email"
             value={email}
             onChange={handleEmailChange}
             autoFocus
@@ -141,12 +115,17 @@ export default function CredentialsForm({
               </span>
             </button>
           </div>
+          <div style={{ textAlign: 'right', marginTop: '0.4rem' }}>
+            <button type="button" className="login-link-btn" onClick={onForgotPassword}>
+              Forgot password?
+            </button>
+          </div>
         </div>
 
         <button
           type="submit"
           className="login-submit-btn"
-          disabled={isSubmitting || isQuickLoading}
+          disabled={isSubmitting}
         >
           {isSubmitting ? (
             <>
@@ -161,24 +140,15 @@ export default function CredentialsForm({
         </button>
       </form>
 
-      <div className="login-divider">
-        <span>Or Test with Quick Login</span>
+      <div style={{ textAlign: 'center', marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color, #e2e8f0)' }}>
+        <button
+          type="button"
+          onClick={onRegisterOrg}
+          style={{ background: 'none', border: 'none', color: 'var(--primary-color, #0F386E)', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+        >
+          New here? Register your Organization &rarr;
+        </button>
       </div>
-
-      <button
-        type="button"
-        className="login-quick-btn"
-        onClick={handleQuickLogin}
-        disabled={isSubmitting || isQuickLoading}
-      >
-        {isQuickLoading ? (
-          'Loading Mock Credentials...'
-        ) : (
-          <>
-            <span>⚡</span> Quick Login as {selectedRole || 'Mock User'}
-          </>
-        )}
-      </button>
     </div>
   );
 }

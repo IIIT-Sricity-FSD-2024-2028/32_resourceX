@@ -1,8 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { fetchOwnerOrganizations, fetchOwnerPlans } from '../../../../services/owner';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
+
+const RENEWAL_STATUSES = ['Active', 'Upcoming', 'Renew Soon', 'Expired', 'No Expiry'];
+
+function renewalLabel(expiry, daysLeft) {
+  if (!expiry) return 'No Expiry';
+  if (daysLeft < 0) return 'Expired';
+  if (daysLeft <= 30) return 'Renew Soon';
+  if (daysLeft <= 90) return 'Upcoming';
+  return 'Active';
+}
 
 function renewalBadge(expiry, daysLeft) {
   if (!expiry) return <span className="badge">No Expiry</span>;
@@ -24,6 +35,9 @@ export default function OwnerRevenue() {
   const [organizations, setOrganizations] = useState([]);
   const [plans, setPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState('All');
+  const [renewalFilter, setRenewalFilter] = useState('All');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -62,6 +76,12 @@ export default function OwnerRevenue() {
       return { org, plan, price, expiry, daysLeft };
     })
     .sort((a, b) => (a.daysLeft ?? 9999) - (b.daysLeft ?? 9999));
+
+  const visibleRows = rows.filter(({ org, plan, expiry, daysLeft }) =>
+    (planFilter === 'All' || plan?.name === planFilter) &&
+    (renewalFilter === 'All' || renewalLabel(expiry, daysLeft) === renewalFilter) &&
+    matchesSearch(search, org.id, org.name, plan?.name)
+  );
 
   const emptyRow = (cols, text) => (
     <tr>
@@ -155,6 +175,17 @@ export default function OwnerRevenue() {
         <div className="data-section-header">
           <div className="data-section-title">Subscription Timeline (per Organization)</div>
         </div>
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by org ID, organization or plan..."
+          filters={[
+            { label: 'All Plans', value: planFilter, onChange: setPlanFilter, options: plans.map((p) => p.name) },
+            { label: 'All Renewal Statuses', value: renewalFilter, onChange: setRenewalFilter, options: RENEWAL_STATUSES },
+          ]}
+          resultCount={visibleRows.length}
+          totalCount={rows.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -172,7 +203,9 @@ export default function OwnerRevenue() {
               ? emptyRow(7, 'Loading...')
               : rows.length === 0
                 ? emptyRow(7, 'No active subscriptions.')
-                : rows.map(({ org, plan, price, expiry, daysLeft }) => (
+                : visibleRows.length === 0
+                  ? emptyRow(7, 'No subscriptions match your search or filters.')
+                  : visibleRows.map(({ org, plan, price, expiry, daysLeft }) => (
                     <tr key={org.id}>
                       <td>{org.id}</td>
                       <td><strong>{org.name}</strong></td>

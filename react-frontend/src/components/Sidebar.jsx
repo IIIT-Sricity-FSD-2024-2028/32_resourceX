@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -61,6 +61,27 @@ const ROLE_NAV_ITEMS = {
   ]
 };
 
+const DEFAULT_WIDTH = 260;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 420;
+const COLLAPSED_WIDTH = 76;
+const STORAGE_KEY = 'rx_sidebar';
+
+const clampWidth = (w) => Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(w)));
+
+// Width and collapsed state are a per-browser convenience; fall back to defaults if storage is unavailable
+function loadSidebarPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    return {
+      width: Number.isFinite(saved.width) ? clampWidth(saved.width) : DEFAULT_WIDTH,
+      collapsed: Boolean(saved.collapsed),
+    };
+  } catch {
+    return { width: DEFAULT_WIDTH, collapsed: false };
+  }
+}
+
 /**
  * Universal, Reusable Sidebar Navigation Component
  * Treats all 7 roles equally, dynamically loading their menu from AuthContext.
@@ -73,6 +94,39 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
   const name = user?.name || 'User';
   const role = user?.role || 'Member';
   const initial = name ? name.charAt(0).toUpperCase() : 'U';
+
+  const [width, setWidth] = useState(() => loadSidebarPrefs().width);
+  const [collapsed, setCollapsed] = useState(() => loadSidebarPrefs().collapsed);
+  const [isResizing, setIsResizing] = useState(false);
+  const asideRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ width, collapsed }));
+    } catch {
+      // storage unavailable: preferences just won't persist
+    }
+  }, [width, collapsed]);
+
+  // Drag the right edge to resize (mouse, touch or pen)
+  const startResize = (e) => {
+    e.preventDefault();
+    const left = asideRef.current?.getBoundingClientRect().left || 0;
+    setIsResizing(true);
+    const onMove = (ev) => setWidth(clampWidth(ev.clientX - left));
+    const onUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  const handleResizeKey = (e) => {
+    if (e.key === 'ArrowLeft') setWidth((w) => clampWidth(w - 20));
+    if (e.key === 'ArrowRight') setWidth((w) => clampWidth(w + 20));
+  };
 
   // All roles treated equally from the map
   const items = customNavItems || ROLE_NAV_ITEMS[role] || [
@@ -105,17 +159,46 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
   };
 
   return (
-    <aside className="sidebar" >
-      {/* Brand logo container */}
-      <div
-        className="sidebar-logo-container logo-container"
-        style={{ cursor: 'pointer' }}
-        onClick={() => navigate('/')}
-        title="Return to Home / Landing"
-      >
+    <aside
+      ref={asideRef}
+      className={`sidebar${collapsed ? ' collapsed' : ''}${isResizing ? ' resizing' : ''}`}
+      style={{ width: collapsed ? COLLAPSED_WIDTH : width }}
+    >
+      {/* Brand logo (not a link: dashboards stay in the app) */}
+      <div className="sidebar-logo-container logo-container">
         <div className="logo-icon">R</div>
         <div className="logo-text">ResourceX</div>
       </div>
+
+      {/* Open / close toggle */}
+      <button
+        type="button"
+        className="sidebar-toggle"
+        onClick={() => setCollapsed((c) => !c)}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-expanded={!collapsed}
+      >
+        <span className="material-symbols-outlined">{collapsed ? 'chevron_right' : 'chevron_left'}</span>
+      </button>
+
+      {/* Drag handle to resize; double-click resets the width */}
+      {!collapsed && (
+        <div
+          className="sidebar-resize-handle"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize sidebar"
+          aria-valuemin={MIN_WIDTH}
+          aria-valuemax={MAX_WIDTH}
+          aria-valuenow={width}
+          tabIndex={0}
+          title="Drag to resize, double-click to reset"
+          onPointerDown={startResize}
+          onDoubleClick={() => setWidth(DEFAULT_WIDTH)}
+          onKeyDown={handleResizeKey}
+        />
+      )}
 
       {/* Nav Menu */}
       <ul className="nav-menu">
@@ -124,9 +207,10 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
             key={item.target || item.id}
             className={`nav-item ${isActive(item) ? 'active' : ''}`}
             onClick={() => handleItemClick(item)}
+            title={collapsed ? item.label : undefined}
           >
             <span className="material-symbols-outlined">{item.icon}</span>
-            <span>{item.label}</span>
+            <span className="nav-label">{item.label}</span>
           </li>
         ))}
       </ul>
@@ -135,7 +219,7 @@ export default function Sidebar({ customNavItems, activeTab, onTabChange } = {})
       <div
         className="user-profile-widget"
         onClick={() => navigate('/profile')}
-        title="View Profile"
+        title={collapsed ? `${name} — View Profile` : 'View Profile'}
       >
         <div className="user-avatar" style={{ overflow: 'hidden' }}>
           <div

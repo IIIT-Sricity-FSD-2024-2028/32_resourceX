@@ -3,15 +3,17 @@ import { useOutletContext } from 'react-router-dom';
 import OwnerModal from '../components/OwnerModal';
 import AssignEmployeeModal from '../components/AssignEmployeeModal';
 import { renderStatusBadge } from './OwnerOverview';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchOwnerOrganizations,
   fetchOwnerEmployees,
   approveOwnerOrganization,
+  assignOwnerOrganizationEmployee,
   suspendOwnerOrganization,
   reactivateOwnerOrganization
 } from '../../../../services/owner';
 
-const FILTERS = ['All', 'Active', 'Suspended'];
+const STATUSES = ['Active', 'Suspended', 'Pending'];
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
 /**
@@ -25,9 +27,13 @@ export default function OwnerOrganizations() {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState('All');
+  const [employeeFilter, setEmployeeFilter] = useState('All');
 
   // Approve & Assign Modal state
   const [assignTarget, setAssignTarget] = useState(null);
+  const [reassignTarget, setReassignTarget] = useState(null);
 
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
@@ -52,7 +58,13 @@ export default function OwnerOrganizations() {
     loadData();
   }, []);
 
-  const filtered = filter === 'All' ? organizations : organizations.filter((o) => o.status === filter);
+  const employeeName = (org) => employees.find((e) => e.id === org.assignedEmployeeId)?.name || '';
+  const filtered = organizations.filter((o) =>
+    (filter === 'All' || o.status === filter) &&
+    (planFilter === 'All' || o.subscriptionPlanId === planFilter) &&
+    (employeeFilter === 'All' || employeeName(o) === employeeFilter) &&
+    matchesSearch(search, o.id, o.name, o.adminEmail, o.adminName, o.subscriptionPlanId, employeeName(o))
+  );
 
   const handleApprove = async (orgId, employeeId) => {
     try {
@@ -61,6 +73,18 @@ export default function OwnerOrganizations() {
       loadData();
     } catch (err) {
       addToast('Failed to approve organization: ' + err.message, 'error');
+      throw err;
+    }
+  };
+
+  const handleReassign = async (orgId, employeeId) => {
+    try {
+      await assignOwnerOrganizationEmployee(orgId, employeeId);
+      const emp = employees.find((e) => e.id === employeeId);
+      addToast(`Organization assigned to ${emp?.name || employeeId}.`, 'success');
+      loadData();
+    } catch (err) {
+      addToast('Failed to change employee: ' + err.message, 'error');
       throw err;
     }
   };
@@ -84,22 +108,19 @@ export default function OwnerOrganizations() {
       <h1 className="page-title">Organization Management</h1>
       <p className="page-subtitle">Manage all registered organizations — active, suspended and pending.</p>
 
-      <div className="data-section-header" style={{ marginBottom: '1rem', padding: 0, border: 'none' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              className={filter === f ? 'btn-primary' : 'btn-secondary'}
-              onClick={() => setFilter(f)}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by org ID, name, admin email or employee..."
+          filters={[
+            { label: 'All Statuses', value: filter, onChange: setFilter, options: STATUSES },
+            { label: 'All Plans', value: planFilter, onChange: setPlanFilter, options: uniqueOptions(organizations, 'subscriptionPlanId') },
+            { label: 'All Employees', value: employeeFilter, onChange: setEmployeeFilter, options: uniqueOptions(organizations, employeeName) },
+          ]}
+          resultCount={filtered.length}
+          totalCount={organizations.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -120,7 +141,7 @@ export default function OwnerOrganizations() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No {filter === 'All' ? '' : `${filter.toLowerCase()} `}organizations found.
+                  No organizations match your search or filters.
                 </td>
               </tr>
             ) : (
@@ -131,7 +152,22 @@ export default function OwnerOrganizations() {
                   <td>{org.adminEmail}</td>
                   <td>{org.subscriptionPlanId || '—'}</td>
                   <td>{renderStatusBadge(org.status)}</td>
-                  <td>{employees.find((e) => e.id === org.assignedEmployeeId)?.name || '—'}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>{employeeName(org) || '—'}</span>
+                      {org.status !== 'Pending' && (
+                        <button
+                          type="button"
+                          title="Change assigned employee"
+                          aria-label={`Change assigned employee for ${org.name}`}
+                          onClick={() => setReassignTarget(org)}
+                          style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--primary-color)', display: 'inline-flex' }}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>edit</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
                   <td>
                     {org.status === 'Active' && (
                       <button type="button" className="btn-secondary" style={smallBtn} onClick={() => setActionTarget({ org, action: 'suspend' })}>
@@ -162,6 +198,17 @@ export default function OwnerOrganizations() {
         onClose={() => setAssignTarget(null)}
         onSubmit={handleApprove}
         organization={assignTarget}
+        organizations={organizations}
+        employees={employees}
+      />
+
+      {/* Change Assigned Employee Modal */}
+      <AssignEmployeeModal
+        mode="reassign"
+        isOpen={Boolean(reassignTarget)}
+        onClose={() => setReassignTarget(null)}
+        onSubmit={handleReassign}
+        organization={reassignTarget}
         organizations={organizations}
         employees={employees}
       />

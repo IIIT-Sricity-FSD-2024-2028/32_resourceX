@@ -26,8 +26,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Today's date string in YYYY-MM-DD for min attribute
-  const todayStr = new Date().toISOString().split('T')[0];
+  // The requirement date must be at least 2 days after the request date (local time, YYYY-MM-DD)
+  const MIN_LEAD_DAYS = 2;
+  const earliest = new Date();
+  earliest.setDate(earliest.getDate() + MIN_LEAD_DAYS);
+  const minRequirementStr = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
 
   useEffect(() => {
     const init = async () => {
@@ -98,6 +101,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Format dates for display
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
     if (!selectedDept || !selectedType || isNaN(quantity) || quantity < 1 || !reason.trim()) {
       addToast('Please fill in all fields correctly before submitting.', 'error');
       return;
@@ -105,6 +116,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
 
     if (!requirementDate) {
       addToast('Please select a Resource Requirement Date.', 'error');
+      return;
+    }
+
+    if (requirementDate < minRequirementStr) {
+      addToast(`Requirement Date must be at least ${MIN_LEAD_DAYS} days after today (${formatDate(minRequirementStr)} or later).`, 'error');
       return;
     }
 
@@ -126,14 +142,6 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       day: 'numeric',
       year: 'numeric'
     });
-
-    // Format dates for display
-    const formatDate = (dateStr) =>
-      new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
 
     const payload = {
       id: newId,
@@ -275,7 +283,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
                   type="date"
                   className="form-control"
                   value={requirementDate}
-                  min={todayStr}
+                  min={minRequirementStr}
                   onChange={(e) => {
                     setRequirementDate(e.target.value);
                     // Clear return date if it becomes invalid
@@ -295,7 +303,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
                   type="date"
                   className="form-control"
                   value={returnDate}
-                  min={requirementDate || todayStr}
+                  min={requirementDate || minRequirementStr}
                   onChange={(e) => setReturnDate(e.target.value)}
                   disabled={!requirementDate}
                   required

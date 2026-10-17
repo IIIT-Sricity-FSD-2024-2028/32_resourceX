@@ -53,8 +53,12 @@ To get a token, send a `POST` request to `/api/auth/login` with user credentials
 
 The system has mock data with the following test credentials:
 
-- **Requestor**: `ravi@resourcex.com` / `12345678` (ID: `U1`)
-- **Dept Head**: `pradhyum@resourcex.com` / `12345678` (ID: `U2`)
-- **Registrar**: `harsha@resourcex.com` / `12345678` (ID: `U3`)
-- **Staff**: `prem@resourcex.com` / `12345678` (ID: `U4`)
-- **System Admin**: `yashwath@resourcex.com` / `12345678` (ID: `U5`)
+- **Requestor**: `ravichandrareacmecorp@gmail.com` / `12345678` (ID: `U1`)
+- **Dept Head**: `pradhyumdhacmecorp@gmail.com` / `12345678` (ID: `U2`)
+- **Registrar**: `harshatejrgacmecorp@gmail.com` / `12345678` (ID: `U3`)
+- **Inventory Officer**: `yaswanthkumarioacmecorp@gmail.com` / `12345678` (ID: `U4`)
+- **Maintenance Officer**: `kumarmaintmoacmecorp@gmail.com` / `12345678` (ID: `U4M`)
+- **Procurement Officer**: `kumarprocpoacmecorp@gmail.com` / `12345678` (ID: `U4P`)
+- **System Admin**: `yashwathsaacmecorp@gmail.com` / `12345678` (ID: `U5`)
+- **Platform Owner**: `owner@resourcex.com` / `password` (ID: `OWN-001`)
+- **Platform Employee**: `employee1@resourcex.com` / `password` (ID: `EMP-001`)

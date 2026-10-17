@@ -10,6 +10,7 @@ import {
   rejectResourceExtension
 } from '../../../../services/deptHead';
 import { EmptyRow, LoadingBlock, ErrorBlock, padQty } from '../components/deptHeadUtils';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 /**
  * Incoming Requests View for Department Head
@@ -25,6 +26,10 @@ export default function DeptHeadIncomingRequests() {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [rejectRequestId, setRejectRequestId] = useState(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [extSearch, setExtSearch] = useState('');
+  const [extTypeFilter, setExtTypeFilter] = useState('All');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -112,6 +117,16 @@ export default function DeptHeadIncomingRequests() {
     }
   };
 
+  const visibleRequests = requests.filter((req) =>
+    (typeFilter === 'All' || req.resourceType === typeFilter) &&
+    matchesSearch(search, req.id, req.requestor, req.resourceType, req.justification, req.requirementDateDisplay, req.returnDateDisplay)
+  );
+  const extensionType = (item) => item.name || item.type;
+  const visibleExtensions = extensionRequests.filter((item) =>
+    (extTypeFilter === 'All' || extensionType(item) === extTypeFilter) &&
+    matchesSearch(extSearch, item.id, extensionType(item), item.extensionRequestedBy, item.assignedTo, item.extensionReason)
+  );
+
   const onConfirmReject = async () => {
     const id = rejectRequestId;
     setRejectRequestId(null);
@@ -148,6 +163,16 @@ export default function DeptHeadIncomingRequests() {
                   </div>
                 </div>
               </div>
+              <TableToolbar
+                search={extSearch}
+                onSearchChange={setExtSearch}
+                placeholder="Search by resource code, type, requestor or justification..."
+                filters={[
+                  { label: 'All Resource Types', value: extTypeFilter, onChange: setExtTypeFilter, options: uniqueOptions(extensionRequests, extensionType) },
+                ]}
+                resultCount={visibleExtensions.length}
+                totalCount={extensionRequests.length}
+              />
 
               <div className="table-responsive">
                 <table className="table">
@@ -163,7 +188,10 @@ export default function DeptHeadIncomingRequests() {
                     </tr>
                   </thead>
                   <tbody>
-                    {extensionRequests.map((item) => (
+                    {visibleExtensions.length === 0 && (
+                      <EmptyRow colSpan={7} text="No extension requests match your search." />
+                    )}
+                    {visibleExtensions.map((item) => (
                       <tr key={item.id}>
                         <td className="td-id">{item.id}</td>
                         <td style={{ fontWeight: 600 }}>{item.name || item.type}</td>
@@ -217,6 +245,16 @@ export default function DeptHeadIncomingRequests() {
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
             </button>
           </div>
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search by Req ID, requestor, resource type or reason..."
+            filters={[
+              { label: 'All Resource Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(requests, 'resourceType') },
+            ]}
+            resultCount={visibleRequests.length}
+            totalCount={requests.length}
+          />
           <div className="table-responsive">
             <table className="table">
               <thead>
@@ -231,10 +269,10 @@ export default function DeptHeadIncomingRequests() {
                 </tr>
               </thead>
               <tbody>
-                {requests.length === 0 ? (
-                  <EmptyRow colSpan={7} text="No pending resource requests. 🎉" />
+                {visibleRequests.length === 0 ? (
+                  <EmptyRow colSpan={7} text={requests.length === 0 ? 'No pending resource requests. 🎉' : 'No requests match your search.'} />
                 ) : (
-                  requests.map((req) => (
+                  visibleRequests.map((req) => (
                     <tr key={req.id}>
                       <td className="td-id">{req.id}</td>
                       <td>{req.requestor}</td>

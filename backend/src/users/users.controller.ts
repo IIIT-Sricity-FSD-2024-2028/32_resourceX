@@ -23,7 +23,7 @@ import { Roles } from '../common/roles.decorator';
 import { UserResponseDto } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { UsersService } from './users.service';
-import { CreateEmployeeDto, CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { CreateEmployeeDto, CreateUserDto, UpdateEmployeeDto, UpdateUserDto } from './dto/user.dto';
 import { Public } from '../auth/public.decorator';
 import { UsersExceptionFilter } from './filters/users-exception.filter';
 
@@ -64,6 +64,23 @@ export class UsersController {
   @ApiOperation({ summary: 'Owner creates a new platform Employee' })
   createEmployee(@Body() dto: CreateEmployeeDto) {
     return this.usersService.createEmployee(dto);
+  }
+
+  @Patch('employees/:id')
+  @Roles('Owner')
+  @ApiBody({ type: UpdateEmployeeDto })
+  @ApiOperation({ summary: 'Owner edits an employee (name, document, assigned organizations)' })
+  @ApiParam({ name: 'id', example: 'EMP-001' })
+  updateEmployee(@Param('id') id: string, @Body() dto: UpdateEmployeeDto) {
+    return this.usersService.updateEmployee(id, dto);
+  }
+
+  @Delete('employees/:id')
+  @Roles('Owner')
+  @ApiOperation({ summary: 'Owner removes an employee; their organizations become unassigned' })
+  @ApiParam({ name: 'id', example: 'EMP-001' })
+  removeEmployee(@Param('id') id: string) {
+    return this.usersService.removeEmployee(id);
   }
 
   @Patch(':id')

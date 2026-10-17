@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ResolveTicketModal from '../components/ResolveTicketModal';
 import { renderStatusBadge } from './EmployeeOverview';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import { fetchEmployeeTickets, resolveEmployeeTicket } from '../../../../services/employee';
 
-const FILTERS = ['Open', 'Resolved', 'All'];
+const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
 /**
  * Exact replica of support-view from employee.html
@@ -16,6 +17,8 @@ export default function EmployeeSupport() {
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState('Open');
+  const [search, setSearch] = useState('');
+  const [orgFilter, setOrgFilter] = useState('All');
 
   // Resolve Ticket Modal state
   const [resolveTarget, setResolveTarget] = useState(null);
@@ -35,7 +38,11 @@ export default function EmployeeSupport() {
     loadData();
   }, []);
 
-  const list = filter === 'All' ? tickets : tickets.filter((t) => t.status === filter);
+  const list = tickets.filter((t) =>
+    (filter === 'All' || t.status === filter) &&
+    (orgFilter === 'All' || t.organizationId === orgFilter) &&
+    matchesSearch(search, t.id, t.organizationId, t.title, t.description, t.createdBy, t.date)
+  );
 
   const handleResolve = async (id, reply) => {
     try {
@@ -54,20 +61,18 @@ export default function EmployeeSupport() {
       <h1 className="page-title">Support Management</h1>
       <p className="page-subtitle">Review and resolve technical or operational issues reported by institutions.</p>
 
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            className={filter === f ? 'btn-primary' : 'btn-secondary'}
-            onClick={() => setFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ticket ID, institution, title or description..."
+          filters={[
+            { label: 'All Statuses', value: filter, onChange: setFilter, options: STATUSES },
+            { label: 'All Institutions', value: orgFilter, onChange: setOrgFilter, options: uniqueOptions(tickets, 'organizationId') },
+          ]}
+          resultCount={list.length}
+          totalCount={tickets.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -88,7 +93,7 @@ export default function EmployeeSupport() {
             ) : list.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No {filter === 'All' ? '' : `${filter.toLowerCase()} `}tickets found.
+                  No tickets match your search or filters.
                 </td>
               </tr>
             ) : (

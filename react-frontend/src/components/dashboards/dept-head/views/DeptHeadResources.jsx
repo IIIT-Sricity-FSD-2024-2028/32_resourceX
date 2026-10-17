@@ -69,11 +69,11 @@ export default function DeptHeadResources() {
                 <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s}</option>
               ))}
             </select>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.75rem', width: '250px', background: 'white' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.75rem', width: '320px', maxWidth: '100%', background: 'white' }}>
               <span className="material-symbols-outlined" style={{ color: '#94a3b8', fontSize: '1.2rem' }}>search</span>
               <input
                 type="text"
-                placeholder="Filter resources..."
+                placeholder="Search by code, serial no., type, assignee or condition..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 style={{ border: 'none', outline: 'none', flex: 1, fontSize: '0.875rem', fontFamily: 'inherit', background: 'transparent' }}
@@ -92,6 +92,7 @@ export default function DeptHeadResources() {
               <thead>
                 <tr>
                   <th>Resource Code</th>
+                  <th>Serial No</th>
                   <th>Resource Type</th>
                   <th>Assigned To</th>
                   <th>Condition</th>
@@ -100,11 +101,12 @@ export default function DeptHeadResources() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <EmptyRow colSpan={5} text={resources.length ? 'No resources match your filter.' : 'No resources in this department yet.'} />
+                  <EmptyRow colSpan={6} text={resources.length ? 'No resources match your filter.' : 'No resources in this department yet.'} />
                 ) : (
                   filtered.map((res) => (
                     <tr key={res.id}>
                       <td className="td-id">{res.id}</td>
+                      <td>{res.serialNumber || '--'}</td>
                       <td>
                         {res.type}
                         {res.name && res.name !== res.type && (

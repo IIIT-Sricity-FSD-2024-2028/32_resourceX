@@ -11,6 +11,8 @@ import {
   resourceMatchesType,
 } from '../common/utils';
 
+const MIN_REQUIREMENT_LEAD_DAYS = 2;
+
 @Injectable()
 export class RequestsService {
   constructor(private readonly dataService: DataService) {}
@@ -83,6 +85,19 @@ export class RequestsService {
       ensureValidDepartmentResourceType(this.dataService, department, payload.resourceType, context.organizationId);
     }
 
+    // Requestors must ask at least 2 days ahead (auto-generated procurement requests are exempt)
+    if (!payload.procurementId && payload.requirementDate) {
+      const earliest = new Date();
+      earliest.setHours(0, 0, 0, 0);
+      earliest.setDate(earliest.getDate() + MIN_REQUIREMENT_LEAD_DAYS);
+      const [y, m, d] = payload.requirementDate.slice(0, 10).split('-').map(Number);
+      if (new Date(y, m - 1, d) < earliest) {
+        throw new BadRequestException(
+          `Requirement date must be at least ${MIN_REQUIREMENT_LEAD_DAYS} days after the request date.`
+        );
+      }
+    }
+
     const request: RequestRecord = {
       ...payload,
       id: payload.id || `REQ-${Date.now()}`,
@@ -94,7 +109,15 @@ export class RequestsService {
       date: payload.date || new Date().toLocaleDateString('en-US'),
     };
 
-    return this.dataService.insertRequest(request);
+    const saved = this.dataService.insertRequest(request);
+    this.dataService.notify({
+      organizationId: saved.organizationId,
+      recipientRole: 'Dept Head',
+      department: saved.department,
+      title: 'New resource request',
+      description: `${saved.requestor} requested ${saved.quantity} x ${saved.resourceType} (${saved.id}). Review it in Incoming Requests.`,
+    });
+    return saved;
   }
 
   update(id: string, payload: UpdateRequestDto): RequestRecord {
@@ -113,7 +136,43 @@ export class RequestsService {
     if (request.status !== 'Pending') {
       throw new BadRequestException('Can only approve pending requests.');
     }
-    return this.dataService.updateRequest(id, { status: 'Approved' });
+
+    // Approve only when the department has enough available stock. Units already promised to
+    // other approved requests that are still waiting for allocation are not counted as available.
+    const sameTypeInDept = (item: { organizationId: string; department: string }) =>
+      item.organizationId === request.organizationId && item.department === request.department;
+    const availableCount = this.dataService
+      .getResources()
+      .filter((r) => sameTypeInDept(r) && r.status === 'Available' && resourceMatchesType(r, request.resourceType)).length;
+    const reservedCount = this.dataService
+      .getRequests()
+      .filter((r) => r.id !== id && sameTypeInDept(r) && r.status === 'Approved' && resourceMatchesType({ type: r.resourceType }, request.resourceType))
+      .reduce((sum, r) => sum + (Number(r.quantity) || 0), 0);
+    const freeCount = Math.max(availableCount - reservedCount, 0);
+    if (freeCount < request.quantity) {
+      throw new BadRequestException(
+        `Not enough quantity in inventory: ${request.quantity} x ${request.resourceType} requested, ` +
+          `only ${freeCount} available in ${request.department}` +
+          (reservedCount > 0 ? ` (${reservedCount} already reserved for approved requests).` : '.')
+      );
+    }
+
+    const approved = this.dataService.updateRequest(id, { status: 'Approved' });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Request approved',
+      description: `Your request ${id} for ${request.resourceType} was approved by the department head.`,
+    });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: request.department,
+      title: 'Request ready for allocation',
+      description: `Request ${id} (${request.quantity} x ${request.resourceType}) was approved and awaits allocation.`,
+    });
+    return approved;
   }
 
   reject(id: string, context?: RequestContext): RequestRecord {
@@ -127,7 +186,15 @@ export class RequestsService {
     if (request.status !== 'Pending') {
       throw new BadRequestException('Can only reject pending requests.');
     }
-    return this.dataService.updateRequest(id, { status: 'Rejected' });
+    const rejected = this.dataService.updateRequest(id, { status: 'Rejected' });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Request rejected',
+      description: `Your request ${id} for ${request.resourceType} was rejected by the department head.`,
+    });
+    return rejected;
   }
 
   allocate(id: string, resourceIds: string[], context: RequestContext): RequestRecord {
@@ -171,10 +238,25 @@ export class RequestsService {
       });
     }
 
-    return this.dataService.updateRequest(id, {
+    const allocated = this.dataService.updateRequest(id, {
       status: 'Allocated',
       assignedResources: resourceIds.join(', ')
     });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Requestor',
+      recipientUserId: request.requestorId,
+      title: 'Resource allocated',
+      description: `${request.quantity} x ${request.resourceType} was allocated for request ${id}. Please confirm receipt.`,
+    });
+    this.dataService.notify({
+      organizationId: request.organizationId,
+      recipientRole: 'Dept Head',
+      department: request.department,
+      title: 'Resource allocated',
+      description: `Request ${id} from ${request.requestor} (${request.resourceType}) has been allocated.`,
+    });
+    return allocated;
   }
 
   delete(id: string): RequestRecord {

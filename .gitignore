@@ -6,3 +6,4 @@ backend/uploads/
 .DS_Store
 **/.DS_Store
 *.zip
+backend/.env

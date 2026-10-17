@@ -118,6 +118,88 @@ a {
   flex-shrink: 0;
   min-height: 100vh;
   align-self: stretch;
+  position: relative;
+  transition: width 0.2s ease;
+}
+
+/* No animation while dragging, and no text selection */
+.sidebar.resizing {
+  transition: none;
+  user-select: none;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 1.6rem;
+  right: -13px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  z-index: 20;
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-toggle:hover {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.sidebar-toggle .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+}
+
+.sidebar-resize-handle:hover,
+.sidebar-resize-handle:focus-visible,
+.sidebar.resizing .sidebar-resize-handle {
+  outline: none;
+  background: var(--primary-color);
+  opacity: 0.35;
+}
+
+.sidebar .nav-label,
+.sidebar .user-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Collapsed: icons only */
+.sidebar.collapsed .logo-text,
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .user-info {
+  display: none;
+}
+
+.sidebar.collapsed .logo-container,
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar.collapsed .user-profile-widget {
+  margin: 1.5rem 0.75rem 0;
+  padding: 0.75rem 0;
+  justify-content: center;
 }
 
 .sidebar .logo-container,
@@ -612,8 +694,22 @@ a {
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  /* Wide tables scroll sideways inside the card instead of being cut off */
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: 2rem;
+}
+
+/* Keep the header and search bar in view while the table scrolls sideways */
+.data-section > .data-section-header,
+.data-section > .table-toolbar {
+  position: sticky;
+  left: 0;
+}
+
+/* Keep action buttons on one line so they don't squeeze or wrap */
+.data-section td:last-child:has(button) {
+  white-space: nowrap;
 }
 
 .data-section-header {
@@ -663,6 +759,61 @@ table.table td, td {
 
 table.table tbody tr:last-child td, tbody tr:last-child td {
   border-bottom: none;
+}
+
+/* Search + filter bar above tables (components/common/TableToolbar.jsx) */
+.table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.table-toolbar-standalone {
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.table-toolbar-search {
+  position: relative;
+  flex: 1 1 260px;
+}
+
+.table-toolbar-search .material-symbols-outlined {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.table-toolbar-search .form-control {
+  padding: 0.5rem 0.75rem 0.5rem 2.1rem;
+}
+
+.table-toolbar .table-toolbar-select {
+  width: auto;
+  min-width: 150px;
+  padding: 0.5rem 0.75rem;
+}
+
+.table-toolbar-clear {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.table-toolbar-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* =========================================================================

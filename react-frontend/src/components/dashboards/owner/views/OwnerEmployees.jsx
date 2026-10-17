@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import OwnerModal from '../components/OwnerModal';
+import EditEmployeeModal from '../components/EditEmployeeModal';
+import { DocumentLink } from '../../../common/DocumentUpload';
 import { renderStatusBadge } from './OwnerOverview';
 import {
   fetchOwnerOrganizations,
   fetchOwnerEmployees,
   suspendOwnerEmployee,
-  reactivateOwnerEmployee
+  reactivateOwnerEmployee,
+  updateOwnerEmployee,
+  removeOwnerEmployee
 } from '../../../../services/owner';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
@@ -22,9 +27,11 @@ export default function OwnerEmployees() {
   const [employees, setEmployees] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { emp, action }
+  const [editTarget, setEditTarget] = useState(null);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -46,22 +53,28 @@ export default function OwnerEmployees() {
     loadData();
   }, []);
 
-  const q = search.trim().toLowerCase();
-  const filtered = employees.filter(
-    (e) =>
-      !q ||
-      e.name.toLowerCase().includes(q) ||
-      e.email.toLowerCase().includes(q) ||
-      e.id.toLowerCase().includes(q)
+  const orgNames = (empId) => organizations.filter((o) => o.assignedEmployeeId === empId).map((o) => o.name).join(' ');
+  const filtered = employees.filter((e) =>
+    (statusFilter === 'All' || (e.status || 'Active') === statusFilter) &&
+    matchesSearch(search, e.name, e.email, e.id, orgNames(e.id))
   );
 
   const handleConfirmAction = async () => {
     if (!actionTarget) return;
     const { emp, action } = actionTarget;
     try {
-      if (action === 'suspend') await suspendOwnerEmployee(emp.id);
-      else await reactivateOwnerEmployee(emp.id);
-      addToast(`Employee ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
+      if (action === 'remove') {
+        const { unassignedOrganizations = [] } = await removeOwnerEmployee(emp.id);
+        addToast(
+          `${emp.name} removed.` +
+            (unassignedOrganizations.length ? ` ${unassignedOrganizations.length} organization(s) are now unassigned.` : ''),
+          'success'
+        );
+      } else {
+        if (action === 'suspend') await suspendOwnerEmployee(emp.id);
+        else await reactivateOwnerEmployee(emp.id);
+        addToast(`Employee ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
+      }
       setActionTarget(null);
       loadData();
     } catch (err) {
@@ -69,24 +82,32 @@ export default function OwnerEmployees() {
     }
   };
 
+  const handleSaveEmployee = async (id, payload) => {
+    await updateOwnerEmployee(id, payload);
+    addToast('Employee updated.', 'success');
+    loadData();
+  };
+
+  const removeTargetOrgs = actionTarget?.action === 'remove'
+    ? organizations.filter((o) => o.assignedEmployeeId === actionTarget.emp.id)
+    : [];
+
   return (
     <div id="employees-view" className="view-section active">
       <h1 className="page-title">Employee Management</h1>
       <p className="page-subtitle">Platform support employees and their assigned organizations.</p>
 
-      <div style={{ marginBottom: '1rem' }}>
-        <input
-          type="text"
-          id="empSearch"
-          className="form-control"
-          style={{ maxWidth: '320px' }}
-          placeholder="Search by name, email or ID..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by name, email, ID or organization..."
+          filters={[
+            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(employees, (e) => e.status || 'Active') },
+          ]}
+          resultCount={filtered.length}
+          totalCount={employees.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -95,6 +116,7 @@ export default function OwnerEmployees() {
               <th>Email</th>
               <th>Orgs Managed</th>
               <th>Organizations (first 3)</th>
+              <th>Document</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -102,13 +124,13 @@ export default function OwnerEmployees() {
           <tbody id="employeeTableBody">
             {isLoading ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   Loading employees...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   No employees found.
                 </td>
               </tr>
@@ -124,8 +146,12 @@ export default function OwnerEmployees() {
                     <td>{emp.email}</td>
                     <td>{empOrgs.length}</td>
                     <td>{names}{extra}</td>
+                    <td><DocumentLink record={emp} /></td>
                     <td>{renderStatusBadge(emp.status)}</td>
-                    <td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button type="button" className="btn-secondary" style={{ ...smallBtn, marginRight: 4 }} onClick={() => setEditTarget(emp)}>
+                        Edit
+                      </button>
                       {emp.status === 'Active' ? (
                         <button type="button" className="btn-secondary" style={smallBtn} onClick={() => setActionTarget({ emp, action: 'suspend' })}>
                           Suspend
@@ -135,6 +161,14 @@ export default function OwnerEmployees() {
                           Reactivate
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ ...smallBtn, marginLeft: 4, color: '#b91c1c', borderColor: '#fecaca' }}
+                        onClick={() => setActionTarget({ emp, action: 'remove' })}
+                      >
+                        Remove
+                      </button>
                     </td>
                   </tr>
                 );
@@ -144,18 +178,46 @@ export default function OwnerEmployees() {
         </table>
       </div>
 
-      {/* Suspend / Reactivate Confirmation Modal */}
+      {/* Suspend / Reactivate / Remove Confirmation Modal */}
       <OwnerModal
         isOpen={Boolean(actionTarget)}
-        title={actionTarget?.action === 'suspend' ? 'Suspend Employee' : 'Reactivate Employee'}
+        title={
+          actionTarget?.action === 'remove'
+            ? 'Remove Employee'
+            : actionTarget?.action === 'suspend' ? 'Suspend Employee' : 'Reactivate Employee'
+        }
         onClose={() => setActionTarget(null)}
         onConfirm={handleConfirmAction}
-        confirmText={actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        confirmText={actionTarget?.action === 'remove' ? 'Remove' : actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        confirmButtonClass={actionTarget?.action === 'remove' ? 'btn-danger' : 'btn-primary'}
       >
-        <p style={{ margin: 0, color: '#334155' }}>
-          {actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'} <strong>{actionTarget?.emp.name}</strong>?
-        </p>
+        {actionTarget?.action === 'remove' ? (
+          <div style={{ color: '#334155', fontSize: '0.9rem' }}>
+            <p style={{ margin: 0 }}>
+              Permanently remove <strong>{actionTarget.emp.name}</strong> ({actionTarget.emp.id})? They will no longer be able to sign in.
+            </p>
+            {removeTargetOrgs.length > 0 && (
+              <p style={{ margin: '0.75rem 0 0', color: '#b45309' }}>
+                {removeTargetOrgs.length} organization{removeTargetOrgs.length !== 1 ? 's' : ''} ({removeTargetOrgs.map((o) => o.name).join(', ')}) will
+                become unassigned. Reassign them from Organization Management.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: '#334155' }}>
+            {actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'} <strong>{actionTarget?.emp.name}</strong>?
+          </p>
+        )}
       </OwnerModal>
+
+      <EditEmployeeModal
+        isOpen={Boolean(editTarget)}
+        onClose={() => setEditTarget(null)}
+        onSubmit={handleSaveEmployee}
+        employee={editTarget}
+        organizations={organizations}
+        employees={employees}
+      />
     </div>
   );
 }

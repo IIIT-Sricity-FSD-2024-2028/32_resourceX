@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Patch, Req, UseFilters } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Patch, Req, UseFilters } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { OrganizationsService } from './organizations.service';
 import { Public } from '../auth/public.decorator';
@@ -39,6 +39,16 @@ export class OrganizationsController {
   @ApiOperation({ summary: 'Approve an organization and assign an employee' })
   approveOrganization(@Param('id') id: string, @Body('employeeId') employeeId: string) {
     return this.organizationsService.updateStatus(id, 'Active', employeeId);
+  }
+
+  @Roles('Owner')
+  @Patch(':id/assign-employee')
+  @ApiOperation({ summary: 'Change the employee assigned to an organization' })
+  assignEmployee(@Param('id') id: string, @Body('employeeId') employeeId: string) {
+    if (!employeeId) {
+      throw new BadRequestException('employeeId is required.');
+    }
+    return this.organizationsService.assignEmployee(id, employeeId);
   }
 
   @Patch(':id/suspend')

@@ -18,7 +18,7 @@
   box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
   border: 1px solid var(--border-color, #e2e8f0);
   width: 100%;
-  max-width: 800px;
+  max-width: 560px;
   padding: 2.5rem;
   box-sizing: border-box;
 }
@@ -211,4 +211,58 @@
   .register-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.plan-summary {
+  cursor: default;
+  margin-bottom: 0.75rem;
+  text-align: left;
+}
+
+.plan-summary:hover {
+  transform: none;
+}
+
+.file-chosen {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-main, #1e293b);
+}
+
+.file-chosen-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-chosen button {
+  background: none;
+  border: none;
+  color: #b91c1c;
+  cursor: pointer;
+}
+
+.plan-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.plan-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  overflow-y: auto;
 }

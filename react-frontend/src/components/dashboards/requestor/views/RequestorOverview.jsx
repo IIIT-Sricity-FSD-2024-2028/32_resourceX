@@ -5,10 +5,13 @@ import {
   fetchRequestorReturnHistory,
   fetchRequestorMaintenanceHistory
 } from '../../../../services/requestor';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function RequestorOverview({ onSwitchView }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [requestSearch, setRequestSearch] = useState('');
+  const [resourceSearch, setResourceSearch] = useState('');
   const [data, setData] = useState({
     requests: [],
     resources: [],
@@ -64,6 +67,13 @@ export default function RequestorOverview({ onSwitchView }) {
   const returnedCount = data.returnHistory?.length || 0;
 
   const firstName = user?.name ? user.name.split(' ')[0] : 'User';
+
+  const recentRequests = myRequests
+    .filter((req) => matchesSearch(requestSearch, req.id, req.resourceType, req.item, req.status))
+    .slice(0, 5);
+  const recentResources = myResources
+    .filter((res) => matchesSearch(resourceSearch, res.id, res.type, res.name, res.status))
+    .slice(0, 5);
 
   return (
     <div className="view-section">
@@ -175,6 +185,7 @@ export default function RequestorOverview({ onSwitchView }) {
               View All
             </button>
           </div>
+          <TableToolbar search={requestSearch} onSearchChange={setRequestSearch} placeholder="Search by ID, resource or status..." />
           <div className="table-responsive">
             <table className="table">
               <thead>
@@ -192,14 +203,14 @@ export default function RequestorOverview({ onSwitchView }) {
                       Loading requests...
                     </td>
                   </tr>
-                ) : myRequests.length === 0 ? (
+                ) : recentRequests.length === 0 ? (
                   <tr>
                     <td colSpan="4" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
-                      No recent requests found.
+                      {requestSearch.trim() ? 'No requests match your search.' : 'No recent requests found.'}
                     </td>
                   </tr>
                 ) : (
-                  myRequests.slice(0, 5).map((req) => (
+                  recentRequests.map((req) => (
                     <tr key={req.id}>
                       <td className="td-id">{req.id}</td>
                       <td>{req.resourceType || req.item}</td>
@@ -229,6 +240,7 @@ export default function RequestorOverview({ onSwitchView }) {
               View All
             </button>
           </div>
+          <TableToolbar search={resourceSearch} onSearchChange={setResourceSearch} placeholder="Search by code, type or status..." />
           <div className="table-responsive">
             <table className="table">
               <thead>
@@ -245,14 +257,14 @@ export default function RequestorOverview({ onSwitchView }) {
                       Loading allocated resources...
                     </td>
                   </tr>
-                ) : myResources.length === 0 ? (
+                ) : recentResources.length === 0 ? (
                   <tr>
                     <td colSpan="3" style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>
-                      No allocated resources found.
+                      {resourceSearch.trim() ? 'No resources match your search.' : 'No allocated resources found.'}
                     </td>
                   </tr>
                 ) : (
-                  myResources.slice(0, 5).map((res) => {
+                  recentResources.map((res) => {
                     let badgeClass = 'badge';
                     if (res.status === 'Allocated') badgeClass = 'badge allocated';
                     else if (res.status === 'Maintenance Requested' || res.status === 'Maintenance') badgeClass = 'badge maintenance';

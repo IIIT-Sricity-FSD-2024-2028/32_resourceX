@@ -45,6 +45,27 @@ export const createOwnerEmployee = async (employeeData) => {
   });
 };
 
+// payload: { name?, organizationIds?, documentFileName?, documentFileType?, documentFileDataUrl? }
+export const updateOwnerEmployee = async (id, payload) => {
+  return await apiRequest(`/users/employees/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+};
+
+export const removeOwnerEmployee = async (id) => {
+  return await apiRequest(`/users/employees/${encodeURIComponent(id)}`, {
+    method: 'DELETE'
+  });
+};
+
+export const assignOwnerOrganizationEmployee = async (orgId, employeeId) => {
+  return await apiRequest(`/organizations/${encodeURIComponent(orgId)}/assign-employee`, {
+    method: 'PATCH',
+    body: JSON.stringify({ employeeId })
+  });
+};
+
 export const suspendOwnerEmployee = async (id) => {
   return await apiRequest(`/users/${encodeURIComponent(id)}/suspend`, {
     method: 'PATCH'
