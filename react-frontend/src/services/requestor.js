@@ -86,6 +86,14 @@ export const requestResourceExtension = async (id, payload = {}) => {
   });
 };
 
+export const fetchRequestorReturnHistory = async () => {
+  return await apiRequest('/returns/history');
+};
+
+export const fetchRequestorMaintenanceHistory = async () => {
+  return await apiRequest('/maintenance/history');
+};
+
 // ==========================================
 // 5. Procurement APIs
 // ==========================================

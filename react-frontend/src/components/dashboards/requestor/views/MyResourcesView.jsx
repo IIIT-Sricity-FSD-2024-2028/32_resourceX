@@ -9,7 +9,7 @@ import {
   requestResourceExtension
 } from '../../../../services/requestor';
 
-export default function MyResourcesView({ addToast, onPreviewFile }) {
+export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToHistory }) {
   const { user } = useAuth();
   const [resources, setResources] = useState([]);
   const [procurements, setProcurements] = useState([]);
@@ -220,8 +220,23 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
 
   return (
     <div className="view-section">
-      <h1 className="page-title">My Resources</h1>
-      <p className="page-subtitle">Currently allocated resources to you.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: '0.75rem' }}>
+        <div>
+          <h1 className="page-title">My Resources</h1>
+          <p className="page-subtitle">Currently allocated equipment and active devices assigned to you.</p>
+        </div>
+        {onNavigateToHistory && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onNavigateToHistory}
+            style={{ fontSize: '0.825rem', padding: '0.45rem 0.9rem', display: 'inline-flex', alignItems: 'center', gap: 6, background: '#ffffff' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '1.1rem' }}>history</span>
+            View Activity &amp; Return History →
+          </button>
+        )}
+      </div>
 
       {/* Urgent Overdue Return Alert Banner */}
       {overdueItems.length > 0 && (
