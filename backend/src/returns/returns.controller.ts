@@ -23,7 +23,7 @@ export class ReturnsController {
   }
 
   @Post(':resourceId/process')
-  @Roles('Maintenance Officer', 'System Admin')
+  @Roles('Inventory Officer', 'Maintenance Officer', 'System Admin')
   @ApiBody({ type: ReturnProcessDto })
   @ApiOperation({ summary: 'Process a returned resource' })
   @ApiParam({ name: 'resourceId', example: 'RES-6001' })
