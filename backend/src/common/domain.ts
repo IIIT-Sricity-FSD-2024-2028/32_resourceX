@@ -207,6 +207,8 @@ export interface ProcurementRecord {
   trackingNumber?: string;
   shippedDate?: string;
   expectedDeliveryDate?: string;
+  targetDate?: string;
+  targetDateDisplay?: string;
   deliveryNotes?: string;
   /** Resource specification / intent file — stored as a base64 data-URL */
   specFileName?: string;

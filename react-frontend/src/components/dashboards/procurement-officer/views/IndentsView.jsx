@@ -332,6 +332,12 @@ export default function IndentsView({ addToast, onProcessOrder }) {
                     <span style={{ fontSize: 12, color: '#64748b' }}>
                       Submitted: <strong>{indent.date}</strong>
                     </span>
+                    {indent.targetDate && (
+                      <span style={{ fontSize: 12, color: '#0369a1', background: '#e0f2fe', padding: '3px 8px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span className="material-icons" style={{ fontSize: 14 }}>event</span>
+                        Needed By: <strong>{indent.targetDateDisplay || indent.targetDate}</strong>
+                      </span>
+                    )}
                   </div>
 
                   <span

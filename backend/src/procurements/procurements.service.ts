@@ -65,6 +65,19 @@ export class ProcurementsService {
     ensureDepartmentScoped(this.dataService, context, department);
     ensureValidDepartmentResourceType(this.dataService, department, resourceType, context.organizationId);
 
+    const targetDate = payload.targetDate || payload.expectedDeliveryDate;
+    let targetDateDisplay = payload.targetDateDisplay;
+    if (targetDate && !targetDateDisplay) {
+      const parsed = Date.parse(targetDate);
+      if (!isNaN(parsed)) {
+        targetDateDisplay = new Date(parsed).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      }
+    }
+
     const procurement: ProcurementRecord = {
       ...payload,
       id: payload.id || `PROC-${Date.now()}`,
@@ -75,6 +88,9 @@ export class ProcurementsService {
       requestedBy: payload.requestedBy || payload.requester || user?.name || 'Unknown User',
       requester: payload.requester || payload.requestedBy || user?.name || 'Unknown User',
       requestedById: payload.requestedById || user?.id,
+      targetDate,
+      targetDateDisplay,
+      expectedDeliveryDate: targetDate || payload.expectedDeliveryDate,
       status:
         context.role === 'Requestor'
           ? 'Pending Approval'

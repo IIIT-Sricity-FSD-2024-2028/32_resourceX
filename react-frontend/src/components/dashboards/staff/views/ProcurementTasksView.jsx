@@ -1,6 +1,22 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchStaffProcurements, logStaffPurchase } from '../../../../services/staff';
+
+function getProcurementDeadlineInfo(targetDate) {
+  if (!targetDate) return null;
+  const target = new Date(targetDate);
+  if (isNaN(target.getTime())) return null;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const diffDays = Math.round((startOfTarget - startOfToday) / (1000 * 60 * 60 * 24));
+  return {
+    diffDays,
+    isOverdue: diffDays < 0,
+    isApproaching: diffDays >= 0 && diffDays <= 3,
+    isToday: diffDays === 0
+  };
+}
 
 export default function ProcurementTasksView({ addToast, onProcurementLogged }) {
   const { user } = useAuth();
@@ -118,12 +134,55 @@ export default function ProcurementTasksView({ addToast, onProcurementLogged }) 
     }
   };
 
+  const urgentTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const info = getProcurementDeadlineInfo(t.targetDate);
+      return info && (info.isApproaching || info.isOverdue);
+    });
+  }, [tasks]);
+
   return (
     <div className="view-section active">
       <h1 className="page-title">Procurement Fulfillment</h1>
       <p className="page-subtitle">
         Process Registrar-approved purchases by logging vendor and invoice data.
       </p>
+
+      {/* Approaching / Overdue Target Date Alert */}
+      {urgentTasks.length > 0 && (
+        <div
+          style={{
+            marginBottom: '1.5rem',
+            padding: '1rem 1.25rem',
+            borderRadius: '10px',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #f59e0b',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.85rem',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '1.6rem', color: '#d97706', marginTop: '2px' }}>
+            notification_important
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>Procurement Deadline Alert: {urgentTasks.length} task{urgentTasks.length > 1 ? 's' : ''} approaching or past target date</span>
+              <span style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', padding: '1px 6px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 600 }}>
+                High Priority
+              </span>
+            </div>
+            <div style={{ fontSize: '0.825rem', color: '#78350f', lineHeight: 1.45 }}>
+              The department head specified a suggested fulfillment date for these items. Please fulfill as soon as possible.
+              <span style={{ display: 'inline-block', marginLeft: 6, fontWeight: 500, color: '#047857' }}>
+                ✓ Note: Purchases can still be submitted and logged normally even after the target date.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="data-section">
         {loading ? (
@@ -147,9 +206,10 @@ export default function ProcurementTasksView({ addToast, onProcurementLogged }) 
             <table className="table" id="proctask-tbody">
               <thead>
                 <tr>
-                  <th style={{ width: '25%' }}>TASK ID / TYPE</th>
-                  <th style={{ width: '15%' }}>QTY FOUND</th>
-                  <th style={{ width: '45%' }}>VENDOR & INVOICE</th>
+                  <th style={{ width: '22%' }}>TASK ID / TYPE</th>
+                  <th style={{ width: '20%' }}>TARGET DEADLINE</th>
+                  <th style={{ width: '10%' }}>QTY</th>
+                  <th style={{ width: '33%' }}>VENDOR & INVOICE</th>
                   <th style={{ width: '15%', textAlign: 'right' }}>ACTION</th>
                 </tr>
               </thead>
@@ -163,11 +223,71 @@ export default function ProcurementTasksView({ addToast, onProcurementLogged }) 
                     <tr key={p.id}>
                       <td>
                         <div className="td-id">{displayId}</div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b', marginTop: '2px' }}>
                           {p.resourceType || p.item}
                         </div>
+                        {p.justification && (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.justification}>
+                            Reason: {p.justification}
+                          </div>
+                        )}
                       </td>
-                      <td>{p.quantity}</td>
+                      <td>
+                        {p.targetDate ? (() => {
+                          const info = getProcurementDeadlineInfo(p.targetDate);
+                          if (!info) {
+                            return (
+                              <span style={{ fontSize: '0.825rem', color: '#334155' }}>
+                                📅 {p.targetDateDisplay || p.targetDate}
+                              </span>
+                            );
+                          }
+                          if (info.isOverdue) {
+                            return (
+                              <div>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>warning</span>
+                                  <span>{Math.abs(info.diffDays)}d Past Target</span>
+                                </div>
+                                <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '3px' }}>
+                                  Target: {p.targetDateDisplay || p.targetDate}
+                                </div>
+                              </div>
+                            );
+                          }
+                          if (info.isApproaching) {
+                            return (
+                              <div>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                  <span className="material-symbols-outlined" style={{ fontSize: '0.95rem' }}>alarm</span>
+                                  <span>Due {info.isToday ? 'Today' : `in ${info.diffDays} day${info.diffDays === 1 ? '' : 's'}`}</span>
+                                </div>
+                                <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '3px' }}>
+                                  Target: {p.targetDateDisplay || p.targetDate}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 600 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: '0.9rem' }}>event</span>
+                                <span>{info.diffDays} days left</span>
+                              </div>
+                              <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '3px' }}>
+                                Target: {p.targetDateDisplay || p.targetDate}
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <span style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                            No target date specified
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{p.quantity}</span>
+                      </td>
                       <td>
                         <input
                           type="text"
