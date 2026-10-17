@@ -159,41 +159,61 @@ Displays system-wide statistics such as:
 
 ---
 
-# Staff Dashboard
+# Staff Operational Dashboards
 
-Staff manage operational tasks including allocation, procurement, and maintenance.
+Operational responsibilities are partitioned into dedicated, specialized role portals:
 
-### Allocation Requests
-Assign resources to approved requests with support for **partial allocation**.
+## 1. Inventory Officer Dashboard
+The Inventory Officer manages resource stock levels, allocation fulfillment, return deadlines, and asset return inspections.
 
-### Procurement Tasks
-After registrar approval, staff complete procurement by entering:
+### Inventory Board & Asset Deadlines
+- Search and filter inventory items across departments.
+- **Return Deadline Tracking**: Displays active return deadlines for all allocated assets.
+- **Overdue Asset Alerts**: Real-time warning badges and visual highlights for assets kept past their return deadline.
+- **Force Return Action**: Allows the Inventory Officer to trigger force returns for overdue equipment.
 
-- Vendor Name
-- Invoice Number
-- Purchase Date
-- Warranty Details
+### Allocation Queue
+- Assign available resources to approved requests.
+- Supports single and batch resource allocation with immediate inventory sync.
 
-Purchased resources are then **registered in the system**.
+### Return Inspection & Return History
+- Inspect returned assets submitted by requestors.
+- Route inspected items to **Available Stock**, **Maintenance Bench**, or **Scrap**.
+- Complete historical audit log of all return inspections and restocking actions.
 
-### Manage Resources
-Staff can:
-- Add resources
-- Edit resource details
-- View resource information
+---
 
-### Maintenance Management
-Staff process maintenance requests:
+## 2. Maintenance Officer Dashboard
+The Maintenance Officer oversees technical diagnostics, servicing, repairs, and scrap decommissioning.
 
-- Accept / Reject request
-- Mark as Repaired
-- Mark as Scrap
+### Maintenance Overview
+- Real-time KPI summary: Maintenance Requested, Under Maintenance, Routed from Returns, and Total Repaired History.
+- Quick-action shortcuts and status distribution.
 
-### Return Management
-Staff inspect returned resources and mark them as:
+### Maintenance Queue
+- **Triage & Diagnosis**: Review equipment issues reported by users or routed from returns.
+- **Accept**: Assign priority (Low, Medium, High, Critical) and technician notes.
+- **Repair**: Mark resources as repaired, record resolution notes, condition rating, and servicing costs. Repaired items automatically return to operational status.
+- **Scrap**: Decommission assets that are beyond economical repair.
 
-- Available
-- Scrap
+### Maintenance Activity History
+- Dedicated audit log of all technical servicing, diagnostics, and repairs.
+- **Outcome Filters**: Quick-filter by **All Records**, **Repaired**, and **Scrapped**.
+- **Keyword Search**: Instant search by Asset ID, equipment type, reported issue, or technician resolution notes.
+- *Return History is cleanly separated and managed under the Inventory Officer portal to preserve domain clarity.*
+
+---
+
+## 3. Procurement Officer Dashboard
+The Procurement Officer manages vendor acquisitions and purchase orders.
+
+### Department-Scoped Indents
+- View and process approved indents strictly scoped to the officer's department.
+- Detailed item specifications, requested quantities, and estimated budgets.
+
+### Procurement Orders & Invoicing
+- Execute orders with vendor names, purchase dates, invoice numbers, unit prices, and warranty terms.
+- Register received assets directly into inventory upon order delivery.
 
 ---
 
@@ -400,6 +420,38 @@ You can verify the complete end-to-end operational workflows:
 ---
 
 # Team & Individual Contributions
+
+### B Ravi Chandra (Roll: `S20240010264`)
+> 📄 **Official Individual Contribution Document (PDF)**: [`Individual_Contribution_S20240010264.pdf`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/Individual_Contribution_S20240010264.pdf) (Generated and stored in project root).
+
+#### 1. Complete System Admin Operations Portal
+- Architected and built the entire System Admin management suite under [`react-frontend/src/components/dashboards/admin/`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/components/dashboards/admin).
+- Implemented 7 core views:
+  - `AdminOverview.jsx`: Executive KPI metric cards, quick-action shortcuts, and department allocation breakdown.
+  - `AdminUsers.jsx`: Full user lifecycle management with multi-field search, role/department filters, user creation, editing, and activation/suspension.
+  - `AdminDepartments.jsx`: Department catalog, head assignments, member counts, and department creation.
+  - `AdminResources.jsx`: Institutional resource & inventory oversight (monitors asset condition, stock health, and scrap statistics).
+  - `AdminSubscription.jsx`: Institutional SaaS subscription tiers, plan limits, billing status, and renewal tracking.
+  - `AdminSupport.jsx`: Institutional support desk to log, filter, and track technical tickets with platform employees.
+  - `AdminAnnouncements.jsx`: Broadcast communications center to view platform announcements and post replies.
+- Developed controlled modal dialogs: `AddUserModal.jsx`, `EditUserModal.jsx`, `AddDeptModal.jsx`, `NewTicketModal.jsx`, `ReplyAnnModal.jsx`, `AdminModal.jsx`, and `AdminToast.jsx`.
+
+#### 2. Core Architecture, Services & Global State Management
+- Engineered the centralized API gateway client ([`services/api.js`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/services/api.js)) with JWT token injection, automated body serialization, query generation, and normalized error handling.
+- Implemented global authentication state management ([`AuthContext.jsx`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/context/AuthContext.jsx)) with cross-tab session synchronization.
+- Designed application routing and route guards ([`App.jsx`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/App.jsx)) with `ProtectedRoute`, `PublicOnlyRoute`, and dynamic role-based dashboard landing resolution.
+- Refactored universal navigation headers and dynamic sidebars ([`Sidebar.jsx`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/components/Sidebar.jsx), [`AppHeader.jsx`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/components/AppHeader.jsx)).
+
+#### 3. Maintenance Officer Dashboard & History Refactoring
+- Refactored the Maintenance Officer Activity History view ([`HistoryLogView.jsx`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/components/dashboards/maintenance-officer/views/HistoryLogView.jsx)) to strictly track technical diagnostics, servicing, and repair resolution logs with Repaired/Scrapped outcome filters and instant search, eliminating Return History clutter to maintain clean domain boundaries.
+- Optimized [`maintenanceOfficer.js`](file:///c:/Users/ravic/OneDrive/Desktop/resourcex/react-frontend/src/services/maintenanceOfficer.js) and overview KPI cards to compute metrics focused exclusively on repair servicing throughput.
+
+#### 4. Inventory Officer & Requestor Workflow Enhancements
+- Enhanced Inventory Officer workflows with return deadline tracking, overdue asset detection, and force return actions.
+- Implemented Requestor receipt confirmation ("I Received") to bind allocated resources directly to user inventories and mark requests completed.
+- Scoped Indents and Procurement views strictly to officer departments.
+
+---
 
 ### J Prem Sahith (Roll: `S20240010089`)
 > 📄 **Official Individual Contribution Document (PDF)**: [`Prem_Sahith_S20240010089_Individual_Contribution.pdf`](file:///Users/premsahith/Desktop/Sk/fefed/final_resource/Prem_Sahith_S20240010089_Individual_Contribution.pdf) (Generated and stored in project root).
