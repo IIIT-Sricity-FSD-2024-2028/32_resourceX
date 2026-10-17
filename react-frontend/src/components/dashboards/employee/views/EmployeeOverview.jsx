@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import EmployeeStatsCards from '../components/EmployeeStatsCards';
 import ResolveTicketModal from '../components/ResolveTicketModal';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 import { fetchEmployeeDashboardOverview, resolveEmployeeTicket } from '../../../../services/employee';
 import { useAuth } from '../../../../context/AuthContext';
 
@@ -31,6 +32,8 @@ export default function EmployeeOverview() {
   const [tickets, setTickets] = useState([]);
   const [stats, setStats] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [orgSearch, setOrgSearch] = useState('');
+  const [ticketSearch, setTicketSearch] = useState('');
 
   // Resolve Ticket Modal state
   const [resolveTarget, setResolveTarget] = useState(null);
@@ -53,7 +56,12 @@ export default function EmployeeOverview() {
     loadData();
   }, []);
 
-  const openTickets = tickets.filter((t) => t.status === 'Open').slice(0, 5);
+  const visibleInstitutions = institutions.filter((org) =>
+    matchesSearch(orgSearch, org.id, org.name, org.adminEmail, org.status, org.subscriptionPlanId)
+  );
+  const openTickets = tickets
+    .filter((t) => t.status === 'Open' && matchesSearch(ticketSearch, t.id, t.organizationId, t.title, t.date))
+    .slice(0, 5);
 
   const handleResolve = async (id, reply) => {
     try {
@@ -95,6 +103,11 @@ export default function EmployeeOverview() {
             View All
           </button>
         </div>
+        <TableToolbar
+          search={orgSearch}
+          onSearchChange={setOrgSearch}
+          placeholder="Search by ID, name, admin email, status or plan..."
+        />
         <table className="table">
           <thead>
             <tr>
@@ -110,14 +123,14 @@ export default function EmployeeOverview() {
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Loading...</td>
               </tr>
-            ) : institutions.length === 0 ? (
+            ) : visibleInstitutions.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No institutions assigned to you yet.
+                  {institutions.length === 0 ? 'No institutions assigned to you yet.' : 'No institutions match your search.'}
                 </td>
               </tr>
             ) : (
-              institutions.map((org) => (
+              visibleInstitutions.map((org) => (
                 <tr key={org.id}>
                   <td>{org.id}</td>
                   <td><strong>{org.name}</strong></td>
@@ -143,6 +156,11 @@ export default function EmployeeOverview() {
             View All
           </button>
         </div>
+        <TableToolbar
+          search={ticketSearch}
+          onSearchChange={setTicketSearch}
+          placeholder="Search open tickets by ID, institution or title..."
+        />
         <table className="table">
           <thead>
             <tr>
@@ -161,7 +179,7 @@ export default function EmployeeOverview() {
             ) : openTickets.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No open tickets. All clear! ✅
+                  {ticketSearch.trim() ? 'No open tickets match your search.' : 'No open tickets. All clear! ✅'}
                 </td>
               </tr>
             ) : (

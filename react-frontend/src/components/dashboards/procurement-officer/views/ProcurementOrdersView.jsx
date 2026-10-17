@@ -5,6 +5,7 @@ import {
   createPurchaseOrder,
   logPurchase
 } from '../../../../services/procurementOfficer';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function ProcurementOrdersView({ addToast }) {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ export default function ProcurementOrdersView({ addToast }) {
   const [formInputs, setFormInputs] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
+  const [search, setSearch] = useState('');
   const [previewFile, setPreviewFile] = useState(null);
 
   const loadOrders = useCallback(async () => {
@@ -174,15 +176,21 @@ export default function ProcurementOrdersView({ addToast }) {
     }
   };
 
-  const filterTabs = ['All', 'Approved', 'PO Created', 'Fulfilled', 'Registered'];
-  const displayed = orders.filter(o => {
-    if (statusFilter === 'All') return true;
-    return o.status === statusFilter;
-  });
+  const ORDER_STATUSES = [
+    { value: 'Approved', label: 'Approved' },
+    { value: 'PO Created', label: 'PO Uploaded' },
+    { value: 'Fulfilled', label: 'Fulfilled' },
+    { value: 'Registered', label: 'In Inventory' },
+  ];
+  const orderType = (o) => o.resourceType || o.item;
+  const displayed = orders.filter(o =>
+    (statusFilter === 'All' || o.status === statusFilter) &&
+    matchesSearch(search, o.id, orderType(o), o.department, o.requestedBy, o.requester, o.poNumber, o.vendor, o.invoice, o.status)
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Header and Filter Tabs */}
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#1e293b' }}>Procurement Orders</h2>
@@ -190,48 +198,26 @@ export default function ProcurementOrdersView({ addToast }) {
             Upload Purchase Orders and attach supplier invoices to fulfill orders.
           </p>
         </div>
-
-        <div style={{ display: 'flex', gap: 6, background: '#f1f5f9', borderRadius: 12, padding: 4, flexWrap: 'wrap' }}>
-          {filterTabs.map(tab => {
-            const count = tab === 'All'
-              ? orders.length
-              : orders.filter(o => o.status === tab).length;
-            const isSelected = statusFilter === tab;
-            return (
-              <button
-                key={tab}
-                onClick={() => setStatusFilter(tab)}
-                style={{
-                  padding: '7px 14px',
-                  border: 'none',
-                  borderRadius: 9,
-                  fontSize: 12,
-                  fontWeight: isSelected ? 700 : 500,
-                  cursor: 'pointer',
-                  background: isSelected ? '#ffffff' : 'transparent',
-                  color: isSelected ? '#0F386E' : '#64748b',
-                  boxShadow: isSelected ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
-                <span>{tab}</span>
-                <span style={{
-                  fontSize: 11,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  background: isSelected ? '#eff6ff' : '#e2e8f0',
-                  color: isSelected ? '#2563eb' : '#475569',
-                  fontWeight: 700
-                }}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
       </div>
+
+      {!loading && orders.length > 0 && (
+        <TableToolbar
+          standalone
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by order ID, item, department, PO #, vendor or invoice..."
+          filters={[
+            {
+              label: 'All Statuses',
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: ORDER_STATUSES.map((st) => ({ ...st, label: `${st.label} (${orders.filter((o) => o.status === st.value).length})` })),
+            },
+          ]}
+          resultCount={displayed.length}
+          totalCount={orders.length}
+        />
+      )}
 
       {/* Orders List */}
       {loading ? (
@@ -239,8 +225,12 @@ export default function ProcurementOrdersView({ addToast }) {
       ) : displayed.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
           <span className="material-icons" style={{ fontSize: 48, color: '#94a3b8', display: 'block', marginBottom: 12 }}>shopping_cart</span>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>No orders in this stage</div>
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Select a different status filter tab above.</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>
+            {search.trim() ? 'No orders match your search' : 'No orders in this stage'}
+          </div>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
+            {search.trim() ? 'Try a different search or clear the filters.' : 'Choose a different status in the dropdown above.'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

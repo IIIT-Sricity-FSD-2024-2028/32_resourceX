@@ -117,13 +117,7 @@ export class DataService {
 
   getUserByEmail(email: string): UserRecord | undefined {
     const target = email.toLowerCase();
-    return this.clone(
-      this.state.users.find((u) => {
-        if (u.email.toLowerCase() === target) return true;
-        if (u.id === 'U4' && (target === 'yaswanth@resourcex.com' || target === 'prem@resourcex.com')) return true;
-        return false;
-      })
-    );
+    return this.clone(this.state.users.find((u) => u.email.toLowerCase() === target));
   }
 
   insertUser(user: UserRecord): UserRecord {
@@ -276,6 +270,37 @@ export class DataService {
   insertNotification(notif: NotificationRecord): NotificationRecord {
     this.state.notifications.unshift(notif);
     return this.clone(notif);
+  }
+
+  /** Create a workflow notification for a role (optionally narrowed to a department or one user). */
+  notify(input: {
+    organizationId?: string;
+    recipientRole: NotificationRecord['recipientRole'];
+    title: string;
+    description: string;
+    department?: string;
+    recipientUserId?: string;
+    targetType?: NotificationRecord['targetType'];
+    targetId?: string;
+    id?: string;
+  }): NotificationRecord | undefined {
+    const id = input.id || `NOTIF-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    if (input.id && this.state.notifications.some((n) => n.id === input.id)) {
+      return undefined;
+    }
+    return this.insertNotification({
+      id,
+      organizationId: input.organizationId || 'ORG-001',
+      title: input.title,
+      description: input.description,
+      time: new Date().toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+      read: false,
+      recipientRole: input.recipientRole,
+      department: input.department,
+      recipientUserId: input.recipientUserId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+    });
   }
 
   updateNotification(id: string, updates: Partial<NotificationRecord>): NotificationRecord {

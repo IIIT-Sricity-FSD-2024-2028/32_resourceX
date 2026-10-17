@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 
-export default function AccountInfo({ id, department, email, name, onNameChange }) {
+// Platform staff (Owner / Employee) are not classified by department or organization;
+// Requestors, Registrars and System Admins are general actors and are not classified by department either.
+const NO_DEPARTMENT_ROLES = ['Owner', 'Employee', 'Registrar', 'System Admin', 'Requestor'];
+const NO_ORGANIZATION_ROLES = ['Owner', 'Employee'];
+
+export default function AccountInfo({ id, department, email, name, role, organizationName, organizationId, onNameChange }) {
   const [isEditable, setIsEditable] = useState(false);
   const [nameError, setNameError] = useState('');
 
@@ -32,9 +37,21 @@ export default function AccountInfo({ id, department, email, name, onNameChange 
           <label className="form-label">User ID</label>
           <input type="text" className="form-control" value={id || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
         </div>
+        {!NO_DEPARTMENT_ROLES.includes(role) && (
+          <div className="form-group">
+            <label className="form-label">Department</label>
+            <input type="text" className="form-control" value={department || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
+          </div>
+        )}
+        {!NO_ORGANIZATION_ROLES.includes(role) && (
+          <div className="form-group">
+            <label className="form-label">Organization</label>
+            <input type="text" className="form-control" value={organizationName || organizationId || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
+          </div>
+        )}
         <div className="form-group">
-          <label className="form-label">Department</label>
-          <input type="text" className="form-control" value={department || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
+          <label className="form-label">Role</label>
+          <input type="text" className="form-control" value={role || ''} disabled style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed' }} />
         </div>
       </div>
 

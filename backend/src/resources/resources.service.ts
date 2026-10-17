@@ -118,6 +118,15 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated or Available resources can go to maintenance.');
     }
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Maintenance Officer',
+      department: resource.department,
+      title: 'Maintenance requested',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${dto?.issue || 'General Maintenance Requested'}.`,
+    });
     return this.dataService.updateResource(id, {
       status: 'Maintenance Requested',
       maintenanceIssue: dto?.issue || resource.maintenanceIssue || 'General Maintenance Requested',
@@ -137,6 +146,24 @@ export class ResourcesService {
       throw new BadRequestException('Only Allocated resources can be returned.');
     }
 
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: resource.department,
+      title: 'Return initiated',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}. Please inspect and accept it.`,
+    });
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Dept Head',
+      department: resource.department,
+      title: 'Return initiated',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}.`,
+    });
     return this.dataService.updateResource(id, {
       status: 'Returned',
       returnReason: dto?.reason || 'Return Requested',
@@ -238,6 +265,8 @@ export class ResourcesService {
       id: `NOTIF-EXT-REQ-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `📝 Extension Request: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${user.name} requested an extension for "${resource.name || resource.type}" (${resource.id}) until ${displayDate}. Reason: ${dto.reason}`,
       time: 'Just now',
       read: false,
@@ -249,6 +278,8 @@ export class ResourcesService {
       id: `NOTIF-EXT-SUBMIT-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `⏳ Extension Submitted: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request until ${displayDate} for "${resource.name || resource.type}" (${resource.id}) has been submitted for Department Head approval.`,
       time: 'Just now',
       read: false,
@@ -306,6 +337,8 @@ export class ResourcesService {
       id: `NOTIF-EXT-APP-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `✅ Extension Approved: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was APPROVED. New return deadline: ${newReturnDateDisplay || newReturnDate}.`,
       time: 'Just now',
       read: false,
@@ -341,6 +374,8 @@ export class ResourcesService {
       id: `NOTIF-EXT-REJ-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `❌ Extension Rejected: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was REJECTED.${dto?.reason ? ` Reason: ${dto.reason}.` : ''} Please return the asset by the current deadline (${resource.returnDateDisplay || resource.returnDate}).`,
       time: 'Just now',
       read: false,

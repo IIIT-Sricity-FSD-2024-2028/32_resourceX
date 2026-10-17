@@ -46,6 +46,8 @@ export class NotificationsService {
                   id: notifId,
                   organizationId: context.organizationId || 'ORG-001',
                   title: `🚨 ACTION REQUIRED: Return Overdue Resource (${res.name || res.type})`,
+                  targetType: 'resource',
+                  targetId: res.id,
                   description: `URGENT: The scheduled return deadline for "${res.name || res.type}" (${res.id}) expired on ${display || retDate}. Please initiate return or request an extension from My Resources immediately.`,
                   time: 'Just now',
                   read: false,
@@ -63,6 +65,8 @@ export class NotificationsService {
                     id: notifId,
                     organizationId: context.organizationId || 'ORG-001',
                     title: `⏰ DEADLINE APPROACHING: Return scheduled for ${res.name || res.type}`,
+                    targetType: 'resource',
+                    targetId: res.id,
                     description: `Reminder: "${res.name || res.type}" (${res.id}) is due for return in ${diffDays <= 1 ? '1 day (tomorrow)' : `${diffDays} days`} on ${display || retDate}. If you need more time, you can request an extension from My Resources.`,
                     time: 'Just now',
                     read: false,
@@ -78,7 +82,7 @@ export class NotificationsService {
 
     if (context.role === 'Procurement Officer' || context.role === 'Inventory Officer' || (context.role as string) === 'Staff') {
       const procs = this.dataService.getProcurements().filter(
-        (p) => !['Fulfilled', 'Registered', 'Rejected'].includes(p.status) && (p.targetDate || p.expectedDeliveryDate)
+        (p) => !['Fulfilled', 'Registered', 'Rejected', 'Cancelled'].includes(p.status) && (p.targetDate || p.expectedDeliveryDate)
       );
       const now = Date.now();
 
@@ -102,6 +106,8 @@ export class NotificationsService {
                 id: notifId,
                 organizationId: proc.organizationId || context.organizationId || 'ORG-001',
                 title: `⏰ PROCUREMENT DEADLINE APPROACHING: ${proc.item || proc.resourceType}`,
+                targetType: 'procurement',
+                targetId: proc.id,
                 description: `Reminder: Procurement ${proc.id} for "${proc.item || proc.resourceType}" (${proc.department}) is due in ${diffDays <= 1 ? '1 day (tomorrow)' : `${diffDays} days`} on ${display}. Please expedite vendor fulfillment.`,
                 time: 'Just now',
                 read: false,
@@ -116,6 +122,8 @@ export class NotificationsService {
                 id: notifId,
                 organizationId: proc.organizationId || context.organizationId || 'ORG-001',
                 title: `⚠️ PROCUREMENT PAST TARGET DATE: ${proc.item || proc.resourceType}`,
+                targetType: 'procurement',
+                targetId: proc.id,
                 description: `Notice: Procurement ${proc.id} for "${proc.item || proc.resourceType}" was targeted for completion by ${display}. It can still be processed and fulfilled.`,
                 time: 'Just now',
                 read: false,
@@ -127,6 +135,33 @@ export class NotificationsService {
       }
     }
 
+    if (context.role === 'Dept Head') {
+      // One-time low stock alert per resource type for the Dept Head's department
+      const head = getActingUser(this.dataService, context);
+      const orgResources = this.dataService.getResources().filter((r) => r.organizationId === context.organizationId);
+      const thresholds = this.dataService
+        .getStockThresholds()
+        .filter((t) => (!t.organizationId || t.organizationId === context.organizationId) && t.department === head?.department);
+      for (const t of thresholds) {
+        const current = orgResources.filter(
+          (r) => r.department === t.department && r.status === 'Available' && resourceMatchesType(r, t.resourceType)
+        ).length;
+        if (current < t.thresholdLevel * 0.7) {
+          this.dataService.notify({
+            id: `NOTIF-LOWSTOCK-${t.id}`,
+            organizationId: context.organizationId,
+            recipientRole: 'Dept Head',
+            department: t.department,
+            title: `Low stock: ${t.resourceType}`,
+            targetType: 'stock',
+            // Stock Monitoring rows are keyed by resource type, so point there
+            targetId: t.resourceType,
+            description: `Resource type "${t.resourceType}" is low on stock in ${t.department}: ${current} available against a threshold of ${t.thresholdLevel}.`,
+          });
+        }
+      }
+    }
+
     let notifications = this.dataService.getNotifications();
     // Organization isolation — scope to user's org (allow 'PLATFORM' broadcast notifications)
     if (context.organizationId) {
@@ -134,11 +169,20 @@ export class NotificationsService {
         (n) => !n.organizationId || n.organizationId === context.organizationId || n.organizationId === 'PLATFORM'
       );
     }
-    return notifications.filter(
-      (notification) =>
-        notification.recipientRole === 'All' ||
-        notification.recipientRole === context.role
-    );
+    const actingUser = getActingUser(this.dataService, context);
+    const deptScopedRoles = ['Dept Head', 'Inventory Officer', 'Maintenance Officer', 'Procurement Officer'];
+    return notifications.filter((notification) => {
+      if (notification.recipientRole !== 'All' && notification.recipientRole !== context.role) return false;
+      if (notification.recipientUserId && notification.recipientUserId !== context.userId) return false;
+      if (
+        notification.department &&
+        deptScopedRoles.includes(context.role as string) &&
+        actingUser?.department !== notification.department
+      ) {
+        return false;
+      }
+      return true;
+    });
   }
 
   update(id: string, payload: UpdateNotificationDto): NotificationRecord {

@@ -7,6 +7,9 @@ import {
   createDeptProcurement
 } from '../../../../services/deptHead';
 import { StatusBadge, EmptyRow, ErrorBlock, FileLink, LoadingBlock } from '../components/deptHeadUtils';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import ProcurementDetailModal from '../components/ProcurementDetailModal';
+import { useNotificationFocus } from '../../../common/notificationFocus';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -45,6 +48,16 @@ export default function DeptHeadProcurement() {
   const [specFile, setSpecFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
   const [fileWarning, setFileWarning] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [selectedId, setSelectedId] = useState(null);
+  const procType = (p) => p.resourceType || p.item;
+  const visibleProcurements = procurements.filter((p) =>
+    (statusFilter === 'All' || p.status === statusFilter) &&
+    (typeFilter === 'All' || procType(p) === typeFilter) &&
+    matchesSearch(search, p.id, procType(p), p.status, p.targetDateDisplay, p.targetDate, p.justification, p.vendor)
+  );
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -67,6 +80,11 @@ export default function DeptHeadProcurement() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // A procurement notification opens that procurement's tracking card
+  useNotificationFocus('procurement', !isLoading, (id) => {
+    if (procurements.some((p) => p.id === id)) setSelectedId(id);
+  });
 
   // Pre-fill from "Send Request" (Stock Monitoring) or the Low Stock banner
   useEffect(() => {
@@ -275,6 +293,17 @@ export default function DeptHeadProcurement() {
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
             </button>
           </div>
+          <TableToolbar
+            search={search}
+            onSearchChange={setSearch}
+            placeholder="Search by Proc ID, type, status or date..."
+            filters={[
+              { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: uniqueOptions(procurements, 'status') },
+              { label: 'All Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(procurements, procType) },
+            ]}
+            resultCount={visibleProcurements.length}
+            totalCount={procurements.length}
+          />
           {isLoading ? (
             <LoadingBlock text="Loading procurements..." />
           ) : error ? (
@@ -294,11 +323,20 @@ export default function DeptHeadProcurement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {procurements.length === 0 ? (
-                    <EmptyRow colSpan={7} text="No procurement requests yet." />
+                  {visibleProcurements.length === 0 ? (
+                    <EmptyRow colSpan={7} text={procurements.length === 0 ? 'No procurement requests yet.' : 'No procurement requests match your search.'} />
                   ) : (
-                    procurements.map((p) => (
-                      <tr key={p.id}>
+                    visibleProcurements.map((p) => (
+                      <tr
+                        key={p.id}
+                        className="rq-row"
+                        tabIndex={0}
+                        title="View procurement tracking"
+                        onClick={() => setSelectedId(p.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setSelectedId(p.id);
+                        }}
+                      >
                         <td className="td-id">{p.id}</td>
                         <td>{p.resourceType || p.item}</td>
                         <td>{p.quantity}</td>
@@ -312,8 +350,12 @@ export default function DeptHeadProcurement() {
                           )}
                         </td>
                         <td><StatusBadge status={p.status} /></td>
-                        <td><FileLink name={p.specFileName} onClick={() => openProcurementFile(p, 'spec')} /></td>
-                        <td><FileLink name={p.invoiceFileName} onClick={() => openProcurementFile(p, 'invoice')} /></td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FileLink name={p.specFileName} onClick={() => openProcurementFile(p, 'spec')} />
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FileLink name={p.invoiceFileName} onClick={() => openProcurementFile(p, 'invoice')} />
+                        </td>
                       </tr>
                     ))
                   )}
@@ -323,6 +365,16 @@ export default function DeptHeadProcurement() {
           )}
         </div>
       </div>
+
+      {selectedId && (
+        <ProcurementDetailModal
+          procurement={procurements.find((p) => p.id === selectedId)}
+          onClose={() => setSelectedId(null)}
+          onChanged={loadData}
+          addToast={addToast}
+          onOpenFile={(kind) => openProcurementFile(procurements.find((p) => p.id === selectedId), kind)}
+        />
+      )}
     </div>
   );
 }

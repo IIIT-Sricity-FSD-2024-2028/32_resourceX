@@ -12,6 +12,7 @@ export const REQUEST_STATUSES = [
   'Allocated',
   'Completed',
   'Rejected',
+  'Cancelled',
 ] as const;
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 
@@ -45,6 +46,7 @@ export const PROCUREMENT_STATUSES = [
   'Fulfilled',
   'Registered',
   'Rejected',
+  'Cancelled',
 ] as const;
 export type ProcurementStatus = (typeof PROCUREMENT_STATUSES)[number];
 
@@ -76,6 +78,15 @@ export interface OrganizationRecord {
   assignedEmployeeId?: string;
   subscriptionExpiryDate?: string;
   revenueGenerated?: number;
+  adminName?: string;
+  /** Proof of the System Admin's identity (uploaded at registration) */
+  adminProofFileName?: string;
+  adminProofFileType?: string;
+  adminProofFileDataUrl?: string;
+  /** Supporting document for the organization's details (uploaded at registration) */
+  orgProofFileName?: string;
+  orgProofFileType?: string;
+  orgProofFileDataUrl?: string;
 }
 
 export interface QueryRecord {
@@ -100,6 +111,10 @@ export interface UserRecord {
   department?: string;
   status: UserStatus;
   preferences?: UserPreferences;
+  /** Identity / details document uploaded when the account was created */
+  documentFileName?: string;
+  documentFileType?: string;
+  documentFileDataUrl?: string;
 }
 
 export interface DepartmentRecord {
@@ -129,6 +144,22 @@ export interface RequestRecord {
   returnDate?: string;            // ISO date string, e.g. "2026-10-30"
   requirementDateDisplay?: string; // Human-readable, e.g. "Oct 20, 2026"
   returnDateDisplay?: string;      // Human-readable, e.g. "Oct 30, 2026"
+  // Stage timestamps (ISO strings) used to render the request tracking timeline
+  createdAt?: string;
+  updatedAt?: string;     // last edit by the requestor while still pending
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  allocatedAt?: string;
+  receivedAt?: string;
+  cancelledAt?: string;
+  cancelReason?: string;
+  rejectionReason?: string;
+  /** Request letter / proof attached by the requestor — stored as a base64 data-URL */
+  letterFileName?: string;
+  letterFileType?: string;
+  letterFileDataUrl?: string;
 }
 
 export interface ResourceRecord {
@@ -210,6 +241,25 @@ export interface ProcurementRecord {
   targetDate?: string;
   targetDateDisplay?: string;
   deliveryNotes?: string;
+  // Stage timestamps (ISO strings) used to render the procurement tracking timeline
+  createdAt?: string;
+  updatedAt?: string;
+  deptApprovedAt?: string;
+  deptApprovedBy?: string;
+  registrarApprovedAt?: string;
+  registrarApprovedBy?: string;
+  poCreatedAt?: string;
+  dispatchedAt?: string;
+  fulfilledAt?: string;
+  registeredAt?: string;
+  registeredBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  rejectedStage?: 'Dept Head' | 'Registrar';
+  rejectionReason?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelReason?: string;
   /** Resource specification / intent file — stored as a base64 data-URL */
   specFileName?: string;
   specFileType?: string;
@@ -232,7 +282,17 @@ export interface NotificationRecord {
   time: string;
   read: boolean;
   recipientRole: RecipientRole;
+  /** When set, only users of this department (for department-scoped roles) see the notification */
+  department?: string;
+  /** When set, only this specific user sees the notification */
+  recipientUserId?: string;
+  /** The record this notification is about, so the UI can open the matching page or card */
+  targetType?: NotificationTargetType;
+  targetId?: string;
 }
+
+export const NOTIFICATION_TARGET_TYPES = ['request', 'procurement', 'resource', 'stock'] as const;
+export type NotificationTargetType = (typeof NOTIFICATION_TARGET_TYPES)[number];
 
 export interface MaintenanceHistoryRecord {
   code: string;

@@ -10,6 +10,7 @@ import {
   countBuckets,
   stockStatusOf
 } from '../components/deptHeadUtils';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 /**
  * #dashboard-view from department_head.html
@@ -22,6 +23,8 @@ export default function DeptHeadOverview() {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [requestSearch, setRequestSearch] = useState('');
+  const [procSearch, setProcSearch] = useState('');
 
   const department = user?.department || 'your department';
 
@@ -58,8 +61,12 @@ export default function DeptHeadOverview() {
     scrap: summary?.scrap ?? buckets.scrap
   };
 
-  const incoming = (data?.requests || []).filter((r) => r.status === 'Pending');
-  const procurements = summary?.procurements || data?.procurements || [];
+  const incoming = (data?.requests || []).filter(
+    (r) => r.status === 'Pending' && matchesSearch(requestSearch, r.id, r.resourceType, r.requestor)
+  );
+  const procurements = (summary?.procurements || data?.procurements || []).filter(
+    (p) => matchesSearch(procSearch, p.id, p.resourceType, p.item, p.status)
+  );
 
   const stock = (data?.stock || []).filter((s) => !user?.department || s.department === user.department);
   const lowStockTypes = stock
@@ -149,6 +156,7 @@ export default function DeptHeadOverview() {
               View All
             </button>
           </div>
+          <TableToolbar search={requestSearch} onSearchChange={setRequestSearch} placeholder="Search by ID, resource or requestor..." />
           <div className="table-responsive">
             <table className="table">
               <thead>
@@ -161,7 +169,7 @@ export default function DeptHeadOverview() {
               </thead>
               <tbody>
                 {incoming.length === 0 ? (
-                  <EmptyRow colSpan={4} text="No pending requests." />
+                  <EmptyRow colSpan={4} text={requestSearch.trim() ? 'No pending requests match your search.' : 'No pending requests.'} />
                 ) : (
                   incoming.slice(0, 5).map((req) => (
                     <tr key={req.id}>
@@ -189,6 +197,7 @@ export default function DeptHeadOverview() {
               View All
             </button>
           </div>
+          <TableToolbar search={procSearch} onSearchChange={setProcSearch} placeholder="Search by ID, resource or status..." />
           <div className="table-responsive">
             <table className="table">
               <thead>
@@ -201,7 +210,7 @@ export default function DeptHeadOverview() {
               </thead>
               <tbody>
                 {procurements.length === 0 ? (
-                  <EmptyRow colSpan={4} text="No procurements yet." />
+                  <EmptyRow colSpan={4} text={procSearch.trim() ? 'No procurements match your search.' : 'No procurements yet.'} />
                 ) : (
                   procurements.slice(0, 5).map((p) => (
                     <tr key={p.id}>

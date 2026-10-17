@@ -9,6 +9,7 @@ export default function GlobalRequestsView() {
   const [departments, setDepartments] = useState([]);
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
+  const [searchId, setSearchId] = useState('');
   const [loading, setLoading] = useState(true);
 
   // 1. Fetch departments dynamically from backend on component mount
@@ -48,6 +49,14 @@ export default function GlobalRequestsView() {
     renderGlobalRequests();
   }, [filterStatus, filterDept]);
 
+  const query = searchId.trim().toLowerCase();
+  const visibleRequests = query
+    ? requests.filter((r) =>
+        [r.id, r.department, r.resourceType, r.status, r.requestor]
+          .some((v) => String(v || '').toLowerCase().includes(query))
+      )
+    : requests;
+
   return (
     <div id="sys-overview-view" className="view-section active">
       <h1 className="page-title">Global Requests Filter</h1>
@@ -67,6 +76,16 @@ export default function GlobalRequestsView() {
           flexWrap: 'wrap'
         }}
       >
+        <input
+          id="searchReqId"
+          type="text"
+          className="form-control"
+          style={{ flex: '1 1 320px' }}
+          placeholder="Search by Req ID, department, resource type or status..."
+          value={searchId}
+          onChange={(e) => setSearchId(e.target.value)}
+        />
+
         <select
           id="filterStatus"
           className="form-control"
@@ -110,14 +129,14 @@ export default function GlobalRequestsView() {
             </tr>
           </thead>
           <tbody>
-            {requests.length === 0 ? (
+            {visibleRequests.length === 0 ? (
               <tr>
                 <td colSpan="4" style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b' }}>
                   {loading ? 'Loading requests...' : 'No requests found.'}
                 </td>
               </tr>
             ) : (
-              requests.map((r) => {
+              visibleRequests.map((r) => {
                 const badgeClass =
                   r.status === 'Approved' || r.status === 'Allocated'
                     ? 'allocated'

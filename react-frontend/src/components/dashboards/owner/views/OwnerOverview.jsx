@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import OwnerStatsCards from '../components/OwnerStatsCards';
 import { fetchOwnerDashboardOverview } from '../../../../services/owner';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 export function renderStatusBadge(status) {
   if (status === 'Active' || status === 'Resolved' || status === 'Paid') {
@@ -28,6 +29,11 @@ export default function OwnerOverview() {
   const [invoices, setInvoices] = useState([]);
   const [stats, setStats] = useState({});
   const [isLoading, setIsLoading] = useState(true);
+  const [orgSearch, setOrgSearch] = useState('');
+  const [orgStatusFilter, setOrgStatusFilter] = useState('All');
+  const [orgPlanFilter, setOrgPlanFilter] = useState('All');
+  const [invoiceSearch, setInvoiceSearch] = useState('');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('All');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -49,6 +55,17 @@ export default function OwnerOverview() {
   }, []);
 
   const employeeName = (id) => employees.find((e) => e.id === id)?.name || '—';
+  const orgName = (id) => organizations.find((o) => o.id === id)?.name || '';
+
+  const visibleOrgs = organizations.filter((org) =>
+    (orgStatusFilter === 'All' || org.status === orgStatusFilter) &&
+    (orgPlanFilter === 'All' || org.subscriptionPlanId === orgPlanFilter) &&
+    matchesSearch(orgSearch, org.id, org.name, org.adminEmail, employeeName(org.assignedEmployeeId), org.subscriptionPlanId)
+  );
+  const visibleInvoices = invoices.filter((inv) =>
+    (invoiceStatusFilter === 'All' || inv.status === invoiceStatusFilter) &&
+    matchesSearch(invoiceSearch, inv.id, inv.organizationId, orgName(inv.organizationId), inv.planName, inv.dueDate)
+  );
 
   return (
     <div id="dashboard-view" className="view-section active">
@@ -66,6 +83,17 @@ export default function OwnerOverview() {
         <div className="data-section-header">
           <div className="data-section-title">All Organizations</div>
         </div>
+        <TableToolbar
+          search={orgSearch}
+          onSearchChange={setOrgSearch}
+          placeholder="Search by ID, name, admin email or employee..."
+          filters={[
+            { label: 'All Statuses', value: orgStatusFilter, onChange: setOrgStatusFilter, options: uniqueOptions(organizations, 'status') },
+            { label: 'All Plans', value: orgPlanFilter, onChange: setOrgPlanFilter, options: uniqueOptions(organizations, 'subscriptionPlanId') },
+          ]}
+          resultCount={visibleOrgs.length}
+          totalCount={organizations.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -84,14 +112,14 @@ export default function OwnerOverview() {
                   Loading organizations...
                 </td>
               </tr>
-            ) : organizations.length === 0 ? (
+            ) : visibleOrgs.length === 0 ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   No organizations found.
                 </td>
               </tr>
             ) : (
-              organizations.map((org) => (
+              visibleOrgs.map((org) => (
                 <tr key={org.id}>
                   <td>{org.id}</td>
                   <td><strong>{org.name}</strong></td>
@@ -110,6 +138,16 @@ export default function OwnerOverview() {
         <div className="data-section-header">
           <div className="data-section-title">Invoices</div>
         </div>
+        <TableToolbar
+          search={invoiceSearch}
+          onSearchChange={setInvoiceSearch}
+          placeholder="Search by invoice ID or organization..."
+          filters={[
+            { label: 'All Statuses', value: invoiceStatusFilter, onChange: setInvoiceStatusFilter, options: uniqueOptions(invoices, 'status') },
+          ]}
+          resultCount={visibleInvoices.length}
+          totalCount={invoices.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -127,14 +165,14 @@ export default function OwnerOverview() {
                   Loading invoices...
                 </td>
               </tr>
-            ) : invoices.length === 0 ? (
+            ) : visibleInvoices.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   No invoices found.
                 </td>
               </tr>
             ) : (
-              invoices.map((inv) => (
+              visibleInvoices.map((inv) => (
                 <tr key={inv.id}>
                   <td>{inv.id}</td>
                   <td>{inv.organizationId}</td>

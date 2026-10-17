@@ -310,3 +310,66 @@ export class RegisterProcurementDto {
   @Type(() => ProcurementRegistrationResourceDto)
   resources!: ProcurementRegistrationResourceDto[];
 }
+
+// Fields a dept head may change while the procurement awaits registrar review
+export class EditProcurementDto {
+  @ApiPropertyOptional({ example: 'Laptops' })
+  @IsOptional()
+  @IsString()
+  resourceType?: string;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
+  @ApiPropertyOptional({ example: 'Capacity increase required.' })
+  @IsOptional()
+  @IsString()
+  justification?: string;
+
+  @ApiPropertyOptional({ enum: REQUEST_PRIORITIES, example: 'Normal' })
+  @IsOptional()
+  @IsEnum(REQUEST_PRIORITIES)
+  priority?: (typeof REQUEST_PRIORITIES)[number];
+
+  @ApiPropertyOptional({ example: '2026-11-20' })
+  @IsOptional()
+  @IsString()
+  targetDate?: string;
+
+  @ApiPropertyOptional({ example: 'Nov 20, 2026' })
+  @IsOptional()
+  @IsString()
+  targetDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: 'resource-spec.pdf' })
+  @IsOptional()
+  @IsString()
+  specFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  specFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,...' })
+  @IsOptional()
+  @IsString()
+  specFileDataUrl?: string;
+}
+
+export class CancelProcurementDto {
+  @ApiPropertyOptional({ example: 'No longer needed.' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class RejectProcurementDto {
+  @ApiPropertyOptional({ example: 'Budget for this quarter is exhausted.' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

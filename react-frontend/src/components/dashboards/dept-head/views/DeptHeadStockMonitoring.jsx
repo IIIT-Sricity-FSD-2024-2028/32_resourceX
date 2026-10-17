@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchDeptStock, updateDeptStockThreshold } from '../../../../services/deptHead';
@@ -19,6 +19,8 @@ export default function DeptHeadStockMonitoring() {
   const [error, setError] = useState(null);
   const [editItem, setEditItem] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [typeQuery, setTypeQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -54,6 +56,14 @@ export default function DeptHeadStockMonitoring() {
     },
     { safe: 0, near: 0, low: 0 }
   );
+
+  const visibleRows = useMemo(() => {
+    const q = typeQuery.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (statusFilter !== 'All' && r.status !== statusFilter) return false;
+      return !q || String(r.resourceType || '').toLowerCase().includes(q);
+    });
+  }, [rows, typeQuery, statusFilter]);
 
   const handleSave = async (rawValue) => {
     if (!editItem) return;
@@ -117,9 +127,32 @@ export default function DeptHeadStockMonitoring() {
       <div className="data-section">
         <div className="data-section-header">
           <div className="data-section-title">Resource Stock Levels</div>
-          <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }} onClick={loadData}>
-            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '0.4rem 0.75rem', width: '240px', background: 'white' }}>
+              <span className="material-symbols-outlined" style={{ color: '#94a3b8', fontSize: '1.2rem' }}>search</span>
+              <input
+                type="text"
+                placeholder="Search by resource type..."
+                value={typeQuery}
+                onChange={(e) => setTypeQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: '0.875rem', fontFamily: 'inherit', background: 'transparent' }}
+              />
+            </div>
+            <select
+              className="form-control"
+              style={{ width: 'auto', padding: '0.45rem 0.75rem' }}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Safe">Safe</option>
+              <option value="Near Threshold">Near Threshold</option>
+              <option value="Low Stock">Low Stock</option>
+            </select>
+            <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }} onClick={loadData}>
+              <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
+            </button>
+          </div>
         </div>
         {isLoading ? (
           <LoadingBlock text="Loading stock levels..." />
@@ -138,10 +171,10 @@ export default function DeptHeadStockMonitoring() {
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
-                  <EmptyRow colSpan={5} text="No stock thresholds configured for this department." />
+                {visibleRows.length === 0 ? (
+                  <EmptyRow colSpan={5} text={rows.length ? 'No resource types match your search.' : 'No stock thresholds configured for this department.'} />
                 ) : (
-                  rows.map((item) => (
+                  visibleRows.map((item) => (
                     <tr key={item.id}>
                       <td>{item.resourceType}</td>
                       <td>{item.currentQuantity}</td>

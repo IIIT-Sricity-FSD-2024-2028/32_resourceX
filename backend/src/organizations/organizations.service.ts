@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataService } from '../data/data.service';
+import { validateOrgEmail } from '../common/email-format';
 import { RegisterOrgDto } from './dto/organization.dto';
 import { OrganizationRecord, OrganizationStatus, UserRecord } from '../common/domain';
 
@@ -35,6 +36,11 @@ export class OrganizationsService {
       throw new BadRequestException('An account with this email already exists.');
     }
 
+    const formatError = validateOrgEmail(payload.adminEmail, 'System Admin', payload.name);
+    if (formatError) {
+      throw new BadRequestException(formatError);
+    }
+
     const orgId = `ORG-${Date.now()}`;
     const newOrg: OrganizationRecord = {
       id: orgId,
@@ -42,7 +48,14 @@ export class OrganizationsService {
       adminEmail: payload.adminEmail,
       subscriptionPlanId: payload.subscriptionPlanId,
       status: 'Pending',
-      revenueGenerated: 0
+      revenueGenerated: 0,
+      adminName: payload.adminName,
+      adminProofFileName: payload.adminProofFileName,
+      adminProofFileType: payload.adminProofFileType,
+      adminProofFileDataUrl: payload.adminProofFileDataUrl,
+      orgProofFileName: payload.orgProofFileName,
+      orgProofFileType: payload.orgProofFileType,
+      orgProofFileDataUrl: payload.orgProofFileDataUrl,
     };
 
     // Registering an organization also provisions its first user: the System Admin
@@ -76,6 +89,22 @@ export class OrganizationsService {
     }
 
     return this.dataService.updateOrganization(id, updates);
+  }
+
+  /** Owner changes which platform employee manages an organization */
+  assignEmployee(id: string, employeeId: string): OrganizationRecord {
+    const org = this.dataService.getOrganizationById(id);
+    if (!org) {
+      throw new NotFoundException(`Organization with ID ${id} not found.`);
+    }
+    const employee = this.dataService.getUserById(employeeId);
+    if (!employee || employee.role !== 'Employee') {
+      throw new BadRequestException(`Employee ${employeeId} not found.`);
+    }
+    if (employee.status !== 'Active') {
+      throw new BadRequestException(`${employee.name} is ${employee.status.toLowerCase()} and cannot be assigned organizations.`);
+    }
+    return this.dataService.updateOrganization(id, { assignedEmployeeId: employeeId });
   }
 
   getMyOrganization(orgId: string): OrganizationRecord {

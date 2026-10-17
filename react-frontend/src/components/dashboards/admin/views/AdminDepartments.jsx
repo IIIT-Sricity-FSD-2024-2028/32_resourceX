@@ -9,6 +9,7 @@ import {
   fetchResourceCatalog,
   updateResourceCatalog
 } from '../../../../services/admin';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 /**
  * Exact replica of dept-manage-view from admin.html
@@ -24,16 +25,16 @@ export default function AdminDepartments() {
   // Catalog View sub-mode
   const [activeCatalogDept, setActiveCatalogDept] = useState(null);
   const [catalogSearch, setCatalogSearch] = useState('');
+  const [deptSearch, setDeptSearch] = useState('');
+  const [headFilter, setHeadFilter] = useState('All');
 
   // Add Dept Modal
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
   const [addDeptName, setAddDeptName] = useState('');
-  const [addDeptHead, setAddDeptHead] = useState('');
 
   // Edit Dept Modal
   const [editDeptTarget, setEditDeptTarget] = useState(null);
   const [editDeptName, setEditDeptName] = useState('');
-  const [editDeptHead, setEditDeptHead] = useState('');
   const [editDeptMembers, setEditDeptMembers] = useState(0);
 
   // Delete Dept Modal
@@ -71,21 +72,15 @@ export default function AdminDepartments() {
   // Department CRUD
   const handleSaveAddDept = async () => {
     const nameRegex = /^[a-zA-Z\s.-]+$/;
-    const headRegex = /^[a-zA-Z\s.]+$/;
 
     const name = addDeptName.trim();
-    const head = addDeptHead.trim();
 
-    if (!name || !head) {
-      addToast('Please fill in all fields.', 'error');
+    if (!name) {
+      addToast('Please enter a department name.', 'error');
       return;
     }
     if (!nameRegex.test(name)) {
       addToast('Department name can only contain letters, spaces, hyphens and dots.', 'error');
-      return;
-    }
-    if (!headRegex.test(head)) {
-      addToast('Head name can only contain letters and spaces.', 'error');
       return;
     }
 
@@ -97,9 +92,7 @@ export default function AdminDepartments() {
 
     try {
       await createAdminDepartment({
-        id: `D${Math.floor(100 + Math.random() * 900)}`,
         name,
-        head,
         memberCount: 0
       });
       addToast('Department added successfully.', 'success');
@@ -113,28 +106,21 @@ export default function AdminDepartments() {
   const openEditDept = (dept) => {
     setEditDeptTarget(dept);
     setEditDeptName(dept.name || '');
-    setEditDeptHead(dept.head || '');
     setEditDeptMembers(dept.memberCount || 0);
   };
 
   const handleSaveEditDept = async () => {
     const nameRegex = /^[a-zA-Z\s.-]+$/;
-    const headRegex = /^[a-zA-Z\s.]+$/;
 
     const name = editDeptName.trim();
-    const head = editDeptHead.trim();
     const members = parseInt(editDeptMembers, 10);
 
-    if (!name || !head) {
-      addToast('Please fill in all fields.', 'error');
+    if (!name) {
+      addToast('Please enter a department name.', 'error');
       return;
     }
     if (!nameRegex.test(name)) {
       addToast('Department name can only contain letters, spaces, hyphens and dots.', 'error');
-      return;
-    }
-    if (!headRegex.test(head)) {
-      addToast('Head name can only contain letters and spaces.', 'error');
       return;
     }
     if (isNaN(members) || members < 0) {
@@ -153,7 +139,6 @@ export default function AdminDepartments() {
     try {
       await updateAdminDepartment(editDeptTarget.id, {
         name,
-        head,
         memberCount: members
       });
       addToast('Department updated successfully.', 'success');
@@ -257,7 +242,7 @@ export default function AdminDepartments() {
     return (
       <div id="dept-manage-view" className="view-section active">
         <h1 className="page-title">Department Topology</h1>
-        <p className="page-subtitle">Define organizational structures and departmental heads.</p>
+        <p className="page-subtitle">Define organizational structures. Department heads are assigned from User Management.</p>
 
         <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
           <div style={{ marginBottom: '1rem', textAlign: 'left' }}>
@@ -485,10 +470,15 @@ export default function AdminDepartments() {
   }
 
   // Regular Department Topology View
+  const visibleDepartments = departments.filter((d) =>
+    (headFilter === 'All' || (headFilter === 'Head Assigned') === Boolean(d.head)) &&
+    matchesSearch(deptSearch, d.name, d.id, d.head)
+  );
+
   return (
     <div id="dept-manage-view" className="view-section active">
       <h1 className="page-title">Department Topology</h1>
-      <p className="page-subtitle">Define organizational structures and departmental heads.</p>
+      <p className="page-subtitle">Define organizational structures. Department heads are assigned from User Management.</p>
 
       <div
         style={{
@@ -501,16 +491,26 @@ export default function AdminDepartments() {
           gap: '1rem'
         }}
       >
+        <TableToolbar
+          search={deptSearch}
+          onSearchChange={setDeptSearch}
+          placeholder="Search by department name, ID or head..."
+          filters={[
+            { label: 'All Departments', value: headFilter, onChange: setHeadFilter, options: ['Head Assigned', 'No Head'] },
+          ]}
+          resultCount={visibleDepartments.length}
+          totalCount={departments.length}
+        />
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
             Loading department topology...
           </div>
-        ) : departments.length === 0 ? (
+        ) : visibleDepartments.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-            No departments found.
+            {departments.length === 0 ? 'No departments found.' : 'No departments match your search.'}
           </div>
         ) : (
-          departments.map((d) => (
+          visibleDepartments.map((d) => (
             <div
               key={d.id}
               style={{
@@ -524,7 +524,7 @@ export default function AdminDepartments() {
               <div>
                 <strong style={{ fontSize: '1.1rem', color: 'var(--primary-color)' }}>{d.name}</strong>
                 <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                  Head: {d.head} | Members: {d.memberCount ?? 0}
+                  ID: {d.id} | Head: {d.head || 'Not assigned'} | Members: {d.memberCount ?? 0}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -563,7 +563,6 @@ export default function AdminDepartments() {
             className="btn-primary"
             onClick={() => {
               setAddDeptName('');
-              setAddDeptHead('');
               setIsAddDeptOpen(true);
             }}
           >
@@ -596,20 +595,6 @@ export default function AdminDepartments() {
             Letters, spaces, hyphens and dots only.
           </div>
         </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Head Name</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="e.g. pradhyum"
-            value={addDeptHead}
-            onChange={(e) => setAddDeptHead(e.target.value)}
-          />
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            Alphabets and spaces only.
-          </div>
-        </div>
       </AdminModal>
 
       {/* Edit Department Modal */}
@@ -633,19 +618,6 @@ export default function AdminDepartments() {
           />
           <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
             Letters, spaces, hyphens and dots only.
-          </div>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Head Name</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editDeptHead}
-            onChange={(e) => setEditDeptHead(e.target.value)}
-          />
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            Alphabets and spaces only.
           </div>
         </div>
         <div>

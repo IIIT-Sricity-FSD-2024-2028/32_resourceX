@@ -41,11 +41,11 @@ Every protected endpoint is authorized via a JWT token. Send a `POST` request to
 
 Test credentials for each role:
 
-- **Requestor**: `ravi@resourcex.com` / `12345678` (ID: `U1`)
-- **Dept Head**: `pradhyum@resourcex.com` / `12345678` (ID: `U2`)
-- **Registrar**: `harsha@resourcex.com` / `12345678` (ID: `U3`)
-- **Staff**: `prem@resourcex.com` / `12345678` (ID: `U4`)
-- **System Admin**: `yashwath@resourcex.com` / `12345678` (ID: `U5`)
+- **Requestor**: `ravichandrareacmecorp@gmail.com` / `12345678` (ID: `U1`)
+- **Dept Head**: `pradhyumdhacmecorp@gmail.com` / `12345678` (ID: `U2`)
+- **Registrar**: `harshatejrgacmecorp@gmail.com` / `12345678` (ID: `U3`)
+- **Staff**: `yaswanthkumarioacmecorp@gmail.com` / `12345678` (ID: `U4`)
+- **System Admin**: `yashwathsaacmecorp@gmail.com` / `12345678` (ID: `U5`)
 
 ## Response Modeling
 

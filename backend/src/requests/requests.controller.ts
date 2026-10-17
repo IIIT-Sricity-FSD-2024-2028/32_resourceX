@@ -4,7 +4,7 @@ import { Roles } from '../common/roles.decorator';
 import { RequestResponseDto } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { RequestsService } from './requests.service';
-import { AllocateRequestDto, CreateRequestDto, UpdateRequestDto } from './dto/request.dto';
+import { AllocateRequestDto, CancelRequestDto, CreateRequestDto, EditRequestDto, RejectRequestDto, UpdateRequestDto } from './dto/request.dto';
 import { RequestsExceptionFilter } from './filters/requests-exception.filter';
 
 @ApiTags('requests')
@@ -43,6 +43,26 @@ export class RequestsController {
     return this.requestsService.update(id, dto);
   }
 
+  @Post(':id/edit')
+  @Roles('Requestor', 'System Admin')
+  @ApiBody({ type: EditRequestDto })
+  @ApiOperation({ summary: 'Edit your own request while it is still pending dept head review' })
+  @ApiParam({ name: 'id', example: 'REQ-IT-101' })
+  @ApiOkResponse({ description: 'Request edited successfully.', type: RequestResponseDto })
+  edit(@Param('id') id: string, @Body() dto: EditRequestDto, @Req() req: any) {
+    return this.requestsService.edit(id, dto, req.context);
+  }
+
+  @Post(':id/cancel')
+  @Roles('Requestor', 'System Admin')
+  @ApiBody({ type: CancelRequestDto, required: false })
+  @ApiOperation({ summary: 'Cancel your own request before resources are allocated' })
+  @ApiParam({ name: 'id', example: 'REQ-IT-101' })
+  @ApiOkResponse({ description: 'Request cancelled successfully.', type: RequestResponseDto })
+  cancel(@Param('id') id: string, @Body() dto: CancelRequestDto, @Req() req: any) {
+    return this.requestsService.cancel(id, dto?.reason, req.context);
+  }
+
   @Post(':id/approve')
   @Roles('Dept Head', 'System Admin')
   @ApiOperation({ summary: 'Approve a request' })
@@ -54,11 +74,12 @@ export class RequestsController {
 
   @Post(':id/reject')
   @Roles('Dept Head', 'System Admin')
-  @ApiOperation({ summary: 'Reject a request' })
+  @ApiBody({ type: RejectRequestDto })
+  @ApiOperation({ summary: 'Reject a request (reason required)' })
   @ApiParam({ name: 'id', example: 'REQ-103' })
   @ApiOkResponse({ description: 'Request rejected successfully.', type: RequestResponseDto })
-  reject(@Param('id') id: string, @Req() req: any) {
-    return this.requestsService.reject(id, req.context);
+  reject(@Param('id') id: string, @Body() dto: RejectRequestDto, @Req() req: any) {
+    return this.requestsService.reject(id, dto?.reason, req.context);
   }
 
   @Post(':id/allocate')

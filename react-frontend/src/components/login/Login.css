@@ -236,6 +236,61 @@
   gap: 0.5rem;
 }
 
+.login-info-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.login-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary-color, #0F386E);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.login-link-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.login-link-btn:disabled {
+  color: var(--text-muted, #64748b);
+  cursor: default;
+}
+
+.login-link-row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.login-otp-input {
+  text-align: center;
+  font-size: 1.4rem;
+  letter-spacing: 0.5rem;
+}
+
+.login-show-password {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  margin: -0.25rem 0 1rem;
+  cursor: pointer;
+}
+
 .login-submit-btn {
   width: 100%;
   padding: 0.8rem;

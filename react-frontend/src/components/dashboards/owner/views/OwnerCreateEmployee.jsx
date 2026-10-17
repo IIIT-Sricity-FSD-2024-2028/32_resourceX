@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { createOwnerEmployee } from '../../../../services/owner';
+import DocumentUpload from '../../../common/DocumentUpload';
 
 // Mirrors backend/src/common/password.ts's PASSWORD_PATTERN — keep in sync by hand.
 const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s]).{8,}$/;
@@ -18,6 +19,8 @@ export default function OwnerCreateEmployee() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [document, setDocument] = useState(null);
+  const [resetKey, setResetKey] = useState(0);
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,15 +36,21 @@ export default function OwnerCreateEmployee() {
       setFormError(PASSWORD_RULE_MESSAGE);
       return;
     }
+    if (!document) {
+      setFormError('Please upload the employee\'s details document.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const emp = await createOwnerEmployee({ name: name.trim(), email: email.trim(), password });
+      const emp = await createOwnerEmployee({ name: name.trim(), email: email.trim(), password, ...document });
       addToast(`Employee created! ID: ${emp.id} — ${emp.name}`, 'success');
       setName('');
       setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setDocument(null);
+      setResetKey((k) => k + 1);
     } catch (err) {
       setFormError(err.message);
       addToast(`Failed to create employee: ${err.message}`, 'error');
@@ -73,7 +82,7 @@ export default function OwnerCreateEmployee() {
             <input
               type="email"
               className="form-control"
-              placeholder="e.g. priya@resourcex.com"
+              placeholder="e.g. employee6@resourcex.com"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -107,6 +116,13 @@ export default function OwnerCreateEmployee() {
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
+          <DocumentUpload
+            label="Employee Details Document"
+            required
+            onChange={setDocument}
+            resetKey={resetKey}
+            hint="ID proof or employment details. PDF, PNG or JPG, up to 5 MB."
+          />
           <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
             The employee will log in with this email and password.
           </p>

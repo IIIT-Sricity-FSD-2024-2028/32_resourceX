@@ -75,6 +75,21 @@ export class CreateRequestDto {
   @IsOptional()
   @IsString()
   returnDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: 'request-letter.pdf' })
+  @IsOptional()
+  @IsString()
+  letterFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  letterFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,JVBERi0xLjQK...' })
+  @IsOptional()
+  @IsString()
+  letterFileDataUrl?: string;
 }
 
 export class UpdateRequestDto extends PartialType(CreateRequestDto) {
@@ -95,4 +110,78 @@ export class AllocateRequestDto {
   @ArrayMinSize(1)
   @IsString({ each: true })
   resourceIds!: string[];
+}
+
+// Fields a requestor may change while their request is still pending dept-head review
+export class EditRequestDto {
+  @ApiPropertyOptional({ example: 'Laptops' })
+  @IsOptional()
+  @IsString()
+  resourceType?: string;
+
+  @ApiPropertyOptional({ example: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+
+  @ApiPropertyOptional({ example: 'Needed for onboarding new team members.' })
+  @IsOptional()
+  @IsString()
+  justification?: string;
+
+  @ApiPropertyOptional({ enum: REQUEST_PRIORITIES, example: 'Normal' })
+  @IsOptional()
+  @IsEnum(REQUEST_PRIORITIES)
+  priority?: (typeof REQUEST_PRIORITIES)[number];
+
+  @ApiPropertyOptional({ example: '2026-10-20' })
+  @IsOptional()
+  @IsString()
+  requirementDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-30' })
+  @IsOptional()
+  @IsString()
+  returnDate?: string;
+
+  @ApiPropertyOptional({ example: 'Oct 20, 2026' })
+  @IsOptional()
+  @IsString()
+  requirementDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: 'Oct 30, 2026' })
+  @IsOptional()
+  @IsString()
+  returnDateDisplay?: string;
+
+  @ApiPropertyOptional({ example: 'request-letter.pdf' })
+  @IsOptional()
+  @IsString()
+  letterFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  letterFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,JVBERi0xLjQK...' })
+  @IsOptional()
+  @IsString()
+  letterFileDataUrl?: string;
+}
+
+export class CancelRequestDto {
+  @ApiPropertyOptional({ example: 'No longer needed.' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}
+
+export class RejectRequestDto {
+  // Presence is enforced by the service so callers get a clear "reason is required" message
+  @ApiProperty({ example: 'Requested quantity exceeds the team allowance.' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

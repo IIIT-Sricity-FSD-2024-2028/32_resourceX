@@ -244,6 +244,9 @@ export default function Profile({ onLogout, onNavigate }) {
             <AccountInfo 
               id={user.id} 
               department={user.department} 
+              role={user.role}
+              organizationName={user.organizationName}
+              organizationId={user.organizationId}
               email={user.email} 
               name={user.name} 
               onNameChange={handleNameChange}

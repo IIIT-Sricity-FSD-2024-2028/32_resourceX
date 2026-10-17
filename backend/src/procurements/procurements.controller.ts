@@ -6,10 +6,13 @@ import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { ProcurementsService } from './procurements.service';
 import { ProcurementsExceptionFilter } from './filters/procurements-exception.filter';
 import {
+  CancelProcurementDto,
   CreateProcurementDto,
   CreatePurchaseOrderDto,
   DispatchDeliveryDto,
+  EditProcurementDto,
   LogPurchaseDto,
+  RejectProcurementDto,
   RegisterProcurementDto,
   UpdateProcurementDto,
 } from './dto/procurement.dto';
@@ -50,6 +53,26 @@ export class ProcurementsController {
     return this.procurementsService.update(id, dto, req.context);
   }
 
+  @Post(':id/edit')
+  @Roles('Dept Head', 'System Admin')
+  @ApiBody({ type: EditProcurementDto })
+  @ApiOperation({ summary: 'Edit a department procurement while it awaits registrar review' })
+  @ApiParam({ name: 'id', example: 'PROC-819' })
+  @ApiOkResponse({ description: 'Procurement edited successfully.', type: ProcurementResponseDto })
+  edit(@Param('id') id: string, @Body() dto: EditProcurementDto, @Req() req: any) {
+    return this.procurementsService.edit(id, dto, req.context);
+  }
+
+  @Post(':id/cancel')
+  @Roles('Dept Head', 'System Admin')
+  @ApiBody({ type: CancelProcurementDto, required: false })
+  @ApiOperation({ summary: 'Cancel a department procurement before a purchase order is issued' })
+  @ApiParam({ name: 'id', example: 'PROC-819' })
+  @ApiOkResponse({ description: 'Procurement cancelled successfully.', type: ProcurementResponseDto })
+  cancel(@Param('id') id: string, @Body() dto: CancelProcurementDto, @Req() req: any) {
+    return this.procurementsService.cancel(id, dto?.reason, req.context);
+  }
+
   @Post(':id/department-approve')
   @Roles('Dept Head', 'System Admin')
   @ApiOperation({ summary: 'Approve a procurement as department head' })
@@ -61,11 +84,12 @@ export class ProcurementsController {
 
   @Post(':id/department-reject')
   @Roles('Dept Head', 'System Admin')
-  @ApiOperation({ summary: 'Reject a procurement as department head' })
+  @ApiBody({ type: RejectProcurementDto })
+  @ApiOperation({ summary: 'Reject a procurement as department head (reason required)' })
   @ApiParam({ name: 'id', example: 'PROC-821' })
   @ApiOkResponse({ description: 'Procurement rejected successfully.', type: ProcurementResponseDto })
-  departmentReject(@Param('id') id: string, @Req() req: any) {
-    return this.procurementsService.departmentReject(id, req.context);
+  departmentReject(@Param('id') id: string, @Body() dto: RejectProcurementDto, @Req() req: any) {
+    return this.procurementsService.departmentReject(id, dto?.reason, req.context);
   }
 
   @Post(':id/registrar-approve')
@@ -73,17 +97,18 @@ export class ProcurementsController {
   @ApiOperation({ summary: 'Approve a procurement as registrar' })
   @ApiParam({ name: 'id', example: 'PROC-819' })
   @ApiOkResponse({ description: 'Procurement approved successfully.', type: ProcurementResponseDto })
-  registrarApprove(@Param('id') id: string) {
-    return this.procurementsService.registrarApprove(id);
+  registrarApprove(@Param('id') id: string, @Req() req: any) {
+    return this.procurementsService.registrarApprove(id, req.context);
   }
 
   @Post(':id/registrar-reject')
   @Roles('Registrar', 'System Admin')
-  @ApiOperation({ summary: 'Reject a procurement as registrar' })
+  @ApiBody({ type: RejectProcurementDto })
+  @ApiOperation({ summary: 'Reject a procurement as registrar (reason required)' })
   @ApiParam({ name: 'id', example: 'PROC-819' })
   @ApiOkResponse({ description: 'Procurement rejected successfully.', type: ProcurementResponseDto })
-  registrarReject(@Param('id') id: string) {
-    return this.procurementsService.registrarReject(id);
+  registrarReject(@Param('id') id: string, @Body() dto: RejectProcurementDto, @Req() req: any) {
+    return this.procurementsService.registrarReject(id, dto?.reason, req.context);
   }
 
   @Post(':id/create-po')

@@ -479,11 +479,11 @@ async function runTests() {
 
   console.log('=== LOGGING IN AND GENERATING JWT TOKENS ===');
   const credentials: Record<string, { email: string; password: string }> = {
-    'Requestor': { email: 'ravi@resourcex.com', password: '12345678' },
-    'Dept Head': { email: 'pradhyum@resourcex.com', password: '12345678' },
-    'Registrar': { email: 'harsha@resourcex.com', password: '12345678' },
-    'Staff': { email: 'prem@resourcex.com', password: '12345678' },
-    'System Admin': { email: 'yashwath@resourcex.com', password: '12345678' },
+    'Requestor': { email: 'ravichandrareacmecorp@gmail.com', password: '12345678' },
+    'Dept Head': { email: 'pradhyumdhacmecorp@gmail.com', password: '12345678' },
+    'Registrar': { email: 'harshatejrgacmecorp@gmail.com', password: '12345678' },
+    'Staff': { email: 'yaswanthkumarioacmecorp@gmail.com', password: '12345678' },
+    'System Admin': { email: 'yashwathsaacmecorp@gmail.com', password: '12345678' },
   };
 
   const tokens: Record<string, string> = {};

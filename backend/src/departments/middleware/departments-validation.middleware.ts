@@ -32,9 +32,6 @@ export class DepartmentsValidationMiddleware implements NestMiddleware {
         if (body.name !== undefined) {
           this.requireText(req, body.name, 'Name', 100);
         }
-        if (body.head !== undefined) {
-          this.requireText(req, body.head, 'Head', 100);
-        }
       }
     }
 

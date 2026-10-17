@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ReplyAnnModal from '../components/ReplyAnnModal';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchAdminAnnouncements,
   replyToAnnouncement
@@ -18,6 +19,9 @@ export default function AdminAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [replyTarget, setReplyTarget] = useState(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [replyFilter, setReplyFilter] = useState('All');
 
   const loadData = async () => {
     setIsLoading(true);
@@ -51,6 +55,12 @@ export default function AdminAnnouncements() {
     }
   };
 
+  const visibleAnnouncements = [...announcements].reverse().filter((a) =>
+    (typeFilter === 'All' || (a.type || 'General') === typeFilter) &&
+    (replyFilter === 'All' || (replyFilter === 'Replied') === Boolean(a.adminReply || a.reply)) &&
+    matchesSearch(search, a.id, a.type, a.title, a.message, a.content, a.date)
+  );
+
   const typeColors = {
     Maintenance: '#92400e',
     'New Feature': '#1d4ed8',
@@ -65,6 +75,17 @@ export default function AdminAnnouncements() {
       <p className="page-subtitle">Notifications and updates sent by your Platform Employee.</p>
 
       <div className="data-section">
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by ID, title, message or date..."
+          filters={[
+            { label: 'All Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(announcements, (a) => a.type || 'General') },
+            { label: 'All Replies', value: replyFilter, onChange: setReplyFilter, options: ['Replied', 'Not Replied'] },
+          ]}
+          resultCount={visibleAnnouncements.length}
+          totalCount={announcements.length}
+        />
         <table className="table">
           <thead>
             <tr>
@@ -82,14 +103,16 @@ export default function AdminAnnouncements() {
                   Loading...
                 </td>
               </tr>
-            ) : announcements.length === 0 ? (
+            ) : visibleAnnouncements.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No announcements from your Platform Employee yet.
+                  {announcements.length === 0
+                    ? 'No announcements from your Platform Employee yet.'
+                    : 'No announcements match your search or filters.'}
                 </td>
               </tr>
             ) : (
-              [...announcements].reverse().map((a) => {
+              visibleAnnouncements.map((a) => {
                 const color = typeColors[a.type] || '#334155';
                 const hasReplied = Boolean(a.adminReply || a.reply);
 

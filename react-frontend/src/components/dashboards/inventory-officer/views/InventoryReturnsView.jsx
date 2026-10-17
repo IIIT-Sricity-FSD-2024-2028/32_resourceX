@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import { fetchResources, fetchReturnHistory, processReturn } from '../../../../services/inventoryOfficer';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
@@ -19,6 +20,8 @@ export default function InventoryReturnsView({ addToast }) {
 
   // History filtering & search
   const [historySearch, setHistorySearch] = useState('');
+  const [queueSearch, setQueueSearch] = useState('');
+  const [queueTypeFilter, setQueueTypeFilter] = useState('All');
   const [historyFilter, setHistoryFilter] = useState('All');
 
   const loadData = useCallback(async () => {
@@ -108,6 +111,12 @@ export default function InventoryReturnsView({ addToast }) {
       setProcessingId(null);
     }
   };
+
+  const itemType = (item) => item.name || item.type;
+  const visibleReturnItems = returnItems.filter((item) =>
+    (queueTypeFilter === 'All' || itemType(item) === queueTypeFilter) &&
+    matchesSearch(queueSearch, item.id, item.name, item.type, item.serialNumber, item.returnRequestedBy, item.assignedTo, item.returnReason, item.returnNotes, item.condition)
+  );
 
   // Filtered return history
   const filteredHistory = useMemo(() => {
@@ -251,7 +260,23 @@ export default function InventoryReturnsView({ addToast }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {returnItems.map(item => {
+              <TableToolbar
+                standalone
+                search={queueSearch}
+                onSearchChange={setQueueSearch}
+                placeholder="Search by asset ID, type, serial no., returned by or reason..."
+                filters={[
+                  { label: 'All Resource Types', value: queueTypeFilter, onChange: setQueueTypeFilter, options: uniqueOptions(returnItems, itemType) },
+                ]}
+                resultCount={visibleReturnItems.length}
+                totalCount={returnItems.length}
+              />
+              {visibleReturnItems.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '2.5rem', background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', color: '#64748b', fontSize: 14 }}>
+                  No returned items match your search.
+                </div>
+              )}
+              {visibleReturnItems.map(item => {
                 const form = itemForms[item.id] || {};
                 const isProcessing = processingId === item.id;
                 const destination = form.destination || 'Available';

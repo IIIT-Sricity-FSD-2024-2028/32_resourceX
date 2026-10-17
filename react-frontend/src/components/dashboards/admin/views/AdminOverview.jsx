@@ -8,6 +8,7 @@ import {
   updateAdminUser,
   deactivateAdminUser
 } from '../../../../services/admin';
+import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export function renderRoleBadge(role) {
   if (role === 'Dept Head') {
@@ -52,6 +53,7 @@ export default function AdminOverview() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   // Edit User Modal state
   const [editUser, setEditUser] = useState(null);
@@ -87,7 +89,9 @@ export default function AdminOverview() {
   const roles = new Set(users.map((u) => u.role));
   const displayUsers = [...users].reverse();
   const managableUsers = displayUsers.filter((u) => u.role !== 'System Admin');
-  const recentUsers = managableUsers.slice(0, 5);
+  const recentUsers = managableUsers
+    .filter((u) => matchesSearch(search, u.name, u.email, u.role, u.department, u.status))
+    .slice(0, 5);
 
   const openEditModal = (user) => {
     setEditUser(user);
@@ -169,6 +173,11 @@ export default function AdminOverview() {
             View All
           </button>
         </div>
+        <TableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search users by name, email, role or department..."
+        />
         <table className="table">
           <thead>
             <tr>
@@ -189,7 +198,7 @@ export default function AdminOverview() {
             ) : recentUsers.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No users available.
+                  {search.trim() ? 'No users match your search.' : 'No users available.'}
                 </td>
               </tr>
             ) : (

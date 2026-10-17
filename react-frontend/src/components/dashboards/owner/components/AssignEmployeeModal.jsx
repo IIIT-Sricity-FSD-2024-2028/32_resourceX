@@ -3,17 +3,23 @@ import React, { useState, useEffect } from 'react';
 /**
  * Exact replica of assignEmployeeModal from owner.html —
  * approve a pending organization and assign a support employee (fewest orgs first = recommended).
+ * mode="reassign" changes the employee of an already-approved organization instead.
  */
-export default function AssignEmployeeModal({ isOpen, onClose, onSubmit, organization, organizations = [], employees = [] }) {
+export default function AssignEmployeeModal({ isOpen, onClose, onSubmit, organization, organizations = [], employees = [], mode = 'approve' }) {
+  const isReassign = mode === 'reassign';
   const [employeeId, setEmployeeId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const countFor = (empId) => organizations.filter((o) => o.assignedEmployeeId === empId).length;
-  const sorted = [...employees].sort((a, b) => countFor(a.id) - countFor(b.id));
+  // Only active employees can take on organizations
+  const sorted = employees
+    .filter((e) => (e.status || 'Active') === 'Active')
+    .sort((a, b) => countFor(a.id) - countFor(b.id));
+  const currentEmployee = employees.find((e) => e.id === organization?.assignedEmployeeId);
 
   useEffect(() => {
     if (organization) {
-      setEmployeeId(sorted[0]?.id || '');
+      setEmployeeId(isReassign && currentEmployee?.status === 'Active' ? currentEmployee.id : sorted[0]?.id || '');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization]);
@@ -63,7 +69,9 @@ export default function AssignEmployeeModal({ isOpen, onClose, onSubmit, organiz
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>Approve &amp; Assign Employee</h3>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+            {isReassign ? 'Change Assigned Employee' : 'Approve & Assign Employee'}
+          </h3>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#64748b' }}>
             ✕
           </button>
@@ -73,6 +81,12 @@ export default function AssignEmployeeModal({ isOpen, onClose, onSubmit, organiz
           <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>
             Select a support employee to manage <strong>{organization.name}</strong>. Employees are sorted by fewest
             organizations first.
+            {isReassign && (
+              <>
+                <br />
+                Currently assigned: <strong>{currentEmployee?.name || 'nobody'}</strong>
+              </>
+            )}
           </p>
           <div className="form-group" style={{ marginBottom: '1rem' }}>
             <label className="form-label">Assign to Employee</label>
@@ -94,8 +108,13 @@ export default function AssignEmployeeModal({ isOpen, onClose, onSubmit, organiz
               </small>
             )}
           </div>
-          <button type="submit" className="btn-primary" style={{ width: '100%', marginTop: '1rem' }} disabled={isSubmitting || !employeeId}>
-            {isSubmitting ? 'Approving...' : 'Approve & Assign'}
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{ width: '100%', marginTop: '1rem' }}
+            disabled={isSubmitting || !employeeId || (isReassign && employeeId === organization.assignedEmployeeId)}
+          >
+            {isReassign ? (isSubmitting ? 'Saving...' : 'Save Assignment') : isSubmitting ? 'Approving...' : 'Approve & Assign'}
           </button>
         </form>
       </div>

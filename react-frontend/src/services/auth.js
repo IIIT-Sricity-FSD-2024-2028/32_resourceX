@@ -72,6 +72,38 @@ export const loginUser = async (email, password, selectedOrgId) => {
   return userObj;
 };
 
+const postPublic = async (path, body) => {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = Array.isArray(data.message) ? data.message[0] : data.message;
+    throw new Error(message || `Backend error (${res.status}).`);
+  }
+  return data;
+};
+
+/**
+ * Forgot password step 1: email a 6-digit verification code
+ */
+export const requestPasswordReset = (email) =>
+  postPublic('/auth/forgot-password', { email: email.toLowerCase().trim() });
+
+/**
+ * Forgot password step 2: verify the code; returns { resetToken }
+ */
+export const verifyPasswordResetOtp = (email, otp) =>
+  postPublic('/auth/verify-otp', { email: email.toLowerCase().trim(), otp });
+
+/**
+ * Forgot password step 3: set the new password
+ */
+export const resetPassword = (resetToken, newPassword) =>
+  postPublic('/auth/reset-password', { resetToken, newPassword });
+
 /**
  * Save user session to localStorage
  */

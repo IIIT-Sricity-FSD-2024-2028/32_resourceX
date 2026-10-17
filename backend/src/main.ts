@@ -2,11 +2,18 @@ import 'reflect-metadata';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as express from 'express';
 import { AppModule } from './app.module';
 import { createSwaggerDocument } from './common/swagger-document';
 import { SwaggerModule } from '@nestjs/swagger';
+
+// Load SMTP and other settings from backend/.env when present (see .env.example)
+const envFile = join(__dirname, '..', '.env');
+if (existsSync(envFile)) {
+  process.loadEnvFile(envFile);
+}
 
 async function bootstrap() {
   // Disable built-in body parser so we can set a custom size limit

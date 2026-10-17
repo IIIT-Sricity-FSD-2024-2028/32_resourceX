@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
+import { useNotificationTab } from '../../common/notificationFocus';
 import { useAuth } from '../../../context/AuthContext';
 import AdminToast from '../admin/components/AdminToast';
 import FilePreviewModal from './components/FilePreviewModal';
@@ -38,6 +39,9 @@ export default function RequestorDashboard() {
   const handleTabChange = useCallback((tabId) => {
     setActiveTab(tabId);
   }, []);
+
+  // Clicking a notification can point at one of the tabs
+  useNotificationTab(handleTabChange);
 
   const addToast = useCallback((message, type = 'success') => {
     const id = Date.now() + Math.random();
@@ -88,6 +92,7 @@ export default function RequestorDashboard() {
             {activeTab === 'my-requests' && (
               <MyRequestsView
                 addToast={addToast}
+                onPreviewFile={handlePreviewFile}
                 onNavigateToResources={() => handleTabChange('my-resources')}
               />
             )}

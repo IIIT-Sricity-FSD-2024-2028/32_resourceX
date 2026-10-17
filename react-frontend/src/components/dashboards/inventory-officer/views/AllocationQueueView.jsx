@@ -5,6 +5,7 @@ import {
   fetchAvailableResources,
   allocateRequest
 } from '../../../../services/inventoryOfficer';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 function normalizeToken(v) {
   return String(v || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -29,6 +30,8 @@ export default function AllocationQueueView({ addToast }) {
   const [loading, setLoading] = useState(true);
   const [allocatingId, setAllocatingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
 
   const loadData = useCallback(async () => {
     try {
@@ -91,9 +94,9 @@ export default function AllocationQueueView({ addToast }) {
   };
 
   const filtered = requests.filter(r =>
-    !searchQuery || r.resourceType?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.requestor?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.id?.toLowerCase().includes(searchQuery.toLowerCase())
+    (typeFilter === 'All' || r.resourceType === typeFilter) &&
+    (priorityFilter === 'All' || (r.priority || 'Normal') === priorityFilter) &&
+    matchesSearch(searchQuery, r.id, r.resourceType, r.requestor, r.department, r.date, r.justification)
   );
 
   return (
@@ -106,24 +109,32 @@ export default function AllocationQueueView({ addToast }) {
             {requests.length} approved request{requests.length !== 1 ? 's' : ''} awaiting resource allocation
           </p>
         </div>
-        <div style={{ position: 'relative' }}>
-          <span className="material-icons" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: '#94a3b8' }}>search</span>
-          <input
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search by type, requestor..."
-            style={{ padding: '8px 12px 8px 34px', border: '1px solid #e2e8f0', borderRadius: 10, fontSize: 13, width: 240, outline: 'none', background: '#fff' }}
-          />
-        </div>
       </div>
+
+      {!loading && requests.length > 0 && (
+        <TableToolbar
+          standalone
+          search={searchQuery}
+          onSearchChange={setSearchQuery}
+          placeholder="Search by Req ID, resource type, requestor or reason..."
+          filters={[
+            { label: 'All Resource Types', value: typeFilter, onChange: setTypeFilter, options: uniqueOptions(requests, 'resourceType') },
+            { label: 'All Priorities', value: priorityFilter, onChange: setPriorityFilter, options: uniqueOptions(requests, (r) => r.priority || 'Normal') },
+          ]}
+          resultCount={filtered.length}
+          totalCount={requests.length}
+        />
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading allocation queue...</div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem', background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0' }}>
           <span className="material-icons" style={{ fontSize: 48, color: '#22c55e', display: 'block', marginBottom: 12 }}>check_circle_outline</span>
-          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>All caught up!</div>
-          <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>No approved requests pending allocation.</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>{requests.length > 0 ? 'No matching requests' : 'All caught up!'}</div>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
+            {requests.length > 0 ? 'Try a different search or clear the filters.' : 'No approved requests pending allocation.'}
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

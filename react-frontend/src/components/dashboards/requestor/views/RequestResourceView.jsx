@@ -8,6 +8,7 @@ import {
   fetchResourceAvailability,
   createRequest
 } from '../../../../services/requestor';
+import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
   const { user } = useAuth();
@@ -25,9 +26,15 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const [availableCount, setAvailableCount] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // { documentFileName, documentFileType, documentFileDataUrl } from DocumentUpload
+  const [letter, setLetter] = useState(null);
+  const [letterResetKey, setLetterResetKey] = useState(0);
 
-  // Today's date string in YYYY-MM-DD for min attribute
-  const todayStr = new Date().toISOString().split('T')[0];
+  // The requirement date must be at least 2 days after the request date (local time, YYYY-MM-DD)
+  const MIN_LEAD_DAYS = 2;
+  const earliest = new Date();
+  earliest.setDate(earliest.getDate() + MIN_LEAD_DAYS);
+  const minRequirementStr = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
 
   useEffect(() => {
     const init = async () => {
@@ -98,6 +105,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Format dates for display
+    const formatDate = (dateStr) =>
+      new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+
     if (!selectedDept || !selectedType || isNaN(quantity) || quantity < 1 || !reason.trim()) {
       addToast('Please fill in all fields correctly before submitting.', 'error');
       return;
@@ -105,6 +120,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
 
     if (!requirementDate) {
       addToast('Please select a Resource Requirement Date.', 'error');
+      return;
+    }
+
+    if (requirementDate < minRequirementStr) {
+      addToast(`Requirement Date must be at least ${MIN_LEAD_DAYS} days after today (${formatDate(minRequirementStr)} or later).`, 'error');
       return;
     }
 
@@ -118,6 +138,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       return;
     }
 
+    if (!letter) {
+      addToast('Please attach a Request Letter / Proof before submitting.', 'error');
+      return;
+    }
+
     // Note: Requestors can request any quantity needed, even if exceeding current stock
 
     const newId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -126,14 +151,6 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       day: 'numeric',
       year: 'numeric'
     });
-
-    // Format dates for display
-    const formatDate = (dateStr) =>
-      new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
 
     const payload = {
       id: newId,
@@ -149,7 +166,10 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       requirementDate: requirementDate,
       returnDate: returnDate,
       requirementDateDisplay: formatDate(requirementDate),
-      returnDateDisplay: formatDate(returnDate)
+      returnDateDisplay: formatDate(returnDate),
+      letterFileName: letter.documentFileName,
+      letterFileType: letter.documentFileType,
+      letterFileDataUrl: letter.documentFileDataUrl
     };
 
     setSubmitting(true);
@@ -164,6 +184,8 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       setRequirementDate('');
       setReturnDate('');
       setAvailableCount(null);
+      setLetter(null);
+      setLetterResetKey((k) => k + 1);
 
       if (onNavigateToRequests) {
         onNavigateToRequests();
@@ -275,7 +297,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
                   type="date"
                   className="form-control"
                   value={requirementDate}
-                  min={todayStr}
+                  min={minRequirementStr}
                   onChange={(e) => {
                     setRequirementDate(e.target.value);
                     // Clear return date if it becomes invalid
@@ -295,7 +317,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
                   type="date"
                   className="form-control"
                   value={returnDate}
-                  min={requirementDate || todayStr}
+                  min={requirementDate || minRequirementStr}
                   onChange={(e) => setReturnDate(e.target.value)}
                   disabled={!requirementDate}
                   required
@@ -322,6 +344,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
               required
             />
           </div>
+
+          <DocumentUpload
+            label="Request Letter / Proof"
+            required
+            onChange={setLetter}
+            resetKey={letterResetKey}
+            hint="Attach a signed request letter or supporting proof. PDF, PNG or JPG, up to 5 MB."
+          />
 
           <button type="submit" className="btn-primary" disabled={submitting}>
             {submitting ? 'Submitting...' : 'Submit Request'}

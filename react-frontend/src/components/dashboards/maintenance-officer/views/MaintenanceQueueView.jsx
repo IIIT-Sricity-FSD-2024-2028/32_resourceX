@@ -7,6 +7,7 @@ import {
   repairMaintenance,
   scrapMaintenance
 } from '../../../../services/maintenanceOfficer';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STEP_MAP = {
   'Maintenance Requested': { label: 'Requested', next: 'Accept Request', action: 'accept', color: '#f59e0b', bg: '#fffbeb' },
@@ -40,6 +41,12 @@ export default function MaintenanceQueueView({ addToast }) {
   const [scrapReason, setScrapReason] = useState('');
 
   const [showHistory, setShowHistory] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
+  const [sourceFilter, setSourceFilter] = useState('All');
+  const [historySearch, setHistorySearch] = useState('');
+  const [outcomeFilter, setOutcomeFilter] = useState('All');
 
   const loadData = useCallback(async () => {
     try {
@@ -125,6 +132,18 @@ export default function MaintenanceQueueView({ addToast }) {
     }
   };
 
+  const stageLabel = (res) => (res.status === 'Maintenance' ? 'Under Repair' : 'Requested');
+  const visibleQueue = queue.filter((res) =>
+    (statusFilter === 'All' || stageLabel(res) === statusFilter) &&
+    (priorityFilter === 'All' || res.maintenancePriority === priorityFilter) &&
+    (sourceFilter === 'All' || (sourceFilter === 'From Return') === Boolean(res.routedFromReturn)) &&
+    matchesSearch(search, res.id, res.name, res.type, res.serialNumber, res.condition, res.assignedTo, res.maintenanceIssue, res.maintenanceRequestDate)
+  );
+  const visibleHistory = history.filter((h) =>
+    (outcomeFilter === 'All' || (h.status || 'Repaired') === outcomeFilter) &&
+    matchesSearch(historySearch, h.code, h.resourceId, h.id, h.type, h.resourceType, h.issue, h.resolutionNotes, h.status, h.actionDate, h.date)
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -152,6 +171,22 @@ export default function MaintenanceQueueView({ addToast }) {
         </div>
       </div>
 
+      {!loading && queue.length > 0 && (
+        <TableToolbar
+          standalone
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Search by asset ID, type, serial no., user or issue..."
+          filters={[
+            { label: 'All Stages', value: statusFilter, onChange: setStatusFilter, options: ['Requested', 'Under Repair'] },
+            { label: 'All Priorities', value: priorityFilter, onChange: setPriorityFilter, options: ['Low', 'Medium', 'High', 'Critical'] },
+            { label: 'All Sources', value: sourceFilter, onChange: setSourceFilter, options: ['From Return', 'User Reported'] },
+          ]}
+          resultCount={visibleQueue.length}
+          totalCount={queue.length}
+        />
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>Loading maintenance queue...</div>
       ) : queue.length === 0 ? (
@@ -162,9 +197,13 @@ export default function MaintenanceQueueView({ addToast }) {
           <div style={{ fontSize: 17, fontWeight: 700, color: '#1e293b' }}>Maintenance Workbench Clear</div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>All equipment in this department is fully serviced and operational.</div>
         </div>
+      ) : visibleQueue.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '2.5rem', background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', color: '#64748b', fontSize: 14 }}>
+          No maintenance tickets match your search or filters.
+        </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
-          {queue.map(res => {
+          {visibleQueue.map(res => {
             const step = STEP_MAP[res.status] || {};
             const isProcessing = processingId === res.id;
             const priorityStyle = PRIORITY_COLORS[res.maintenancePriority] || PRIORITY_COLORS.Medium;
@@ -373,8 +412,20 @@ export default function MaintenanceQueueView({ addToast }) {
             <span>Maintenance History Log ({history.length} records)</span>
             <span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}>Showing recent repairs and decommissioned assets</span>
           </div>
-          {history.length === 0 ? (
-            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>No history recorded yet.</div>
+          <TableToolbar
+            search={historySearch}
+            onSearchChange={setHistorySearch}
+            placeholder="Search by asset ID, type, issue or resolution..."
+            filters={[
+              { label: 'All Outcomes', value: outcomeFilter, onChange: setOutcomeFilter, options: uniqueOptions(history, (h) => h.status || 'Repaired') },
+            ]}
+            resultCount={visibleHistory.length}
+            totalCount={history.length}
+          />
+          {visibleHistory.length === 0 ? (
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+              {history.length === 0 ? 'No history recorded yet.' : 'No history records match your search.'}
+            </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -388,7 +439,7 @@ export default function MaintenanceQueueView({ addToast }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {history.slice(0, 25).map((h, i) => (
+                  {visibleHistory.slice(0, 25).map((h, i) => (
                     <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
                       <td style={{ padding: '10px 14px', color: '#3b82f6', fontWeight: 700 }}>{h.code || h.resourceId || h.id}</td>
                       <td style={{ padding: '10px 14px', color: '#1e293b' }}>{h.type || h.resourceType || '—'}</td>

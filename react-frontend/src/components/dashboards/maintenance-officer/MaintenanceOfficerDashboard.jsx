@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
+import { useNotificationTab } from '../../common/notificationFocus';
 import MaintOfficerOverview from './views/MaintOfficerOverview';
 import MaintenanceQueueView from './views/MaintenanceQueueView';
 import HistoryLogView from './views/HistoryLogView';
@@ -13,6 +14,8 @@ const NAV_ITEMS = [
 
 export default function MaintenanceOfficerDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  // Clicking a notification can point at one of the tabs
+  useNotificationTab(setActiveTab);
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'success') => {
