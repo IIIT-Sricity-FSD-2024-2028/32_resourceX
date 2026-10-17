@@ -201,10 +201,15 @@ export class ResourcesService {
       throw new BadRequestException('Invalid proposed return date format.');
     }
 
-    if (resource.returnDate) {
-      const currTime = Date.parse(resource.returnDate);
-      if (!isNaN(currTime) && proposedTime <= currTime) {
-        throw new BadRequestException('Proposed return date must be strictly after the current return date.');
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const currTime = resource.returnDate ? Date.parse(resource.returnDate) : NaN;
+    if (!isNaN(currTime) && currTime > todayStart) {
+      if (proposedTime <= currTime) {
+        throw new BadRequestException(`Proposed return date must be strictly after current return date (${resource.returnDateDisplay || resource.returnDate}).`);
+      }
+    } else {
+      if (proposedTime < todayStart) {
+        throw new BadRequestException('Proposed return date must be today or in the future.');
       }
     }
 

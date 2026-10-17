@@ -82,8 +82,9 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
 
   const handleOpenExtension = (res) => {
     setExtensionModalItem(res);
-    // Suggest default extended date: 7 days after current returnDate, or 7 days from now
-    const base = res.returnDate ? new Date(res.returnDate) : new Date();
+    const currTime = res.returnDate ? Date.parse(res.returnDate) : 0;
+    const baseTime = !isNaN(currTime) && currTime > Date.now() ? currTime : Date.now();
+    const base = new Date(baseTime);
     base.setDate(base.getDate() + 7);
     setProposedReturnDate(base.toISOString().split('T')[0]);
     setExtensionReason('');
@@ -876,9 +877,11 @@ export default function MyResourcesView({ addToast, onPreviewFile }) {
                   type="date"
                   value={proposedReturnDate}
                   min={
-                    extensionModalItem.returnDate
-                      ? new Date(Date.parse(extensionModalItem.returnDate) + 86400000).toISOString().split('T')[0]
-                      : new Date().toISOString().split('T')[0]
+                    (() => {
+                      const currTime = extensionModalItem?.returnDate ? Date.parse(extensionModalItem.returnDate) : 0;
+                      const baseTime = !isNaN(currTime) && currTime > Date.now() ? currTime : Date.now();
+                      return new Date(baseTime + 86400000).toISOString().split('T')[0];
+                    })()
                   }
                   onChange={(e) => setProposedReturnDate(e.target.value)}
                   required
