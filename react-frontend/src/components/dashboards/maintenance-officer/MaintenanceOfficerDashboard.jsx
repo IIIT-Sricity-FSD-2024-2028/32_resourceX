@@ -3,7 +3,6 @@ import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import MaintOfficerOverview from './views/MaintOfficerOverview';
 import MaintenanceQueueView from './views/MaintenanceQueueView';
-import ReturnProcessView from './views/ReturnProcessView';
 import HistoryLogView from './views/HistoryLogView';
 
 const NAV_ITEMS = [

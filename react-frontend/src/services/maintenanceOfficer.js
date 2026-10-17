@@ -45,23 +45,19 @@ export const processReturn = async (resourceId, payload) => {
 // ── Overview Stats ─────────────────────────────────────────────────────────────
 
 export const fetchMaintenanceOfficerStats = async (department) => {
-  const [resources, maintHistory, returnHistory] = await Promise.all([
+  const [resources, maintHistory] = await Promise.all([
     fetchResources({ department }).catch(() => []),
     fetchMaintenanceHistory().catch(() => []),
-    fetchReturnHistory().catch(() => [])
   ]);
   const resList = Array.isArray(resources) ? resources : [];
   const mList = Array.isArray(maintHistory) ? maintHistory : [];
-  const rList = Array.isArray(returnHistory) ? returnHistory : [];
   return {
     resources: resList,
     maintHistory: mList,
-    returnHistory: rList,
     stats: {
       maintenanceRequested: resList.filter(r => r.status === 'Maintenance Requested').length,
       underMaintenance: resList.filter(r => r.status === 'Maintenance').length,
-      pendingReturns: resList.filter(r => r.status === 'Returned').length,
-      resolvedThisMonth: mList.length + rList.length,
+      resolvedThisMonth: mList.length,
     }
   };
 };

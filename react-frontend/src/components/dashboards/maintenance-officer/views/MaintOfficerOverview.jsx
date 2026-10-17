@@ -5,7 +5,7 @@ import { fetchMaintenanceOfficerStats } from '../../../../services/maintenanceOf
 export default function MaintOfficerOverview({ onNavigate, addToast }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
-  const [data, setData] = useState({ stats: {}, resources: [], maintHistory: [], returnHistory: [] });
+  const [data, setData] = useState({ stats: {}, resources: [], maintHistory: [] });
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
