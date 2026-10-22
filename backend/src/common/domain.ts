@@ -172,6 +172,7 @@ export interface ResourceRecord {
   returnReason?: string;
   returnNotes?: string;
   routedFromReturn?: boolean;
+  routedFromInventory?: boolean;
   returnDate?: string;
   returnDateDisplay?: string;
   extensionStatus?: 'None' | 'Pending' | 'Approved' | 'Rejected';

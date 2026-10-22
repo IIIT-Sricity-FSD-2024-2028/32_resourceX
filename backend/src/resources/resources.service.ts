@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { DepartmentResourceCatalogRecord, ResourceRecord } from '../common/domain';
+import { DepartmentResourceCatalogRecord, ResourceCondition, ResourceRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
 import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto, RequestExtensionDto, RejectExtensionDto } from './dto/resource.dto';
@@ -114,23 +114,58 @@ export class ResourcesService {
     }
 
     ensureDepartmentScoped(this.dataService, context, resource.department);
-    if (resource.status !== 'Allocated' && resource.status !== 'Available') {
-      throw new BadRequestException('Only Allocated or Available resources can go to maintenance.');
+    if (['Maintenance Requested', 'Maintenance', 'Scrapped'].includes(resource.status)) {
+      throw new BadRequestException('Resource is already in maintenance or scrapped.');
     }
+
+    const user = getActingUser(this.dataService, context);
+    const requesterLabel = user?.name || context.role || 'Inventory Officer';
+    const issueText = dto?.issue?.trim() || resource.maintenanceIssue || 'General Maintenance Requested';
+    const priority = dto?.priority || resource.maintenancePriority || 'Medium';
+    const isFromInventory = context.role === 'Inventory Officer' || dto?.routedFrom === 'Inventory Board';
 
     this.dataService.notify({
       organizationId: resource.organizationId,
       recipientRole: 'Maintenance Officer',
       department: resource.department,
-      title: 'Maintenance requested',
-      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${dto?.issue || 'General Maintenance Requested'}.`,
+      title: '🛠 Maintenance requested',
+      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${issueText}. Flagged by ${requesterLabel}.`,
     });
-    return this.dataService.updateResource(id, {
+
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Dept Head',
+      department: resource.department,
+      title: '🛠 Maintenance requested',
+      description: `${resource.name || resource.type} (${resource.id}) flagged for maintenance by ${requesterLabel}: ${issueText}.`,
+    });
+
+    if (resource.assignedToId) {
+      this.dataService.notify({
+        organizationId: resource.organizationId,
+        recipientRole: 'Requestor',
+        recipientUserId: resource.assignedToId,
+        title: '🛠 Asset routed to maintenance',
+        description: `Your allocated asset "${resource.name || resource.type}" (${resource.id}) has been sent for maintenance: ${issueText}.`,
+      });
+    }
+
+    const updates: Partial<ResourceRecord> = {
       status: 'Maintenance Requested',
-      maintenanceIssue: dto?.issue || resource.maintenanceIssue || 'General Maintenance Requested',
-      maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
-      maintenanceRequestDate: new Date().toLocaleDateString('en-US'),
-    });
+      maintenanceIssue: issueText,
+      maintenancePriority: priority,
+      maintenanceRequestDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      routedFromInventory: isFromInventory,
+    };
+
+    if (dto?.condition) {
+      updates.condition = dto.condition as ResourceCondition;
+    }
+    if (dto?.notes) {
+      updates.maintenanceNotes = dto.notes;
+    }
+
+    return this.dataService.updateResource(id, updates);
   }
 
   initiateReturn(id: string, dto: InitiateReturnDto | undefined, context: RequestContext): ResourceRecord {

@@ -38,6 +38,12 @@ export const updateResource = async (id, data) =>
 export const scrapResource = async (id) =>
   apiRequest(`/resources/${encodeURIComponent(id)}/scrap`, { method: 'POST' });
 
+export const requestResourceMaintenance = async (id, data = {}) =>
+  apiRequest(`/resources/${encodeURIComponent(id)}/maintenance-request`, {
+    method: 'POST',
+    body: data
+  });
+
 // ── Procurement register (Inventory Officer registers delivered items) ─────────
 
 export const fetchProcurements = async (params = {}) =>

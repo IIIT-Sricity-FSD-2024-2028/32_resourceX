@@ -133,12 +133,14 @@ export default function MaintenanceQueueView({ addToast }) {
   };
 
   const stageLabel = (res) => (res.status === 'Maintenance' ? 'Under Repair' : 'Requested');
-  const visibleQueue = queue.filter((res) =>
-    (statusFilter === 'All' || stageLabel(res) === statusFilter) &&
-    (priorityFilter === 'All' || res.maintenancePriority === priorityFilter) &&
-    (sourceFilter === 'All' || (sourceFilter === 'From Return') === Boolean(res.routedFromReturn)) &&
-    matchesSearch(search, res.id, res.name, res.type, res.serialNumber, res.condition, res.assignedTo, res.maintenanceIssue, res.maintenanceRequestDate)
-  );
+  const visibleQueue = queue.filter((res) => {
+    if (statusFilter !== 'All' && stageLabel(res) !== statusFilter) return false;
+    if (priorityFilter !== 'All' && res.maintenancePriority !== priorityFilter) return false;
+    if (sourceFilter === 'From Return' && !res.routedFromReturn) return false;
+    if (sourceFilter === 'From Inventory' && !res.routedFromInventory) return false;
+    if (sourceFilter === 'User Reported' && (res.routedFromReturn || res.routedFromInventory)) return false;
+    return matchesSearch(search, res.id, res.name, res.type, res.serialNumber, res.condition, res.assignedTo, res.maintenanceIssue, res.maintenanceRequestDate);
+  });
   const visibleHistory = history.filter((h) =>
     (outcomeFilter === 'All' || (h.status || 'Repaired') === outcomeFilter) &&
     matchesSearch(historySearch, h.code, h.resourceId, h.id, h.type, h.resourceType, h.issue, h.resolutionNotes, h.status, h.actionDate, h.date)
@@ -180,7 +182,7 @@ export default function MaintenanceQueueView({ addToast }) {
           filters={[
             { label: 'All Stages', value: statusFilter, onChange: setStatusFilter, options: ['Requested', 'Under Repair'] },
             { label: 'All Priorities', value: priorityFilter, onChange: setPriorityFilter, options: ['Low', 'Medium', 'High', 'Critical'] },
-            { label: 'All Sources', value: sourceFilter, onChange: setSourceFilter, options: ['From Return', 'User Reported'] },
+            { label: 'All Sources', value: sourceFilter, onChange: setSourceFilter, options: ['From Return', 'From Inventory', 'User Reported'] },
           ]}
           resultCount={visibleQueue.length}
           totalCount={queue.length}
@@ -264,6 +266,26 @@ export default function MaintenanceQueueView({ addToast }) {
                       >
                         <span className="material-symbols-outlined" style={{ fontSize: 12 }}>assignment_return</span>
                         From Return
+                      </span>
+                    )}
+                    {res.routedFromInventory && (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: 6,
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          border: '1px solid #bfdbfe',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
+                        }}
+                        title="Forwarded from Inventory Board by Inventory Officer"
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 12 }}>inventory_2</span>
+                        From Inventory
                       </span>
                     )}
                   </div>

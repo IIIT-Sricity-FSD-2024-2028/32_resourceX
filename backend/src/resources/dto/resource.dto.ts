@@ -131,6 +131,21 @@ export class RequestMaintenanceDto {
   @IsOptional()
   @IsString()
   priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+
+  @ApiPropertyOptional({ example: 'Fair' })
+  @IsOptional()
+  @IsString()
+  condition?: string;
+
+  @ApiPropertyOptional({ example: 'Inventory Board' })
+  @IsOptional()
+  @IsString()
+  routedFrom?: string;
+
+  @ApiPropertyOptional({ example: 'Diagnosed during warehouse audit' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class InitiateReturnDto {

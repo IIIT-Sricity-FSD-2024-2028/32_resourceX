@@ -5,7 +5,8 @@ import {
   fetchResourceCatalog,
   createResource,
   scrapResource,
-  updateResource
+  updateResource,
+  requestResourceMaintenance
 } from '../../../../services/inventoryOfficer';
 
 const STATUS_COLORS = {
@@ -34,6 +35,14 @@ export default function InventoryBoardView({ addToast }) {
   const [editForm, setEditForm] = useState({});
   const [savingId, setSavingId] = useState(null);
   const [scrapConfirmId, setScrapConfirmId] = useState(null);
+
+  // Needs Maintenance Modal State
+  const [maintModalItem, setMaintModalItem] = useState(null);
+  const [maintIssue, setMaintIssue] = useState('');
+  const [maintPriority, setMaintPriority] = useState('Medium');
+  const [maintCondition, setMaintCondition] = useState('Fair');
+  const [maintNotes, setMaintNotes] = useState('');
+  const [isSubmittingMaint, setIsSubmittingMaint] = useState(false);
 
   // Add Resource Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -204,6 +213,36 @@ export default function InventoryBoardView({ addToast }) {
       await loadResources();
     } catch (err) {
       addToast?.(err.message || 'Scrap failed.', 'error');
+    }
+  };
+
+  const handleOpenMaintenanceModal = (res) => {
+    setMaintModalItem(res);
+    setMaintIssue('');
+    setMaintPriority('Medium');
+    setMaintCondition(res.condition === 'New' || res.condition === 'Good' ? 'Fair' : (res.condition || 'Damaged'));
+    setMaintNotes('');
+  };
+
+  const handleConfirmMaintenance = async (e) => {
+    e?.preventDefault?.();
+    if (!maintModalItem) return;
+    try {
+      setIsSubmittingMaint(true);
+      await requestResourceMaintenance(maintModalItem.id, {
+        issue: maintIssue.trim() || 'Flagged for maintenance by Inventory Officer',
+        priority: maintPriority,
+        condition: maintCondition,
+        notes: maintNotes.trim(),
+        routedFrom: 'Inventory Board',
+      });
+      addToast?.(`🛠 "${maintModalItem.name || maintModalItem.type}" sent to Maintenance Queue.`, 'success');
+      setMaintModalItem(null);
+      await loadResources();
+    } catch (err) {
+      addToast?.(err.message || 'Failed to send to maintenance.', 'error');
+    } finally {
+      setIsSubmittingMaint(false);
     }
   };
 
@@ -460,7 +499,50 @@ export default function InventoryBoardView({ addToast }) {
                             >
                               Edit
                             </button>
-                            {res.status !== 'Allocated' && res.status !== 'Scrapped' && (
+                            {res.status !== 'Maintenance Requested' && res.status !== 'Maintenance' && res.status !== 'Scrapped' && (
+                              <button
+                                onClick={() => handleOpenMaintenanceModal(res)}
+                                style={{
+                                  padding: '5px 10px',
+                                  background: '#fffbeb',
+                                  color: '#d97706',
+                                  border: '1px solid #fde68a',
+                                  borderRadius: 7,
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title="Send this resource to the Maintenance Queue"
+                              >
+                                <span className="material-icons" style={{ fontSize: 13 }}>build</span>
+                                Needs Maintenance
+                              </button>
+                            )}
+                            {(res.status === 'Maintenance Requested' || res.status === 'Maintenance') && (
+                              <span
+                                style={{
+                                  padding: '4px 8px',
+                                  borderRadius: 6,
+                                  background: '#fef3c7',
+                                  color: '#b45309',
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title="Currently in the Maintenance Queue"
+                              >
+                                <span className="material-icons" style={{ fontSize: 12 }}>handyman</span>
+                                In Maintenance
+                              </span>
+                            )}
+                            {res.status !== 'Allocated' && res.status !== 'Scrapped' && res.status !== 'Maintenance Requested' && res.status !== 'Maintenance' && (
                               <button
                                 onClick={() => setScrapConfirmId(res.id)}
                                 style={{ padding: '5px 10px', background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
@@ -808,6 +890,288 @@ export default function InventoryBoardView({ addToast }) {
               <button onClick={() => setScrapConfirmId(null)} style={{ padding: '10px 20px', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => handleScrap(scrapConfirmId)} style={{ padding: '10px 20px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Yes, Scrap</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Needs Maintenance Modal */}
+      {maintModalItem && (
+        <div
+          onClick={() => !isSubmittingMaint && setMaintModalItem(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '1.75rem',
+              width: '100%',
+              maxWidth: 540,
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1.25rem'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  background: '#fef3c7',
+                  color: '#d97706',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <span className="material-icons" style={{ fontSize: 24 }}>build</span>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1e293b' }}>
+                    Send to Maintenance Queue
+                  </h3>
+                  <p style={{ margin: '3px 0 0', fontSize: 13, color: '#64748b' }}>
+                    Route this asset to the <strong>{department}</strong> maintenance bench
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSubmittingMaint && setMaintModalItem(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: 4,
+                  display: 'flex',
+                  borderRadius: 6
+                }}
+              >
+                <span className="material-icons" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+
+            {/* Asset Summary Pill */}
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 10,
+              padding: '12px 14px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+              gap: '8px 14px',
+              fontSize: 12
+            }}>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: 11 }}>Asset ID</span>
+                <strong style={{ color: '#2563eb' }}>{maintModalItem.id}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: 11 }}>Type / Model</span>
+                <strong style={{ color: '#1e293b' }}>{maintModalItem.type} {maintModalItem.name ? `(${maintModalItem.name})` : ''}</strong>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: 11 }}>Serial Number</span>
+                <span style={{ color: '#475569', fontFamily: 'monospace' }}>{maintModalItem.serialNumber || '—'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#64748b', display: 'block', fontSize: 11 }}>Current Status</span>
+                <span style={{ color: '#d97706', fontWeight: 600 }}>{maintModalItem.status}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmMaintenance} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Quick Issue Tags */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                  Common Issues (Quick Select)
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {[
+                    'Hardware Malfunction',
+                    'Screen / Display Glitch',
+                    'Battery / Power Failure',
+                    'Physical Damage / Broken Hinge',
+                    'Routine Inspection & Servicing'
+                  ].map(tag => (
+                    <button
+                      type="button"
+                      key={tag}
+                      onClick={() => setMaintIssue(tag)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 14,
+                        border: maintIssue === tag ? '1px solid #d97706' : '1px solid #e2e8f0',
+                        background: maintIssue === tag ? '#fef3c7' : '#fff',
+                        color: maintIssue === tag ? '#92400e' : '#475569',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Maintenance Issue Description */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                  Issue Description <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={maintIssue}
+                  onChange={e => setMaintIssue(e.target.value)}
+                  placeholder="Describe the defect, damage, or maintenance requirement in detail..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 13,
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+
+              {/* Row: Priority & Condition */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                    Repair Priority
+                  </label>
+                  <select
+                    value={maintPriority}
+                    onChange={e => setMaintPriority(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 13,
+                      outline: 'none',
+                      background: '#fff'
+                    }}
+                  >
+                    <option value="Low">Low - Routine</option>
+                    <option value="Medium">Medium - Normal</option>
+                    <option value="High">High - Urgent</option>
+                    <option value="Critical">Critical - Immediate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                    Assessed Condition
+                  </label>
+                  <select
+                    value={maintCondition}
+                    onChange={e => setMaintCondition(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 13,
+                      outline: 'none',
+                      background: '#fff'
+                    }}
+                  >
+                    <option value="Good">Good (Minor Service)</option>
+                    <option value="Average">Average (Wear & Tear)</option>
+                    <option value="Fair">Fair (Faulty)</option>
+                    <option value="Damaged">Damaged (Requires Repair)</option>
+                    <option value="Bad">Bad (Severe Damage)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Additional Officer Notes */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                  Officer Internal Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={maintNotes}
+                  onChange={e => setMaintNotes(e.target.value)}
+                  placeholder="e.g. Sent directly from storage rack 4B"
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 13,
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
+                <button
+                  type="button"
+                  onClick={() => !isSubmittingMaint && setMaintModalItem(null)}
+                  style={{
+                    padding: '9px 18px',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingMaint}
+                  style={{
+                    padding: '9px 20px',
+                    background: isSubmittingMaint ? '#94a3b8' : '#d97706',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: isSubmittingMaint ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    boxShadow: '0 2px 6px rgba(217,119,6,0.3)'
+                  }}
+                >
+                  <span className="material-icons" style={{ fontSize: 16 }}>
+                    {isSubmittingMaint ? 'hourglass_top' : 'send'}
+                  </span>
+                  {isSubmittingMaint ? 'Routing...' : 'Route to Maintenance Queue'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
