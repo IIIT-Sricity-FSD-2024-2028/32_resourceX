@@ -246,6 +246,16 @@ export default function InventoryBoardView({ addToast }) {
     }
   };
 
+  const handleRestockAvailable = async (id) => {
+    try {
+      await updateResource(id, { status: 'Available' });
+      addToast?.('Resource restocked to Available Inventory.', 'success');
+      await loadResources();
+    } catch (err) {
+      addToast?.(err.message || 'Failed to restock resource.', 'error');
+    }
+  };
+
   const statusCounts = useMemo(() => {
     const counts = {};
     resources.forEach(r => { counts[r.status] = (counts[r.status] || 0) + 1; });
@@ -520,6 +530,29 @@ export default function InventoryBoardView({ addToast }) {
                               >
                                 <span className="material-icons" style={{ fontSize: 13 }}>build</span>
                                 Needs Maintenance
+                              </button>
+                            )}
+                            {res.status === 'Repaired' && (
+                              <button
+                                onClick={() => handleRestockAvailable(res.id)}
+                                style={{
+                                  padding: '5px 10px',
+                                  background: '#f0fdf4',
+                                  color: '#16a34a',
+                                  border: '1px solid #bbf7d0',
+                                  borderRadius: 7,
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  whiteSpace: 'nowrap'
+                                }}
+                                title="Mark as Available inventory"
+                              >
+                                <span className="material-icons" style={{ fontSize: 13 }}>check_circle</span>
+                                Mark Available
                               </button>
                             )}
                             {(res.status === 'Maintenance Requested' || res.status === 'Maintenance') && (

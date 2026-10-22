@@ -220,16 +220,21 @@ export class DataService {
   }
 
   insertResource(res: ResourceRecord): ResourceRecord {
+    res.updatedAt = Date.now();
     this.state.resources.unshift(res);
     return this.clone(res);
   }
 
   updateResource(id: string, updates: Partial<ResourceRecord>): ResourceRecord {
-    const res = this.state.resources.find((r) => r.id === id);
-    if (!res) {
+    const idx = this.state.resources.findIndex((r) => r.id === id);
+    if (idx === -1) {
       throw new NotFoundException(`Resource with ID ${id} not found.`);
     }
-    Object.assign(res, updates);
+    const res = this.state.resources[idx];
+    Object.assign(res, updates, { updatedAt: Date.now() });
+    // Move to front so "Recent Inventory" and newest actions always show up first
+    this.state.resources.splice(idx, 1);
+    this.state.resources.unshift(res);
     return this.clone(res);
   }
 

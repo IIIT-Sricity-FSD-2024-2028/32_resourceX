@@ -74,12 +74,8 @@ export class MaintenanceService {
       throw new BadRequestException('Only active maintenance items can be resolved.');
     }
 
-    // If item was allocated to a user, mark as 'Repaired' so user confirms receipt.
-    // If it was unallocated / returned, mark as 'Available' so it goes directly to inventory.
-    const isAllocatedUser = Boolean(resource.assignedTo && resource.assignedTo !== 'None');
-    const finalStatus = status === 'Repaired'
-      ? (isAllocatedUser ? 'Repaired' : 'Available')
-      : 'Scrapped';
+    // Mark as 'Repaired' so it clearly shows 'Repaired' in both normal and recent inventory
+    const finalStatus = status === 'Repaired' ? 'Repaired' : 'Scrapped';
     const finalCondition = dto?.condition || (status === 'Repaired' ? 'Good' : resource.condition);
     const recordedIssue = dto?.issue || resource.maintenanceIssue || (status === 'Repaired' ? 'Routine Maintenance' : 'Unrepairable Fault');
     const resolutionNotes = dto?.resolutionNotes || (status === 'Repaired' ? 'Repaired and tested operational' : 'Decommissioned - beyond economical repair');
@@ -100,18 +96,32 @@ export class MaintenanceService {
       priority,
     });
 
+    // Notify Inventory Officer
     this.dataService.notify({
       organizationId: resource.organizationId,
-      recipientRole: 'Requestor',
-      recipientUserId: resource.assignedToId,
-      title: status === 'Repaired' ? 'Resource repaired' : 'Resource scrapped',
-      description: `${resource.name || resource.type} (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'}.`,
+      recipientRole: 'Inventory Officer',
+      department: resource.department,
+      title: status === 'Repaired' ? `🛠️ Resource Repaired: ${resource.name || resource.type}` : `🛑 Resource Scrapped from Maintenance`,
+      description: status === 'Repaired'
+        ? `Resource "${resource.name || resource.type}" (${resource.id}) was repaired by maintenance and is marked as Repaired in inventory.${resolutionNotes ? ` Resolution: ${resolutionNotes}.` : ''}`
+        : `Resource "${resource.name || resource.type}" (${resource.id}) was scrapped by maintenance.`,
     });
+
+    if (resource.assignedToId) {
+      this.dataService.notify({
+        organizationId: resource.organizationId,
+        recipientRole: 'Requestor',
+        recipientUserId: resource.assignedToId,
+        title: status === 'Repaired' ? '✅ Resource Repaired' : '🛑 Resource Scrapped',
+        description: `Your allocated asset "${resource.name || resource.type}" (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'}.${resolutionNotes ? ` Notes: ${resolutionNotes}.` : ''}`,
+      });
+    }
+
     this.dataService.notify({
       organizationId: resource.organizationId,
       recipientRole: 'Dept Head',
       department: resource.department,
-      title: status === 'Repaired' ? 'Resource repaired' : 'Resource scrapped',
+      title: status === 'Repaired' ? '🛠️ Resource Repaired' : '🛑 Resource Scrapped',
       description: `${resource.name || resource.type} (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'} by maintenance.`,
     });
     // Update resource state

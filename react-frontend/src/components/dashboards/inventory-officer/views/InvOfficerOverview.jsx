@@ -5,8 +5,10 @@ import {
   fetchApprovedRequests,
   fetchResources,
   fetchAvailableResources,
-  allocateRequest
+  allocateRequest,
+  updateResource
 } from '../../../../services/inventoryOfficer';
+import { fetchNotifications } from '../../../../services/notifications';
 
 const STATUS_COLORS = {
   Available: '#22c55e',
@@ -22,14 +24,20 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
   const [data, setData] = useState({ stats: {}, requests: [], resources: [] });
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [allocatingId, setAllocatingId] = useState(null);
+  const [restockingId, setRestockingId] = useState(null);
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await fetchInventoryOfficerStats(department);
+      const [result, notifs] = await Promise.all([
+        fetchInventoryOfficerStats(department),
+        fetchNotifications().catch(() => [])
+      ]);
       setData(result);
+      setNotifications(Array.isArray(notifs) ? notifs : []);
     } catch (err) {
       addToast(err.message || 'Failed to load overview.', 'error');
     } finally {
@@ -60,9 +68,23 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
     }
   };
 
+  const handleRestockAvailable = async (id) => {
+    try {
+      setRestockingId(id);
+      await updateResource(id, { status: 'Available' });
+      addToast?.('Resource restocked to Available Inventory.', 'success');
+      await load();
+    } catch (err) {
+      addToast?.(err.message || 'Restock failed.', 'error');
+    } finally {
+      setRestockingId(null);
+    }
+  };
+
   const { stats } = data;
   const pendingRequests = data.requests.filter(r => r.status === 'Approved').slice(0, 5);
   const recentResources = data.resources.slice(0, 6);
+  const recentAlerts = notifications.slice(0, 3);
 
   const statCards = [
     { label: 'Pending Allocations', value: stats.pendingAllocations ?? 0, icon: 'sync_alt', color: '#f59e0b', action: () => onNavigate('allocation-queue') },
@@ -148,6 +170,44 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
         ))}
       </div>
 
+      {/* Live Activity & Notifications Feed */}
+      {recentAlerts.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1rem 1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className="material-icons" style={{ fontSize: 20, color: '#0891b2' }}>notifications_active</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#1e293b' }}>Recent Department Notifications & Resource Alerts</span>
+            </div>
+            <span style={{ fontSize: 11, color: '#64748b' }}>Live notification feed</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {recentAlerts.map(n => {
+              const isRepairedNotif = n.title?.includes('Repaired');
+              return (
+                <div key={n.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '8px 12px',
+                  borderRadius: 8,
+                  background: isRepairedNotif ? '#f0fdfa' : '#f8fafc',
+                  border: `1px solid ${isRepairedNotif ? '#99f6e4' : '#f1f5f9'}`
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="material-icons" style={{ fontSize: 18, color: isRepairedNotif ? '#0d9488' : '#64748b' }}>
+                      {isRepairedNotif ? 'check_circle' : 'info'}
+                    </span>
+                    <strong style={{ fontSize: 12, color: '#1e293b' }}>{n.title}</strong>
+                    <span style={{ fontSize: 12, color: '#475569' }}>— {n.description}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: 8 }}>{n.time}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
         {/* Pending Allocations */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -186,7 +246,10 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
         {/* Inventory Snapshot */}
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: '1.25rem', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1e293b' }}>📦 Recent Inventory</h3>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#1e293b' }}>📦 Recent Inventory</h3>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#64748b' }}>Latest active & repaired resources</p>
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button
                 type="button"
@@ -215,17 +278,100 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
             <div style={{ textAlign: 'center', color: '#64748b', padding: '2rem 0', fontSize: 14 }}>No resources found.</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {recentResources.map(res => (
-                <div key={res.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.6rem 0.75rem', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{res.type}</div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>{res.id} · {res.serialNumber || '—'}</div>
+              {recentResources.map(res => {
+                const isRepaired = res.status === 'Repaired';
+                const isMaint = res.status === 'Maintenance Requested' || res.status === 'Maintenance';
+                return (
+                  <div key={res.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.65rem 0.85rem',
+                    background: isRepaired ? '#f0fdfa' : '#f8fafc',
+                    borderRadius: 8,
+                    border: `1px solid ${isRepaired ? '#99f6e4' : '#e2e8f0'}`
+                  }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>
+                          {res.type} {res.name ? `· ${res.name}` : ''}
+                        </span>
+                        {isRepaired && (
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: '#ccfbf1',
+                            color: '#0f766e',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            textTransform: 'uppercase'
+                          }}>
+                            Just Repaired
+                          </span>
+                        )}
+                        {res.status === 'Maintenance Requested' && (
+                          <span style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            background: '#fef3c7',
+                            color: '#b45309',
+                            padding: '1px 6px',
+                            borderRadius: 4,
+                            textTransform: 'uppercase'
+                          }}>
+                            Needs Maint.
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                        <strong style={{ color: '#2563eb' }}>{res.id}</strong> · SN: {res.serialNumber || '—'}
+                        {isRepaired && res.maintenanceNotes && (
+                          <span style={{ display: 'block', color: '#0f766e', fontSize: 11, marginTop: 2 }}>
+                            🔧 Note: {res.maintenanceNotes}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        padding: '3px 10px',
+                        borderRadius: 20,
+                        background: isRepaired ? '#ecfeff' : `${STATUS_COLORS[res.status] || '#94a3b8'}20`,
+                        color: isRepaired ? '#0891b2' : (STATUS_COLORS[res.status] || '#94a3b8'),
+                        border: isRepaired ? '1px solid #a5f3fc' : 'none'
+                      }}>
+                        {res.status}
+                      </span>
+                      {isRepaired && (
+                        <button
+                          type="button"
+                          onClick={() => handleRestockAvailable(res.id)}
+                          disabled={restockingId === res.id}
+                          title="Restock to Available stock"
+                          style={{
+                            background: '#22c55e',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3
+                          }}
+                        >
+                          <span className="material-icons" style={{ fontSize: 13 }}>check</span>
+                          {restockingId === res.id ? '...' : 'Available'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: `${STATUS_COLORS[res.status] || '#94a3b8'}20`, color: STATUS_COLORS[res.status] || '#94a3b8' }}>
-                    {res.status}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
