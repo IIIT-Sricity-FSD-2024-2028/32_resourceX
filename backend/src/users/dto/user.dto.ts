@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayUnique, IsArray, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsObject, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { ROLES } from '../../common/roles';
 import { USER_STATUSES } from '../../common/domain';
 import { PASSWORD_PATTERN, PASSWORD_RULE_MESSAGE } from '../../common/password';
@@ -95,4 +95,33 @@ export class UpdateUserDto extends PartialType(CreateUserDto) {
   @IsString()
   @MinLength(6)
   password?: string;
+}
+
+/**
+ * One spreadsheet row of a bulk import. Rows are checked one by one in the service so a
+ * bad row is reported back instead of rejecting the whole file.
+ */
+export interface BulkImportRow {
+  row?: number;
+  name?: string;
+  email?: string;
+  role?: string;
+  department?: string;
+  password?: string;
+  /** The row's account document, matched client-side from the files picked alongside the sheet */
+  documentFileName?: string;
+  documentFileType?: string;
+  documentFileDataUrl?: string;
+}
+
+export class BulkImportDto {
+  @ApiProperty({
+    example: [{ row: 2, name: 'Asha Nair', email: '', role: 'Requestor', department: '', password: '' }],
+    description: 'Rows parsed from the uploaded Excel sheet. Blank email/password are generated.',
+  })
+  @IsArray()
+  @ArrayMinSize(1, { message: 'The file has no user rows.' })
+  @ArrayMaxSize(1000, { message: 'A single import can contain at most 1000 rows.' })
+  @IsObject({ each: true })
+  rows!: BulkImportRow[];
 }

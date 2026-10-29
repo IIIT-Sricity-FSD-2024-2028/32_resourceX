@@ -118,3 +118,10 @@ export const fetchOwnerDashboardOverview = async () => {
     }
   };
 };
+
+// Bulk-create platform employees from rows parsed out of an Excel/CSV sheet; returns { created, failed }
+export const bulkCreateOwnerEmployees = async (rows) =>
+  apiRequest('/users/create-employee/bulk', {
+    method: 'POST',
+    body: { rows }
+  });

@@ -186,3 +186,10 @@ export const fetchAdminDashboardOverview = async () => {
     }
   };
 };
+
+// Bulk-create users from rows parsed out of an Excel/CSV sheet; returns { created, failed }
+export const bulkCreateAdminUsers = async (rows) =>
+  apiRequest('/users/bulk', {
+    method: 'POST',
+    body: { rows }
+  });

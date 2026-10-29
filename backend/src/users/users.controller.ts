@@ -23,7 +23,7 @@ import { Roles } from '../common/roles.decorator';
 import { UserResponseDto } from '../common/swagger-models';
 import { ApiRoleHeaders, ApiStandardErrorResponses } from '../common/swagger';
 import { UsersService } from './users.service';
-import { CreateEmployeeDto, CreateUserDto, UpdateEmployeeDto, UpdateUserDto } from './dto/user.dto';
+import { BulkImportDto, CreateEmployeeDto, CreateUserDto, UpdateEmployeeDto, UpdateUserDto } from './dto/user.dto';
 import { Public } from '../auth/public.decorator';
 import { UsersExceptionFilter } from './filters/users-exception.filter';
 
@@ -57,6 +57,24 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Only System Admin can create users.' })
   create(@Req() req: any, @Body() dto: CreateUserDto) {
     return this.usersService.create(req.context, dto);
+  }
+
+  @Post('bulk')
+  @Roles('System Admin')
+  @ApiBody({ type: BulkImportDto })
+  @ApiOperation({ summary: 'Create many users from rows of an uploaded Excel sheet' })
+  @ApiOkResponse({ description: 'Per-row result: created users and rows that failed with the reason.' })
+  bulkCreate(@Req() req: any, @Body() dto: BulkImportDto) {
+    return this.usersService.bulkCreate(req.context, dto.rows);
+  }
+
+  @Post('create-employee/bulk')
+  @Roles('Owner')
+  @ApiBody({ type: BulkImportDto })
+  @ApiOperation({ summary: 'Owner creates many platform Employees from rows of an uploaded Excel sheet' })
+  @ApiOkResponse({ description: 'Per-row result: created employees and rows that failed with the reason.' })
+  bulkCreateEmployees(@Body() dto: BulkImportDto) {
+    return this.usersService.bulkCreateEmployees(dto.rows);
   }
 
   @Post('create-employee')

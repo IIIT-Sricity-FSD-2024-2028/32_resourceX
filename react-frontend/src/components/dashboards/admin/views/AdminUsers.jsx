@@ -7,9 +7,11 @@ import {
   fetchAdminDepartments,
   fetchAdminOrganization,
   createAdminUser,
-  updateAdminUser
+  updateAdminUser,
+  bulkCreateAdminUsers
 } from '../../../../services/admin';
 import DocumentUpload, { DocumentLink } from '../../../common/DocumentUpload';
+import BulkImportModal from '../../../common/BulkImportModal';
 
 // Organization-level email format: {name}{roleCode}{organizationName}@gmail.com
 const ROLE_EMAIL_CODES = {
@@ -68,6 +70,7 @@ export default function AdminUsers() {
 
   // Deactivate User Modal state
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -271,14 +274,24 @@ export default function AdminUsers() {
       <div className="data-section">
         <div className="data-section-header">
           <div className="data-section-title">All Users Roster</div>
-          <button
-            type="button"
-            className="btn-primary"
-            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-            onClick={openAddModal}
-          >
-            + Add New User
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              onClick={() => setIsImportOpen(true)}
+            >
+              Import from Excel
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+              onClick={openAddModal}
+            >
+              + Add New User
+            </button>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
           <input
@@ -548,6 +561,28 @@ export default function AdminUsers() {
           Are you absolutely sure you want to deactivate this user? They will lose access immediately.
         </p>
       </AdminModal>
+
+      <BulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Import Users from Excel"
+        description="Create many accounts at once. Each row is checked on its own — rows with problems are listed so you can fix and re-import just those."
+        columns={[
+          { key: 'name', label: 'Name', required: true, aliases: ['full name', 'user name'] },
+          { key: 'email', label: 'Email', aliases: ['email address', 'mail'], hint: `leave blank to generate {name}{role code}${slug(orgName)}@gmail.com`, blankText: 'auto' },
+          { key: 'role', label: 'Role', required: true, hint: ROLE_OPTIONS.join(', ') },
+          { key: 'department', label: 'Department', aliases: ['dept'], hint: 'required for Dept Head and officers; ignored for Requestor and Registrar' },
+          { key: 'password', label: 'Password', hint: 'at least 8 characters; leave blank to generate one', blankText: 'auto' },
+          { key: 'document', label: 'Document File', required: true, document: true, aliases: ['document', 'file', 'document name', 'file name'], hint: "file name of the user's ID/details document (PDF, PNG or JPG, max 5 MB), e.g. asha-id.pdf — you select these files in step 2" },
+        ]}
+        templateRows={[
+          ['Asha Nair', '', 'Requestor', '', '', 'asha-id.pdf'],
+          ['Ravi Kumar', '', 'Inventory Officer', departments[0]?.name || 'IT Services', 'Welcome@123', 'ravi-id.jpg'],
+        ]}
+        templateFileName="users-import-template.csv"
+        onImport={bulkCreateAdminUsers}
+        onDone={loadData}
+      />
     </div>
   );
 }
