@@ -6,13 +6,22 @@ import {
   requestResourceMaintenance,
   initiateResourceReturn,
   confirmRepairedAllocation,
-  requestResourceExtension
+  requestResourceExtension,
+  fetchRequestorReturnHistory
 } from '../../../../services/requestor';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import { useNotificationFocus } from '../../../common/notificationFocus';
+import RecentServiceUpdates, { ServiceTrackingModal, hasServiceTracking, recentCompletedReturns } from '../components/ServiceTrackingCards';
+
+const MY_STATUSES = ['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired', 'Returned', 'Scrapped'];
 
 export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToHistory }) {
   const { user } = useAuth();
   const [resources, setResources] = useState([]);
+  // Resources scrapped by maintenance and accepted returns, which have left the table
+  const [scrappedResources, setScrappedResources] = useState([]);
+  const [completedReturns, setCompletedReturns] = useState([]);
+  const [trackingId, setTrackingId] = useState(null);
   const [procurements, setProcurements] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -24,9 +33,10 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
   const loadData = async () => {
     try {
       setLoading(true);
-      const [resList, procList] = await Promise.all([
-        fetchResources({ status: 'Allocated,Maintenance Requested,Maintenance,Repaired' }).catch(() => []),
-        fetchProcurements().catch(() => [])
+      const [resList, procList, returnHistory] = await Promise.all([
+        fetchResources({ status: MY_STATUSES.join(',') }).catch(() => []),
+        fetchProcurements().catch(() => []),
+        fetchRequestorReturnHistory().catch(() => [])
       ]);
 
       // Strictly ensure only allocated resources belonging to the active requestor are shown
@@ -35,7 +45,7 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
 
       const myAllocatedList = (resList || []).filter((r) => {
         // Exclude unallocated or closed states
-        if (!['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired'].includes(r.status)) {
+        if (!MY_STATUSES.includes(r.status)) {
           return false;
         }
         if (!r.assignedTo || r.assignedTo === 'None') {
@@ -47,7 +57,9 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
         return idMatches || nameMatches;
       });
 
-      setResources(myAllocatedList);
+      setScrappedResources(myAllocatedList.filter((r) => r.status === 'Scrapped'));
+      setResources(myAllocatedList.filter((r) => r.status !== 'Scrapped'));
+      setCompletedReturns(recentCompletedReturns(returnHistory));
       setProcurements(procList || []);
     } catch (err) {
       console.error('Failed to load resources:', err);
@@ -59,6 +71,12 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
   useEffect(() => {
     loadData();
   }, []);
+
+  useNotificationFocus('resource', !loading, (id) => {
+    if (resources.some((r) => r.id === id && hasServiceTracking(r))) setTrackingId(id);
+  });
+
+  const trackedResource = resources.find((r) => r.id === trackingId && hasServiceTracking(r)) || null;
 
   const [maintenanceModalItem, setMaintenanceModalItem] = useState(null);
   const [maintIssue, setMaintIssue] = useState('');
@@ -158,7 +176,7 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
         reason: returnReason,
         notes: returnNotes.trim(),
       });
-      addToast('Resource returned successfully and sent for inspection.', 'success');
+      addToast('Return requested. It will be marked successful once the inventory officer inspects the asset.', 'success');
       setReturnModalItem(null);
       await loadData();
     } catch (err) {
@@ -371,9 +389,12 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
         </div>
       )}
 
+      <RecentServiceUpdates scrapped={scrappedResources} completedReturns={completedReturns} />
+
       <div className="data-section">
         <div className="data-section-header">
           <div className="data-section-title">Allocated Assets</div>
+          <span style={{ fontSize: 12, color: '#64748b' }}>Click a row marked “Track” to follow its maintenance, extension or return progress.</span>
         </div>
         <TableToolbar
           search={searchTerm}
@@ -613,6 +634,13 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
                       </div>
                     );
                     actions = <span className="text-muted" style={{ fontSize: '0.75rem' }}>Under Review</span>;
+                  } else if (res.status === 'Returned') {
+                    statusBadge = (
+                      <span className="badge" style={{ background: '#ede9fe', color: '#5b21b6' }}>
+                        Return Requested
+                      </span>
+                    );
+                    actions = <span className="text-muted" style={{ fontSize: '0.75rem' }}>Awaiting Inventory Inspection</span>;
                   } else if (res.status === 'Repaired') {
                     statusBadge = (
                       <span className="badge allocated" style={{ background: '#dcfce7', color: '#166534' }}>
@@ -658,8 +686,29 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
                     <span style={{ color: '#cbd5e1', fontSize: '0.78rem' }}>—</span>
                   );
 
+                  const trackable = hasServiceTracking(res);
+                  if (trackable) {
+                    statusBadge = (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {statusBadge}
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#4f46e5', display: 'inline-flex', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 14 }}>timeline</span>
+                          Track
+                        </span>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <tr key={res.id} style={overdue ? { background: '#fef2f2' } : {}}>
+                    <tr
+                      key={res.id}
+                      data-row-id={res.id}
+                      className={trackable ? 'rq-row' : undefined}
+                      tabIndex={trackable ? 0 : undefined}
+                      onClick={trackable ? () => setTrackingId(res.id) : undefined}
+                      onKeyDown={trackable ? (e) => { if (e.key === 'Enter' && e.target === e.currentTarget) setTrackingId(res.id); } : undefined}
+                      style={overdue ? { background: '#fef2f2' } : {}}
+                    >
                       <td className="td-id">
                         <span style={{ fontWeight: 600 }}>{res.id}</span>
                       </td>
@@ -691,8 +740,8 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
                         )}
                       </td>
                       <td>{statusBadge}</td>
-                      <td>{invoiceCell}</td>
-                      <td style={{ textAlign: 'right' }}>{actions}</td>
+                      <td onClick={(e) => e.stopPropagation()}>{invoiceCell}</td>
+                      <td style={{ textAlign: 'right' }} onClick={(e) => e.stopPropagation()}>{actions}</td>
                     </tr>
                   );
                 })
@@ -701,6 +750,13 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
           </table>
         </div>
       </div>
+
+      <ServiceTrackingModal
+        resource={trackedResource}
+        onClose={() => setTrackingId(null)}
+        onConfirmRepaired={handleConfirmRepaired}
+        actionLoadingId={actionLoadingId}
+      />
 
       {/* Maintenance Request Modal */}
       {maintenanceModalItem && (

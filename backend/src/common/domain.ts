@@ -187,8 +187,17 @@ export interface ResourceRecord {
   maintenancePriority?: 'Low' | 'Medium' | 'High' | 'Critical';
   maintenanceRequestDate?: string;
   maintenanceNotes?: string;
+  // Stage timestamps (ISO strings) used to render the maintenance tracking card
+  maintenanceRequestedAt?: string;
+  maintenanceAcceptedAt?: string;
+  maintenanceAcceptedBy?: string;
+  maintenanceResolvedAt?: string;
+  maintenanceOutcome?: 'Repaired' | 'Scrapped';
+  maintenanceConfirmedAt?: string;
   returnReason?: string;
   returnNotes?: string;
+  // Set when the requestor asks to return; the return completes once the inventory officer inspects it
+  returnRequestedAt?: string;
   routedFromReturn?: boolean;
   returnDate?: string;
   returnDateDisplay?: string;
@@ -199,6 +208,12 @@ export interface ResourceRecord {
   extensionRequestDate?: string;
   extensionRequestedBy?: string;
   extensionRequestedById?: string;
+  // Stage timestamps (ISO strings) used to render the extension tracking card
+  extensionRequestedAt?: string;
+  extensionDecidedAt?: string;
+  extensionDecidedBy?: string;
+  extensionRejectionReason?: string;
+  extensionPreviousReturnDateDisplay?: string;
 }
 
 export interface ProcurementRegistrationResourceInput
@@ -289,9 +304,11 @@ export interface NotificationRecord {
   /** The record this notification is about, so the UI can open the matching page or card */
   targetType?: NotificationTargetType;
   targetId?: string;
+  /** Users who have read a shared (role-wide) notification; one user reading it must not mark it read for everyone */
+  readBy?: string[];
 }
 
-export const NOTIFICATION_TARGET_TYPES = ['request', 'procurement', 'resource', 'stock'] as const;
+export const NOTIFICATION_TARGET_TYPES = ['request', 'procurement', 'resource', 'stock', 'ticket', 'announcement', 'organization', 'user'] as const;
 export type NotificationTargetType = (typeof NOTIFICATION_TARGET_TYPES)[number];
 
 export interface MaintenanceHistoryRecord {
@@ -320,6 +337,10 @@ export interface ReturnHistoryRecord {
   department: string;
   returnReason?: string;
   notes?: string;
+  // ISO stage timestamps used to render the requestor's return tracking card
+  requestedAt?: string;
+  processedAt?: string;
+  processedBy?: string;
 }
 
 export interface StockThresholdRecord {

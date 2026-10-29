@@ -57,6 +57,8 @@ export class MaintenanceService {
       status: 'Maintenance',
       maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
       maintenanceNotes: dto?.notes || resource.maintenanceNotes || '',
+      maintenanceAcceptedAt: new Date().toISOString(),
+      maintenanceAcceptedBy: getActingUser(this.dataService, context)?.name,
     });
   }
 
@@ -126,6 +128,8 @@ export class MaintenanceService {
       condition: finalCondition,
       maintenanceNotes: resolutionNotes,
       maintenanceIssue: recordedIssue,
+      maintenanceResolvedAt: new Date().toISOString(),
+      maintenanceOutcome: status,
     });
   }
 
