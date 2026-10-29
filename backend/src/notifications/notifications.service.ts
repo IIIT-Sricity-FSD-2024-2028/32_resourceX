@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationRecord, RecipientRole } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
@@ -52,6 +52,7 @@ export class NotificationsService {
                   time: 'Just now',
                   read: false,
                   recipientRole: 'Requestor',
+                  recipientUserId: user?.id,
                 });
               }
             } else {
@@ -71,6 +72,7 @@ export class NotificationsService {
                     time: 'Just now',
                     read: false,
                     recipientRole: 'Requestor',
+                    recipientUserId: user?.id,
                   });
                 }
               }
@@ -112,6 +114,7 @@ export class NotificationsService {
                 time: 'Just now',
                 read: false,
                 recipientRole,
+                department: proc.department,
               });
             }
           } else if (diffMs < 0) {
@@ -128,6 +131,7 @@ export class NotificationsService {
                 time: 'Just now',
                 read: false,
                 recipientRole,
+                department: proc.department,
               });
             }
           }
@@ -171,21 +175,40 @@ export class NotificationsService {
     }
     const actingUser = getActingUser(this.dataService, context);
     const deptScopedRoles = ['Dept Head', 'Inventory Officer', 'Maintenance Officer', 'Procurement Officer'];
-    return notifications.filter((notification) => {
-      if (notification.recipientRole !== 'All' && notification.recipientRole !== context.role) return false;
-      if (notification.recipientUserId && notification.recipientUserId !== context.userId) return false;
-      if (
-        notification.department &&
-        deptScopedRoles.includes(context.role as string) &&
-        actingUser?.department !== notification.department
-      ) {
-        return false;
-      }
-      return true;
-    });
+    return notifications
+      .filter((notification) => {
+        if (notification.recipientRole !== 'All' && notification.recipientRole !== context.role) return false;
+        if (notification.recipientUserId && notification.recipientUserId !== context.userId) return false;
+        if (
+          notification.department &&
+          deptScopedRoles.includes(context.role as string) &&
+          actingUser?.department !== notification.department
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map(({ readBy, ...notification }) => ({ ...notification, read: this.isReadBy(notification, readBy, context.userId) }));
   }
 
-  update(id: string, payload: UpdateNotificationDto): NotificationRecord {
-    return this.dataService.updateNotification(id, payload);
+  update(id: string, payload: UpdateNotificationDto, context?: RequestContext): NotificationRecord {
+    const notification = this.dataService.getNotificationById(id);
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID ${id} not found.`);
+    }
+    // A notification addressed to one user keeps a single read flag; a shared one tracks each reader
+    if (notification.recipientUserId || !context?.userId || payload.read === undefined) {
+      return this.dataService.updateNotification(id, payload);
+    }
+    const readers = new Set(notification.readBy || []);
+    if (payload.read) readers.add(context.userId);
+    else readers.delete(context.userId);
+    const { readBy, ...updated } = this.dataService.updateNotification(id, { readBy: [...readers] });
+    return { ...updated, read: Boolean(payload.read) };
+  }
+
+  private isReadBy(notification: NotificationRecord, readBy: string[] | undefined, userId?: string): boolean {
+    if (notification.recipientUserId || !readBy) return notification.read;
+    return Boolean(userId && readBy.includes(userId));
   }
 }

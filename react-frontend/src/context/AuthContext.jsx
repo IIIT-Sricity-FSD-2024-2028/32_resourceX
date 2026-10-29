@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import {
   getCurrentUser,
   loginUser as apiLoginUser,
@@ -10,22 +10,11 @@ const AuthContext = createContext(null);
 
 /**
  * Global Authentication Provider
- * Manages reactive user session state and synchronizes with localStorage and backend auth APIs.
+ * Manages reactive user session state and synchronizes with sessionStorage and backend auth APIs.
  */
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => getCurrentUser());
   const [isLoading, setIsLoading] = useState(false);
-
-  // Synchronize across browser tabs/windows if storage is updated elsewhere
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'rx_data' || e.key === 'rx_token') {
-        setUser(getCurrentUser());
-      }
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
 
   /**
    * Log in via backend API and update reactive state

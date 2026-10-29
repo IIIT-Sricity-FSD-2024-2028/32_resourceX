@@ -74,10 +74,19 @@ export class OrganizationsService {
     };
     this.dataService.insertUser(adminUser);
 
-    return this.dataService.insertOrganization(newOrg);
+    const saved = this.dataService.insertOrganization(newOrg);
+    this.dataService.notify({
+      organizationId: 'PLATFORM',
+      recipientRole: 'Owner',
+      title: 'New organization registration',
+      targetType: 'organization',
+      targetId: saved.id,
+      description: `${saved.name} registered (admin: ${saved.adminName}, ${saved.adminEmail}) and is awaiting approval.`,
+    });
+    return saved;
   }
 
-  updateStatus(id: string, status: OrganizationStatus, employeeId?: string): OrganizationRecord {
+  updateStatus(id: string, status: OrganizationStatus, employeeId?: string, actorRole?: string): OrganizationRecord {
     const org = this.dataService.getOrganizationById(id);
     if (!org) {
       throw new NotFoundException(`Organization with ID ${id} not found.`);
@@ -88,7 +97,49 @@ export class OrganizationsService {
       updates.assignedEmployeeId = employeeId;
     }
 
-    return this.dataService.updateOrganization(id, updates);
+    const updated = this.dataService.updateOrganization(id, updates);
+    if (org.status === status) {
+      return updated;
+    }
+
+    const verb = org.status === 'Pending' && status === 'Active' ? 'approved' : status === 'Suspended' ? 'suspended' : 'reactivated';
+    this.dataService.notify({
+      organizationId: id,
+      recipientRole: 'System Admin',
+      title: `Organization ${verb}`,
+      targetType: 'organization',
+      targetId: id,
+      description:
+        verb === 'approved'
+          ? `${updated.name} has been approved. Your organization is now active on ResourceX.`
+          : verb === 'suspended'
+            ? `${updated.name} has been suspended. Please contact support for details.`
+            : `${updated.name} has been reactivated.`,
+    });
+    // Keep the other platform party informed: the owner when an employee acts, the employee when the owner acts
+    if (actorRole === 'Employee') {
+      this.dataService.notify({
+        organizationId: 'PLATFORM',
+        recipientRole: 'Owner',
+        title: `Organization ${verb}`,
+        targetType: 'organization',
+        targetId: id,
+        description: `${updated.name} was ${verb} by its account employee.`,
+      });
+    } else if (updated.assignedEmployeeId) {
+      this.dataService.notify({
+        organizationId: 'PLATFORM',
+        recipientRole: 'Employee',
+        recipientUserId: updated.assignedEmployeeId,
+        title: verb === 'approved' ? 'Organization assigned to you' : `Organization ${verb}`,
+        targetType: 'organization',
+        targetId: id,
+        description: verb === 'approved'
+          ? `${updated.name} was approved and assigned to you.`
+          : `${updated.name} was ${verb} by the platform owner.`,
+      });
+    }
+    return updated;
   }
 
   /** Owner changes which platform employee manages an organization */
@@ -104,7 +155,38 @@ export class OrganizationsService {
     if (employee.status !== 'Active') {
       throw new BadRequestException(`${employee.name} is ${employee.status.toLowerCase()} and cannot be assigned organizations.`);
     }
-    return this.dataService.updateOrganization(id, { assignedEmployeeId: employeeId });
+    const updated = this.dataService.updateOrganization(id, { assignedEmployeeId: employeeId });
+    if (org.assignedEmployeeId !== employeeId) {
+      this.dataService.notify({
+        organizationId: 'PLATFORM',
+        recipientRole: 'Employee',
+        recipientUserId: employeeId,
+        title: 'Organization assigned to you',
+        targetType: 'organization',
+        targetId: id,
+        description: `You are now the account employee for ${updated.name}.`,
+      });
+      if (org.assignedEmployeeId) {
+        this.dataService.notify({
+          organizationId: 'PLATFORM',
+          recipientRole: 'Employee',
+          recipientUserId: org.assignedEmployeeId,
+          title: 'Organization reassigned',
+          targetType: 'organization',
+          targetId: id,
+          description: `${updated.name} was reassigned to ${employee.name}.`,
+        });
+      }
+      this.dataService.notify({
+        organizationId: id,
+        recipientRole: 'System Admin',
+        title: 'New account employee',
+        targetType: 'organization',
+        targetId: id,
+        description: `${employee.name} is now your ResourceX support contact.`,
+      });
+    }
+    return updated;
   }
 
   getMyOrganization(orgId: string): OrganizationRecord {
@@ -124,6 +206,30 @@ export class OrganizationsService {
     if (!plans.some(p => p.id === planId)) {
       throw new BadRequestException('Invalid subscription plan ID.');
     }
-    return this.dataService.updateOrganization(orgId, { subscriptionPlanId: planId });
+    const updated = this.dataService.updateOrganization(orgId, { subscriptionPlanId: planId });
+    if (org.subscriptionPlanId !== planId) {
+      const plan = plans.find(p => p.id === planId);
+      const description = `${updated.name} changed its subscription plan to ${plan?.name || planId}.`;
+      this.dataService.notify({
+        organizationId: 'PLATFORM',
+        recipientRole: 'Owner',
+        title: 'Subscription changed',
+        targetType: 'organization',
+        targetId: orgId,
+        description,
+      });
+      if (updated.assignedEmployeeId) {
+        this.dataService.notify({
+          organizationId: 'PLATFORM',
+          recipientRole: 'Employee',
+          recipientUserId: updated.assignedEmployeeId,
+          title: 'Subscription changed',
+          targetType: 'organization',
+          targetId: orgId,
+          description,
+        });
+      }
+    }
+    return updated;
   }
 }

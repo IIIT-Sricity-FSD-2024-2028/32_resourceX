@@ -54,15 +54,15 @@ export class OrganizationsController {
   @Patch(':id/suspend')
   @Roles('Owner', 'Employee')
   @ApiOperation({ summary: 'Suspend an organization' })
-  suspendOrganization(@Param('id') id: string) {
-    return this.organizationsService.updateStatus(id, 'Suspended');
+  suspendOrganization(@Param('id') id: string, @Req() req: any) {
+    return this.organizationsService.updateStatus(id, 'Suspended', undefined, req.context?.role);
   }
 
   @Patch(':id/reactivate')
   @Roles('Owner', 'Employee')
   @ApiOperation({ summary: 'Reactivate an organization' })
-  reactivateOrganization(@Param('id') id: string) {
-    return this.organizationsService.updateStatus(id, 'Active');
+  reactivateOrganization(@Param('id') id: string, @Req() req: any) {
+    return this.organizationsService.updateStatus(id, 'Active', undefined, req.context?.role);
   }
 
   @Roles('System Admin')

@@ -18,6 +18,9 @@ const ROLE_BASE = {
   'Procurement Officer': '/dashboard/procurement-officer',
   'Maintenance Officer': '/dashboard/maintenance-officer',
   Registrar: '/dashboard/registrar',
+  'System Admin': '/dashboard/admin',
+  Owner: '/dashboard/owner',
+  Employee: '/dashboard/employee',
 };
 
 // Older notifications have no explicit target — recover it from the text
@@ -71,6 +74,20 @@ export function resolveNotificationDestination(role, n) {
     case 'Registrar':
       if (type === 'procurement') return page('procurements');
       if (type === 'request') return page('requests');
+      return null;
+    case 'System Admin':
+      if (type === 'ticket') return page('support');
+      if (type === 'announcement') return page('announcements');
+      if (type === 'organization') return page(/subscription/i.test(title) ? 'subscription' : 'overview');
+      if (type === 'user') return page('users');
+      return null;
+    case 'Owner':
+      if (type === 'organization') return page(/registration/i.test(title) ? 'registrations' : 'organizations');
+      return null;
+    case 'Employee':
+      if (type === 'ticket') return page('support');
+      if (type === 'announcement') return page('communication');
+      if (type === 'organization') return page('institutions');
       return null;
     default:
       return null;
