@@ -373,3 +373,53 @@ export class RejectProcurementDto {
   @IsString()
   reason?: string;
 }
+
+// Fields a procurement officer may correct after the purchase order is issued
+export class EditPurchaseOrderDto {
+  @ApiPropertyOptional({ example: 'Dell Technologies' })
+  @IsOptional()
+  @IsString()
+  vendor?: string;
+
+  @ApiPropertyOptional({ example: 'PO-2026-0042.pdf' })
+  @IsOptional()
+  @IsString()
+  poFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  poFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,...' })
+  @IsOptional()
+  @IsString()
+  poFileDataUrl?: string;
+}
+
+// Fields a procurement officer may correct after the order is fulfilled (before inventory registration)
+export class EditInvoiceDto {
+  @ApiPropertyOptional({ example: 'INV-2026-1001' })
+  @IsOptional()
+  @IsString()
+  invoice?: string;
+
+  @ApiPropertyOptional({ example: 4500 })
+  @IsOptional()
+  invoiceAmount?: number | string;
+
+  @ApiPropertyOptional({ example: 'invoice-1024.pdf' })
+  @IsOptional()
+  @IsString()
+  invoiceFileName?: string;
+
+  @ApiPropertyOptional({ example: 'application/pdf' })
+  @IsOptional()
+  @IsString()
+  invoiceFileType?: string;
+
+  @ApiPropertyOptional({ example: 'data:application/pdf;base64,...' })
+  @IsOptional()
+  @IsString()
+  invoiceFileDataUrl?: string;
+}

@@ -10,7 +10,9 @@ import {
   CreateProcurementDto,
   CreatePurchaseOrderDto,
   DispatchDeliveryDto,
+  EditInvoiceDto,
   EditProcurementDto,
+  EditPurchaseOrderDto,
   LogPurchaseDto,
   RejectProcurementDto,
   RegisterProcurementDto,
@@ -139,6 +141,26 @@ export class ProcurementsController {
   @ApiOkResponse({ description: 'Purchase log and invoice saved successfully.', type: ProcurementResponseDto })
   logPurchase(@Param('id') id: string, @Body() dto: LogPurchaseDto, @Req() req: any) {
     return this.procurementsService.logPurchase(id, dto, req.context);
+  }
+
+  @Post(':id/edit-po')
+  @Roles('Procurement Officer', 'System Admin')
+  @ApiBody({ type: EditPurchaseOrderDto })
+  @ApiOperation({ summary: 'Edit vendor name or replace the PO document after the purchase order is issued' })
+  @ApiParam({ name: 'id', example: 'PROC-911' })
+  @ApiOkResponse({ description: 'Purchase order updated successfully.', type: ProcurementResponseDto })
+  editPurchaseOrder(@Param('id') id: string, @Body() dto: EditPurchaseOrderDto, @Req() req: any) {
+    return this.procurementsService.editPurchaseOrder(id, dto, req.context);
+  }
+
+  @Post(':id/edit-invoice')
+  @Roles('Procurement Officer', 'System Admin')
+  @ApiBody({ type: EditInvoiceDto })
+  @ApiOperation({ summary: 'Edit invoice number, amount or document before assets are registered' })
+  @ApiParam({ name: 'id', example: 'PROC-911' })
+  @ApiOkResponse({ description: 'Invoice updated successfully.', type: ProcurementResponseDto })
+  editInvoice(@Param('id') id: string, @Body() dto: EditInvoiceDto, @Req() req: any) {
+    return this.procurementsService.editInvoice(id, dto, req.context);
   }
 
   @Post(':id/register')

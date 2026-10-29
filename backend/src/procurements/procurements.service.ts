@@ -6,7 +6,9 @@ import {
   CreateProcurementDto,
   CreatePurchaseOrderDto,
   DispatchDeliveryDto,
+  EditInvoiceDto,
   EditProcurementDto,
+  EditPurchaseOrderDto,
   LogPurchaseDto,
   ProcurementRegistrationResourceDto,
   UpdateProcurementDto,
@@ -27,15 +29,30 @@ const SPEC_MIME_TYPES = [
 ];
 const MAX_SPEC_BYTES = 5 * 1024 * 1024;
 
-// A replacement spec file arrives inline as a base64 data-URL; check its type and size
-function ensureValidSpecFile(dataUrl: string): void {
+// An attachment arrives inline as a base64 data-URL; check its type and size
+function ensureValidSpecFile(dataUrl: string, label = 'Specification file'): void {
   const match = /^data:([^;,]+);base64,/.exec(dataUrl);
   if (!match || !SPEC_MIME_TYPES.includes(match[1])) {
-    throw new BadRequestException('Specification file must be a PDF, DOC, DOCX, PNG or JPG file.');
+    throw new BadRequestException(`${label} must be a PDF, DOC, DOCX, PNG or JPG file.`);
   }
   const bytes = Math.floor(((dataUrl.length - match[0].length) * 3) / 4);
   if (bytes > MAX_SPEC_BYTES) {
-    throw new BadRequestException('Specification file is too large (max 5 MB).');
+    throw new BadRequestException(`${label} is too large (max 5 MB).`);
+  }
+}
+
+// Invoice amounts may arrive as "4500", "$4,500.00" or a number; returns a positive number or null
+function parseAmount(value: number | string | undefined): number | null {
+  if (value === undefined || value === null) return null;
+  const num = typeof value === 'number' ? value : Number(String(value).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+// Invoice numbers need at least one digit, so a vendor name or other plain word isn't accepted
+const INVOICE_NUMBER_PATTERN = /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9 \-\/_.]{2,29}$/;
+function ensureValidInvoiceNumber(value: string): void {
+  if (!INVOICE_NUMBER_PATTERN.test(value)) {
+    throw new BadRequestException('Invoice number must be 3–30 characters, contain at least one digit, and use only letters, digits, spaces and - / _ . (e.g. INV-2026-1001).');
   }
 }
 
@@ -472,8 +489,19 @@ export class ProcurementsService {
       throw new BadRequestException('Can only log invoice and fulfill purchases for approved or PO created requests.');
     }
 
-    const rawId = id.replace(/[^0-9]/g, '') || Date.now().toString().slice(-4);
-    const invoiceNumber = dto.invoice?.trim() || dto.invoiceFileName?.replace(/\.[^/.]+$/, '') || `INV-${rawId}`;
+    if (!dto.invoiceFileDataUrl) {
+      throw new BadRequestException('Please upload the invoice document before marking the order fulfilled.');
+    }
+    ensureValidSpecFile(dto.invoiceFileDataUrl, 'Invoice file');
+    const invoiceNumber = dto.invoice?.trim();
+    if (!invoiceNumber) {
+      throw new BadRequestException('Invoice number is required.');
+    }
+    ensureValidInvoiceNumber(invoiceNumber);
+    const invoiceAmount = parseAmount(dto.invoiceAmount);
+    if (invoiceAmount === null) {
+      throw new BadRequestException('Total bill amount must be a number greater than 0.');
+    }
 
     this.dataService.notify({
       organizationId: procurement.organizationId,
@@ -499,7 +527,7 @@ export class ProcurementsService {
       vendor: dto.vendor?.trim() || procurement.vendor || 'Authorized Vendor',
       invoice: invoiceNumber,
       invoiceDate: dto.invoiceDate || new Date().toLocaleDateString('en-US'),
-      invoiceAmount: dto.invoiceAmount,
+      invoiceAmount,
       paymentTerms: dto.paymentTerms,
       receivedDate: dto.receivedDate || new Date().toLocaleDateString('en-US'),
       receivedBy: dto.receivedBy || getActingUser(this.dataService, context)?.name || 'Procurement Team',
@@ -507,6 +535,78 @@ export class ProcurementsService {
       invoiceFileType: dto.invoiceFileType,
       invoiceFileDataUrl: dto.invoiceFileDataUrl,
     });
+  }
+
+  // Procurement officer corrects vendor / PO document after issuing the PO (until assets are registered)
+  editPurchaseOrder(id: string, dto: EditPurchaseOrderDto, context: RequestContext): ProcurementRecord {
+    const procurement = this.getManagedProcurement(id, context);
+    if (!['PO Created', 'Out for Delivery', 'Fulfilled'].includes(procurement.status)) {
+      throw new BadRequestException('The purchase order can only be edited after it is issued and before assets are registered.');
+    }
+
+    const updates: Partial<ProcurementRecord> = {};
+    if (dto.vendor !== undefined) {
+      if (!dto.vendor.trim()) {
+        throw new BadRequestException('Vendor name cannot be empty.');
+      }
+      updates.vendor = dto.vendor.trim();
+    }
+    if (dto.poFileDataUrl) {
+      ensureValidSpecFile(dto.poFileDataUrl, 'Purchase order file');
+      updates.poFileName = dto.poFileName;
+      updates.poFileType = dto.poFileType;
+      updates.poFileDataUrl = dto.poFileDataUrl;
+      updates.poNumber = dto.poFileName?.replace(/\.[^/.]+$/, '') || procurement.poNumber;
+    }
+    if (Object.keys(updates).length === 0) {
+      throw new BadRequestException('Nothing to update.');
+    }
+    return this.dataService.updateProcurement(id, { ...updates, updatedAt: new Date().toISOString() });
+  }
+
+  // Procurement officer corrects the logged invoice while the order awaits inventory registration
+  editInvoice(id: string, dto: EditInvoiceDto, context: RequestContext): ProcurementRecord {
+    const procurement = this.getManagedProcurement(id, context);
+    if (procurement.status !== 'Fulfilled') {
+      throw new BadRequestException('The invoice can only be edited before the assets are registered in inventory.');
+    }
+
+    const updates: Partial<ProcurementRecord> = {};
+    if (dto.invoice !== undefined) {
+      if (!dto.invoice.trim()) {
+        throw new BadRequestException('Invoice number cannot be empty.');
+      }
+      ensureValidInvoiceNumber(dto.invoice.trim());
+      updates.invoice = dto.invoice.trim();
+    }
+    if (dto.invoiceAmount !== undefined) {
+      const amount = parseAmount(dto.invoiceAmount);
+      if (amount === null) {
+        throw new BadRequestException('Total bill amount must be a number greater than 0.');
+      }
+      updates.invoiceAmount = amount;
+    }
+    if (dto.invoiceFileDataUrl) {
+      ensureValidSpecFile(dto.invoiceFileDataUrl, 'Invoice file');
+      updates.invoiceFileName = dto.invoiceFileName;
+      updates.invoiceFileType = dto.invoiceFileType;
+      updates.invoiceFileDataUrl = dto.invoiceFileDataUrl;
+    }
+    if (Object.keys(updates).length === 0) {
+      throw new BadRequestException('Nothing to update.');
+    }
+
+    const edited = this.dataService.updateProcurement(id, { ...updates, updatedAt: new Date().toISOString() });
+    this.dataService.notify({
+      organizationId: procurement.organizationId,
+      recipientRole: 'Inventory Officer',
+      department: procurement.department,
+      title: 'Invoice updated',
+      targetType: 'procurement',
+      targetId: id,
+      description: `The invoice for procurement ${id} was corrected by the procurement officer (Invoice ${edited.invoice}).`,
+    });
+    return edited;
   }
 
   register(id: string, resources: ProcurementRegistrationResourceDto[], context: RequestContext): ProcurementRecord {
