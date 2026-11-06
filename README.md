@@ -350,7 +350,7 @@ Each institution's data is isolated from other institutions (multi-tenancy). The
 - **Package Manager**: `npm` (v9+)
 - **Operating System**: macOS, Linux, or Windows (WSL / PowerShell)
 - **Git**: to clone the repository
-- **Ports**: `3000` (backend) and `5173` (frontend) must be free
+- **Ports**: `4000` (backend) and `5200` (frontend) must be free
 
 **Dependencies** are installed with `npm install` (see `backend/package.json` and `react-frontend/package.json`):
 - Backend: NestJS 11 (`@nestjs/common`, `core`, `platform-express`, `jwt`, `passport`, `swagger`), `class-validator`, `class-transformer`, `passport-jwt`, `multer`, `rxjs`, `ts-node`, `typescript`
@@ -376,8 +376,8 @@ cd backend
 npm install
 npm start
 ```
-- The backend will start on **`http://localhost:3000`**.
-- Interactive Swagger API Documentation is accessible at **`http://localhost:3000/api/docs`**.
+- The backend will start on **`http://localhost:4000`**.
+- Interactive Swagger API Documentation is accessible at **`http://localhost:4000/api/docs`**.
 
 #### 3. Start the React Frontend Application
 In a separate terminal window:
@@ -386,8 +386,8 @@ cd react-frontend
 npm install
 npm run dev
 ```
-- The frontend will launch at **`http://localhost:5173`**.
-- Open your browser and navigate to `http://localhost:5173`. Vite proxies `/api` calls to the backend on port 3000, so start the backend first.
+- The frontend will launch at **`http://localhost:5200`**.
+- Open your browser and navigate to `http://localhost:5200`. Vite proxies `/api` calls to the backend on port 4000, so start the backend first.
 
 #### 4. Sign In
 - Open **Sign In**, enter the account's email and password. There is no role selection: the dashboard opens automatically from the account's role.
@@ -437,7 +437,7 @@ npm run build
 ```
 
 ### 3. Starting both servers for manual testing
-Run the backend (`cd backend && npm start`) and the frontend (`cd react-frontend && npm run dev`) in two terminals, then follow the scenarios below. API calls can also be tried from Swagger at `http://localhost:3000/api/docs` after logging in via `POST /api/auth/login` and authorizing with the returned token.
+Run the backend (`cd backend && npm start`) and the frontend (`cd react-frontend && npm run dev`) in two terminals, then follow the scenarios below. API calls can also be tried from Swagger at `http://localhost:4000/api/docs` after logging in via `POST /api/auth/login` and authorizing with the returned token.
 
 ### 4. API & Workflow Verification Scenarios
 You can verify the complete end-to-end operational workflows:

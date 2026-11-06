@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsOptional, IsString, IsArray } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, IsArray } from 'class-validator';
 import { RESOURCE_CONDITIONS, RESOURCE_STATUSES } from '../../common/domain';
 
 export class CreateResourceDto {
@@ -44,7 +44,7 @@ export class CreateResourceDto {
 
   @ApiPropertyOptional({ enum: RESOURCE_CONDITIONS, example: 'Good' })
   @IsOptional()
-  @IsEnum(RESOURCE_CONDITIONS)
+  @IsIn(RESOURCE_CONDITIONS)
   condition?: (typeof RESOURCE_CONDITIONS)[number];
 
   @ApiPropertyOptional({ example: 'Dell' })
@@ -129,8 +129,23 @@ export class RequestMaintenanceDto {
 
   @ApiPropertyOptional({ example: 'High', enum: ['Low', 'Medium', 'High', 'Critical'] })
   @IsOptional()
-  @IsString()
+  @IsIn(['Low', 'Medium', 'High', 'Critical'])
   priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+
+  @ApiPropertyOptional({ enum: RESOURCE_CONDITIONS, example: 'Fair' })
+  @IsOptional()
+  @IsIn(RESOURCE_CONDITIONS)
+  condition?: (typeof RESOURCE_CONDITIONS)[number];
+
+  @ApiPropertyOptional({ example: 'Inventory Board' })
+  @IsOptional()
+  @IsString()
+  routedFrom?: string;
+
+  @ApiPropertyOptional({ example: 'Diagnosed during warehouse audit' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class InitiateReturnDto {

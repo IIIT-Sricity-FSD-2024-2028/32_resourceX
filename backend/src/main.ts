@@ -40,7 +40,7 @@ async function bootstrap() {
   app.enableCors();
   app.useStaticAssets(join(__dirname, '..', '..', 'frontend'));
 
-  const port = Number(process.env.PORT || '3000');
+  const port = Number(process.env.PORT || '4000');
   await app.listen(port);
 }
 

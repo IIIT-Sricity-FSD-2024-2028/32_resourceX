@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CredentialsForm from './CredentialsForm';
 import ForgotPasswordForm from './ForgotPasswordForm';
+import QuickLoginPanel from './QuickLoginPanel';
 import { useAuth } from '../../context/AuthContext';
 import './Login.css';
 
@@ -51,45 +52,56 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
 
   return (
     <div className="login-wrapper">
-      <div className="login-card">
-        {/* Return to Home / Landing */}
-        <button
-          type="button"
-          className="login-home-link"
-          onClick={handleHomeClick}
-          title="Return to home page"
-        >
-          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
-          Home
-        </button>
+      <div className="login-layout">
+        <div className="login-card">
+          {/* Return to Home / Landing */}
+          <button
+            type="button"
+            className="login-home-link"
+            onClick={handleHomeClick}
+            title="Return to home page"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+            Home
+          </button>
 
-        {/* Brand Logo */}
-        <div className="login-logo">
-          <div className="login-logo-icon">R</div>
-          <div className="login-logo-text">ResourceX</div>
+          {/* Brand Logo */}
+          <div className="login-logo">
+            <div className="login-logo-icon">R</div>
+            <div className="login-logo-text">ResourceX</div>
+          </div>
+
+          {showForgotPassword ? (
+            <ForgotPasswordForm
+              onBackToLogin={(message) => {
+                setShowForgotPassword(false);
+                setAuthError(null);
+                setSuccessMessage(message || null);
+              }}
+            />
+          ) : (
+            <CredentialsForm
+              onSubmit={handleSubmitCredentials}
+              isSubmitting={isSubmitting}
+              authError={authError}
+              successMessage={successMessage}
+              onRegisterOrg={() => navigate('/register')}
+              onForgotPassword={() => {
+                setSuccessMessage(null);
+                setShowForgotPassword(true);
+              }}
+            />
+          )}
         </div>
 
-        {showForgotPassword ? (
-          <ForgotPasswordForm
-            onBackToLogin={(message) => {
-              setShowForgotPassword(false);
-              setAuthError(null);
-              setSuccessMessage(message || null);
-            }}
-          />
-        ) : (
-          <CredentialsForm
-            onSubmit={handleSubmitCredentials}
-            isSubmitting={isSubmitting}
-            authError={authError}
-            successMessage={successMessage}
-            onRegisterOrg={() => navigate('/register')}
-            onForgotPassword={() => {
-              setSuccessMessage(null);
-              setShowForgotPassword(true);
-            }}
-          />
-        )}
+        <QuickLoginPanel
+          onQuickLogin={(credentials) => {
+            setShowForgotPassword(false);
+            setSuccessMessage(null);
+            handleSubmitCredentials(credentials);
+          }}
+          isSubmitting={isSubmitting}
+        />
       </div>
     </div>
   );

@@ -199,6 +199,8 @@ export interface ResourceRecord {
   // Set when the requestor asks to return; the return completes once the inventory officer inspects it
   returnRequestedAt?: string;
   routedFromReturn?: boolean;
+  routedFromInventory?: boolean;
+  updatedAt?: number;
   returnDate?: string;
   returnDateDisplay?: string;
   extensionStatus?: 'None' | 'Pending' | 'Approved' | 'Rejected';

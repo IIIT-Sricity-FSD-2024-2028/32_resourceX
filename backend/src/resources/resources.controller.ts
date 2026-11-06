@@ -88,8 +88,8 @@ export class ResourcesController {
   }
 
   @Post(':id/maintenance-request')
-  @Roles('Requestor', 'System Admin')
-  @ApiOperation({ summary: 'Request maintenance for an allocated resource' })
+  @Roles('Requestor', 'Inventory Officer', 'Maintenance Officer', 'System Admin')
+  @ApiOperation({ summary: 'Request maintenance for an allocated or inventory resource' })
   @ApiParam({ name: 'id', example: 'RES-1049' })
   @ApiOkResponse({ description: 'Maintenance requested successfully.', type: ResourceResponseDto })
   requestMaintenance(@Param('id') id: string, @Body() dto: RequestMaintenanceDto, @Req() req: any) {

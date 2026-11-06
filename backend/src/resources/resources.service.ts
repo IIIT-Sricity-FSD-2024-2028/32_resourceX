@@ -112,6 +112,10 @@ export class ResourcesService {
   }
 
   update(id: string, payload: UpdateResourceDto): ResourceRecord {
+    const resource = this.dataService.getResourceById(id);
+    if (resource?.status === 'Repaired' && payload.status === 'Available' && resource.assignedToId) {
+      throw new BadRequestException('This repaired resource is still allocated; the requestor must confirm receipt instead.');
+    }
     return this.dataService.updateResource(id, payload);
   }
 
@@ -122,23 +126,59 @@ export class ResourcesService {
     }
 
     ensureDepartmentScoped(this.dataService, context, resource.department);
-    if (resource.status !== 'Allocated' && resource.status !== 'Available') {
-      throw new BadRequestException('Only Allocated or Available resources can go to maintenance.');
+    if (['Maintenance Requested', 'Maintenance', 'Scrapped'].includes(resource.status)) {
+      throw new BadRequestException('Resource is already in maintenance or scrapped.');
     }
+
+    const user = getActingUser(this.dataService, context);
+    if (context.role === 'Requestor') {
+      const ownsResource = Boolean(user && (resource.assignedToId === user.id || resource.assignedTo === user.name));
+      if (resource.status !== 'Allocated' || !ownsResource) {
+        throw new ForbiddenException('You can only request maintenance for resources allocated to you.');
+      }
+    }
+
+    const requesterLabel = user?.name || context.role || 'Inventory Officer';
+    const issueText = dto?.issue?.trim() || resource.maintenanceIssue || 'General Maintenance Requested';
+    const priority = dto?.priority || resource.maintenancePriority || 'Medium';
+    const isFromInventory = context.role === 'Inventory Officer' || dto?.routedFrom === 'Inventory Board';
 
     this.dataService.notify({
       organizationId: resource.organizationId,
       recipientRole: 'Maintenance Officer',
       department: resource.department,
-      title: 'Maintenance requested',
+      title: '🛠 Maintenance requested',
       targetType: 'resource',
       targetId: resource.id,
-      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${dto?.issue || 'General Maintenance Requested'}.`,
+      description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${issueText}. Flagged by ${requesterLabel}.`,
     });
-    return this.dataService.updateResource(id, {
+
+    this.dataService.notify({
+      organizationId: resource.organizationId,
+      recipientRole: 'Dept Head',
+      department: resource.department,
+      title: '🛠 Maintenance requested',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.name || resource.type} (${resource.id}) flagged for maintenance by ${requesterLabel}: ${issueText}.`,
+    });
+
+    if (resource.assignedToId) {
+      this.dataService.notify({
+        organizationId: resource.organizationId,
+        recipientRole: 'Requestor',
+        recipientUserId: resource.assignedToId,
+        title: '🛠 Asset routed to maintenance',
+        targetType: 'resource',
+        targetId: resource.id,
+        description: `Your allocated asset "${resource.name || resource.type}" (${resource.id}) has been sent for maintenance: ${issueText}.`,
+      });
+    }
+
+    const updates: Partial<ResourceRecord> = {
       status: 'Maintenance Requested',
-      maintenanceIssue: dto?.issue || resource.maintenanceIssue || 'General Maintenance Requested',
-      maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
+      maintenanceIssue: issueText,
+      maintenancePriority: priority,
       maintenanceRequestDate: new Date().toLocaleDateString('en-US'),
       maintenanceRequestedAt: new Date().toISOString(),
       maintenanceAcceptedAt: undefined,
@@ -146,7 +186,18 @@ export class ResourcesService {
       maintenanceResolvedAt: undefined,
       maintenanceOutcome: undefined,
       maintenanceConfirmedAt: undefined,
-    });
+      routedFromInventory: isFromInventory,
+      routedFromReturn: false,
+    };
+
+    if (dto?.condition) {
+      updates.condition = dto.condition;
+    }
+    if (dto?.notes) {
+      updates.maintenanceNotes = dto.notes;
+    }
+
+    return this.dataService.updateResource(id, updates);
   }
 
   initiateReturn(id: string, dto: InitiateReturnDto | undefined, context: RequestContext): ResourceRecord {

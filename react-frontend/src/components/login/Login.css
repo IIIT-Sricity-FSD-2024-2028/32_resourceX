@@ -362,3 +362,113 @@
   letter-spacing: 0.05em;
   font-weight: 600;
 }
+
+/* Quick login side panel */
+.login-layout {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 820px;
+}
+
+.quick-login-panel {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--border-color, #e2e8f0);
+  width: 100%;
+  max-width: 316px;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  animation: loginFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.quick-login-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--primary-color, #0F386E);
+}
+
+.quick-login-subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
+.quick-login-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.quick-login-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  background: #f8fafc;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.quick-login-item:hover:not(:disabled) {
+  background: #eef4fb;
+  border-color: var(--primary-color, #0F386E);
+}
+
+.quick-login-item:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.quick-login-icon {
+  font-size: 20px;
+  color: var(--primary-color, #0F386E);
+}
+
+.quick-login-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.quick-login-role {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.quick-login-email {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-login-arrow {
+  font-size: 18px;
+  color: var(--text-muted, #64748b);
+}
+
+@media (max-width: 860px) {
+  .login-layout {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .quick-login-panel {
+    max-width: 480px;
+  }
+}
