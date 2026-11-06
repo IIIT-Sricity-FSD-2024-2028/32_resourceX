@@ -3,7 +3,9 @@ import { useAuth } from '../../../../context/AuthContext';
 import {
   fetchProcurements,
   createPurchaseOrder,
-  logPurchase
+  logPurchase,
+  editPurchaseOrder,
+  editInvoice
 } from '../../../../services/procurementOfficer';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
@@ -18,6 +20,11 @@ export default function ProcurementOrdersView({ addToast }) {
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [previewFile, setPreviewFile] = useState(null);
+  // Invoice awaiting the officer's final review before it is submitted
+  const [reviewOrder, setReviewOrder] = useState(null);
+  // Edit modal for an issued PO or a logged invoice: { proc, mode: 'po' | 'invoice', ...fields }
+  const [editing, setEditing] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -34,10 +41,9 @@ export default function ProcurementOrdersView({ addToast }) {
         const next = { ...prev };
         list.forEach(p => {
           if (!next[p.id]) {
-            const numPart = p.id.replace(/[^0-9]/g, '') || String(Math.floor(100 + Math.random() * 900));
             next[p.id] = {
               vendor: p.vendor || '',
-              invoice: p.invoice || `INV-${numPart}`,
+              invoice: p.invoice || '',
               invoiceAmount: p.invoiceAmount || '',
             };
           }
@@ -60,8 +66,10 @@ export default function ProcurementOrdersView({ addToast }) {
     }));
   };
 
-  const handleFileUpload = (procId, type, e) => {
+  // Validates a chosen attachment and hands back { name, type, dataUrl } once it is read
+  const readAttachment = (e, onRead) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
     const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/png', 'image/jpeg'];
@@ -69,26 +77,45 @@ export default function ProcurementOrdersView({ addToast }) {
       addToast('Please upload a PDF, DOC, DOCX, PNG, or JPG file.', 'error');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      addToast('File too large. Maximum size is 10 MB.', 'error');
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('File too large. Maximum size is 5 MB.', 'error');
       return;
     }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
+      onRead({ name: file.name, type: file.type, dataUrl: ev.target.result });
+      addToast(`Selected file: ${file.name}`, 'info');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileUpload = (procId, type, e) => {
+    readAttachment(e, ({ name, type: mime, dataUrl }) => {
       setFormInputs(prev => ({
         ...prev,
         [procId]: {
           ...(prev[procId] || {}),
-          [`${type}File`]: file,
-          [`${type}FileName`]: file.name,
-          [`${type}FileType`]: file.type,
-          [`${type}FileDataUrl`]: ev.target.result,
+          [`${type}FileName`]: name,
+          [`${type}FileType`]: mime,
+          [`${type}FileDataUrl`]: dataUrl,
         }
       }));
-      addToast(`Selected file: ${file.name}`, 'info');
-    };
-    reader.readAsDataURL(file);
+    });
+  };
+
+  // Must match the backend rule: at least one digit, so plain words aren't accepted
+  const isValidInvoiceNumber = (value) => /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9 \-\/_.]{2,29}$/.test(value.trim());
+  const INVOICE_NUMBER_HINT = 'Invoice number must be 3–30 characters, contain at least one digit, and use only letters, digits, spaces and - / _ . (e.g. INV-2026-1001).';
+
+  const parseAmount = (value) => {
+    const num = Number(String(value ?? '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(num) && num > 0 ? num : null;
+  };
+
+  const formatAmount = (value) => {
+    const num = parseAmount(value);
+    return num === null ? '—' : `$${num.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
   };
 
   // Stage 1: Upload Purchase Order File -> PO Created
@@ -122,28 +149,44 @@ export default function ProcurementOrdersView({ addToast }) {
     }
   };
 
-  // Stage 2: Upload Invoice & Fulfill
-  const handleUploadInvoiceAndFulfill = async (proc) => {
+  // Stage 2: validate the invoice, then let the officer review it before submitting
+  const handleUploadInvoiceAndFulfill = (proc) => {
     const inputs = formInputs[proc.id] || {};
-    if (!inputs.invoiceFileDataUrl && !inputs.invoice?.trim()) {
-      addToast('Please upload the invoice file or enter an invoice number.', 'error');
+    if (!inputs.invoiceFileDataUrl) {
+      addToast('Please upload the invoice document.', 'error');
       return;
     }
+    if (!inputs.invoice?.trim()) {
+      addToast('Please enter the invoice number.', 'error');
+      return;
+    }
+    if (!isValidInvoiceNumber(inputs.invoice)) {
+      addToast(INVOICE_NUMBER_HINT, 'error');
+      return;
+    }
+    if (parseAmount(inputs.invoiceAmount) === null) {
+      addToast('Please enter a valid total bill amount greater than 0.', 'error');
+      return;
+    }
+    setReviewOrder(proc);
+  };
 
+  const confirmInvoiceSubmission = async () => {
+    const proc = reviewOrder;
+    const inputs = formInputs[proc.id] || {};
     try {
       setSubmittingId(proc.id);
-      const invNum = inputs.invoice?.trim() || (inputs.invoiceFileName ? inputs.invoiceFileName.replace(/\.[^/.]+$/, '') : `INV-${proc.id.replace(/[^0-9]/g, '')}`);
-
       await logPurchase(proc.id, {
         vendor: inputs.vendor || proc.vendor || 'Vendor',
-        invoice: invNum,
-        invoiceAmount: inputs.invoiceAmount?.trim(),
+        invoice: inputs.invoice.trim(),
+        invoiceAmount: String(parseAmount(inputs.invoiceAmount)),
         invoiceFileName: inputs.invoiceFileName,
         invoiceFileType: inputs.invoiceFileType,
         invoiceFileDataUrl: inputs.invoiceFileDataUrl,
       });
 
       addToast('📦 Delivery & Invoice recorded! Order is now Fulfilled.', 'success');
+      setReviewOrder(null);
       await loadOrders();
     } catch (err) {
       addToast(err.message || 'Failed to save invoice.', 'error');
@@ -151,6 +194,84 @@ export default function ProcurementOrdersView({ addToast }) {
       setSubmittingId(null);
     }
   };
+
+  const openEdit = (proc, mode) => {
+    setEditing({
+      proc,
+      mode,
+      vendor: proc.vendor || '',
+      invoice: proc.invoice || '',
+      invoiceAmount: proc.invoiceAmount != null ? String(proc.invoiceAmount) : '',
+      fileName: null,
+      fileType: null,
+      fileDataUrl: null,
+    });
+  };
+
+  const saveEdit = async () => {
+    const { proc, mode } = editing;
+    try {
+      setSavingEdit(true);
+      if (mode === 'po') {
+        if (!editing.vendor.trim()) {
+          addToast('Vendor name cannot be empty.', 'error');
+          return;
+        }
+        await editPurchaseOrder(proc.id, {
+          vendor: editing.vendor.trim(),
+          ...(editing.fileDataUrl && {
+            poFileName: editing.fileName,
+            poFileType: editing.fileType,
+            poFileDataUrl: editing.fileDataUrl,
+          }),
+        });
+        addToast('Purchase order updated.', 'success');
+      } else {
+        if (!editing.invoice.trim()) {
+          addToast('Invoice number cannot be empty.', 'error');
+          return;
+        }
+        if (!isValidInvoiceNumber(editing.invoice)) {
+          addToast(INVOICE_NUMBER_HINT, 'error');
+          return;
+        }
+        if (parseAmount(editing.invoiceAmount) === null) {
+          addToast('Please enter a valid total bill amount greater than 0.', 'error');
+          return;
+        }
+        await editInvoice(proc.id, {
+          invoice: editing.invoice.trim(),
+          invoiceAmount: String(parseAmount(editing.invoiceAmount)),
+          ...(editing.fileDataUrl && {
+            invoiceFileName: editing.fileName,
+            invoiceFileType: editing.fileType,
+            invoiceFileDataUrl: editing.fileDataUrl,
+          }),
+        });
+        addToast('Invoice updated.', 'success');
+      }
+      setEditing(null);
+      await loadOrders();
+    } catch (err) {
+      addToast(err.message || 'Failed to save changes.', 'error');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const smallBtn = (color, border) => ({
+    padding: '6px 14px',
+    background: '#ffffff',
+    border: `1px solid ${border}`,
+    borderRadius: 8,
+    fontSize: 12,
+    fontWeight: 600,
+    color,
+    cursor: 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6
+  });
 
   const STATUS_CONFIG = {
     'Approved': { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe', step: 1, label: 'Approved (Upload PO)' },
@@ -296,8 +417,9 @@ export default function ProcurementOrdersView({ addToast }) {
                 <div style={{ padding: '0.85rem 1.25rem', background: '#fafbfc', borderBottom: '1px solid #f1f5f9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     {PIPELINE_STEPS.map(s => {
-                      const isDone = currentStep > s.num;
-                      const isCurrent = currentStep === s.num;
+                      // The status names the last completed stage, so the next one is in progress
+                      const isDone = s.num <= currentStep;
+                      const isCurrent = s.num === currentStep + 1;
                       const dotBg = isDone ? '#22c55e' : isCurrent ? '#2563eb' : '#e2e8f0';
                       const textColor = isDone ? '#166534' : isCurrent ? '#1d4ed8' : '#94a3b8';
 
@@ -381,7 +503,7 @@ export default function ProcurementOrdersView({ addToast }) {
                                 <strong style={{ display: 'block', fontSize: 13 }}>
                                   {inputs.poFileName || 'Click to select PO file (PDF / Image)'}
                                 </strong>
-                                <span style={{ fontSize: 11, color: '#94a3b8' }}>Supports PDF, PNG, JPG, DOC up to 10MB</span>
+                                <span style={{ fontSize: 11, color: '#94a3b8' }}>Supports PDF, PNG, JPG, DOC up to 5MB</span>
                               </div>
                             </div>
                           </div>
@@ -441,6 +563,14 @@ export default function ProcurementOrdersView({ addToast }) {
                           </div>
                         </div>
 
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>
+                          Vendor: <strong style={{ color: '#334155' }}>{proc.vendor || '—'}</strong>
+                        </span>
+                        <button onClick={() => openEdit(proc, 'po')} style={smallBtn('#2563eb', '#bfdbfe')}>
+                          <span className="material-icons" style={{ fontSize: 16 }}>edit</span>
+                          Edit PO
+                        </button>
                         {/* View Attached PO File */}
                         {proc.poFileName && (proc.poFileDataUrl || proc.poFile) && (
                           <button
@@ -467,6 +597,7 @@ export default function ProcurementOrdersView({ addToast }) {
                             View Attached PO ({proc.poFileName})
                           </button>
                         )}
+                        </div>
                       </div>
 
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
@@ -510,7 +641,7 @@ export default function ProcurementOrdersView({ addToast }) {
                         {/* Invoice Number */}
                         <div>
                           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#5b21b6', marginBottom: 5 }}>
-                            Invoice Number (optional)
+                            Invoice Number *
                           </label>
                           <input
                             value={inputs.invoice || ''}
@@ -523,12 +654,13 @@ export default function ProcurementOrdersView({ addToast }) {
                         {/* Total Amount */}
                         <div>
                           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#5b21b6', marginBottom: 5 }}>
-                            Total Bill Amount ($) (optional)
+                            Total Bill Amount ($) *
                           </label>
                           <input
                             value={inputs.invoiceAmount || ''}
                             onChange={e => handleInputChange(proc.id, 'invoiceAmount', e.target.value)}
-                            placeholder="e.g. $4,500"
+                            placeholder="e.g. 4500"
+                            inputMode="decimal"
                             style={{ width: '100%', padding: '12px 14px', border: '1px solid #c4b5fd', borderRadius: 10, fontSize: 13, background: '#fff', boxSizing: 'border-box' }}
                           />
                         </div>
@@ -553,7 +685,7 @@ export default function ProcurementOrdersView({ addToast }) {
                         }}
                       >
                         <span className="material-icons" style={{ fontSize: 18 }}>task_alt</span>
-                        {isSubmitting ? 'Saving...' : 'Record Invoice & Mark Fulfilled'}
+                        {isSubmitting ? 'Saving...' : 'Review Invoice & Mark Fulfilled'}
                       </button>
                     </div>
                   )}
@@ -585,13 +717,25 @@ export default function ProcurementOrdersView({ addToast }) {
                               : 'Order Fulfilled — Ready for Inventory Officer to Ingest Assets'}
                           </div>
                           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-                            Vendor: <strong>{proc.vendor || 'Supplier'}</strong> · Invoice: <strong>{proc.invoice || 'Logged'}</strong> {proc.poNumber ? `· PO: ${proc.poNumber}` : ''}
+                            Vendor: <strong>{proc.vendor || 'Supplier'}</strong> · Invoice: <strong>{proc.invoice || 'Logged'}</strong> · Amount: <strong>{formatAmount(proc.invoiceAmount)}</strong> {proc.poNumber ? `· PO: ${proc.poNumber}` : ''}
                           </div>
                         </div>
                       </div>
 
                       {/* Document Quick View Buttons */}
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        {proc.status === 'Fulfilled' && (
+                          <>
+                            <button onClick={() => openEdit(proc, 'po')} style={smallBtn('#2563eb', '#bfdbfe')}>
+                              <span className="material-icons" style={{ fontSize: 16 }}>edit</span>
+                              Edit PO
+                            </button>
+                            <button onClick={() => openEdit(proc, 'invoice')} style={smallBtn('#16a34a', '#86efac')}>
+                              <span className="material-icons" style={{ fontSize: 16 }}>edit_note</span>
+                              Edit Invoice
+                            </button>
+                          </>
+                        )}
                         {proc.poFileName && (proc.poFileDataUrl || proc.poFile) && (
                           <button
                             onClick={() => setPreviewFile({
@@ -651,6 +795,144 @@ export default function ProcurementOrdersView({ addToast }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Invoice Review Modal — the officer rechecks everything before it is submitted */}
+      {reviewOrder && (() => {
+        const inputs = formInputs[reviewOrder.id] || {};
+        const isImage = inputs.invoiceFileType?.startsWith('image/');
+        const busy = submittingId === reviewOrder.id;
+        return (
+          <div onClick={() => !busy && setReviewOrder(null)} style={overlayStyle}>
+            <div onClick={e => e.stopPropagation()} style={{ ...modalStyle, maxWidth: 820 }}>
+              <div style={modalHeaderStyle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="material-icons" style={{ fontSize: 22, color: '#7c3aed' }}>fact_check</span>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Review Invoice — {reviewOrder.id}</h3>
+                </div>
+                <button onClick={() => setReviewOrder(null)} disabled={busy} style={closeBtnStyle}>✕</button>
+              </div>
+              <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
+                Check the invoice document and details below. Once submitted, the order is marked Fulfilled and the Inventory Officer is notified.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                {[
+                  ['Item', `${reviewOrder.resourceType || reviewOrder.item} × ${reviewOrder.quantity}`],
+                  ['Vendor', inputs.vendor || reviewOrder.vendor || '—'],
+                  ['Invoice Number', inputs.invoice],
+                  ['Total Bill Amount', formatAmount(inputs.invoiceAmount)],
+                  ['Invoice File', inputs.invoiceFileName],
+                ].map(([label, value]) => (
+                  <div key={label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{label}</div>
+                    <div style={{ fontSize: 13, color: '#0f172a', fontWeight: 700, wordBreak: 'break-all' }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              {isImage ? (
+                <img src={inputs.invoiceFileDataUrl} alt={inputs.invoiceFileName} style={{ maxWidth: '100%', maxHeight: '45vh', objectFit: 'contain', borderRadius: 8, border: '1px solid #e2e8f0' }} />
+              ) : inputs.invoiceFileType === 'application/pdf' ? (
+                <iframe src={inputs.invoiceFileDataUrl} title={inputs.invoiceFileName} style={{ border: '1px solid #e2e8f0', borderRadius: 8, minHeight: 360 }} />
+              ) : (
+                <div style={{ fontSize: 12, color: '#64748b', background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+                  Preview is not available for this file type. Make sure you attached the right document: <strong>{inputs.invoiceFileName}</strong>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => setReviewOrder(null)} disabled={busy} style={secondaryBtnStyle}>Go Back & Edit</button>
+                <button onClick={confirmInvoiceSubmission} disabled={busy} style={{ ...primaryBtnStyle, background: busy ? '#94a3b8' : '#7c3aed' }}>
+                  <span className="material-icons" style={{ fontSize: 18 }}>task_alt</span>
+                  {busy ? 'Submitting...' : 'Confirm & Mark Fulfilled'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Edit PO / Invoice Modal */}
+      {editing && (
+        <div onClick={() => !savingEdit && setEditing(null)} style={overlayStyle}>
+          <div onClick={e => e.stopPropagation()} style={{ ...modalStyle, maxWidth: 520 }}>
+            <div style={modalHeaderStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-icons" style={{ fontSize: 22, color: '#2563eb' }}>edit</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
+                  {editing.mode === 'po' ? 'Edit Purchase Order' : 'Edit Invoice'} — {editing.proc.id}
+                </h3>
+              </div>
+              <button onClick={() => setEditing(null)} disabled={savingEdit} style={closeBtnStyle}>✕</button>
+            </div>
+
+            {editing.mode === 'po' ? (
+              <label style={fieldLabelStyle}>
+                Vendor / Supplier Name *
+                <input
+                  value={editing.vendor}
+                  onChange={e => setEditing(prev => ({ ...prev, vendor: e.target.value }))}
+                  style={fieldInputStyle}
+                />
+              </label>
+            ) : (
+              <>
+                <label style={fieldLabelStyle}>
+                  Invoice Number *
+                  <input
+                    value={editing.invoice}
+                    onChange={e => setEditing(prev => ({ ...prev, invoice: e.target.value }))}
+                    style={fieldInputStyle}
+                  />
+                </label>
+                <label style={fieldLabelStyle}>
+                  Total Bill Amount ($) *
+                  <input
+                    value={editing.invoiceAmount}
+                    inputMode="decimal"
+                    onChange={e => setEditing(prev => ({ ...prev, invoiceAmount: e.target.value }))}
+                    style={fieldInputStyle}
+                  />
+                </label>
+              </>
+            )}
+
+            <div style={fieldLabelStyle}>
+              {editing.mode === 'po' ? 'Purchase Order Document' : 'Invoice Document'}
+              <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>
+                Current: {(editing.mode === 'po' ? editing.proc.poFileName : editing.proc.invoiceFileName) || 'None'}
+              </div>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                  onChange={e => readAttachment(e, ({ name, type, dataUrl }) =>
+                    setEditing(prev => prev && ({ ...prev, fileName: name, fileType: type, fileDataUrl: dataUrl })))}
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 2, width: '100%', height: '100%' }}
+                />
+                <div style={{
+                  padding: '10px 12px',
+                  border: editing.fileName ? '2px solid #3b82f6' : '2px dashed #cbd5e1',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  color: editing.fileName ? '#1d4ed8' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  <span className="material-icons" style={{ fontSize: 20 }}>{editing.fileName ? 'check_circle' : 'swap_horiz'}</span>
+                  {editing.fileName || 'Click to replace the document (optional)'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setEditing(null)} disabled={savingEdit} style={secondaryBtnStyle}>Cancel</button>
+              <button onClick={saveEdit} disabled={savingEdit} style={{ ...primaryBtnStyle, background: savingEdit ? '#94a3b8' : '#2563eb' }}>
+                <span className="material-icons" style={{ fontSize: 18 }}>save</span>
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -715,3 +997,39 @@ export default function ProcurementOrdersView({ addToast }) {
     </div>
   );
 }
+
+const overlayStyle = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(15, 23, 42, 0.7)',
+  zIndex: 1000,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: 20
+};
+
+const modalStyle = {
+  background: '#ffffff',
+  borderRadius: 16,
+  padding: '1.5rem',
+  width: '100%',
+  maxHeight: '90vh',
+  overflowY: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+};
+
+const modalHeaderStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 10 };
+
+const closeBtnStyle = { background: '#f1f5f9', border: 'none', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 16, color: '#64748b' };
+
+const fieldLabelStyle = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, fontWeight: 600, color: '#475569' };
+
+const fieldInputStyle = { width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 10, fontSize: 13, background: '#fff', boxSizing: 'border-box' };
+
+const secondaryBtnStyle = { padding: '10px 18px', background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' };
+
+const primaryBtnStyle = { padding: '10px 20px', color: '#ffffff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 };

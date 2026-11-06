@@ -81,6 +81,33 @@ export class RequestResponseDto {
 
   @ApiProperty({ example: 'prem kumar', required: false })
   allocatedBy?: string;
+
+  @ApiProperty({ example: '2026-10-17T09:30:00.000Z', required: false })
+  createdAt?: string;
+
+  @ApiProperty({ example: '2026-10-18T11:00:00.000Z', required: false })
+  approvedAt?: string;
+
+  @ApiProperty({ example: 'pradhyum', required: false })
+  approvedBy?: string;
+
+  @ApiProperty({ example: '2026-10-19T14:15:00.000Z', required: false })
+  allocatedAt?: string;
+
+  @ApiProperty({ example: '2026-10-20T10:00:00.000Z', required: false })
+  receivedAt?: string;
+
+  @ApiProperty({ example: '2026-10-18T08:00:00.000Z', required: false })
+  cancelledAt?: string;
+
+  @ApiProperty({ example: 'No longer needed.', required: false })
+  cancelReason?: string;
+
+  @ApiProperty({ example: 'Requested quantity exceeds the team allowance.', required: false })
+  rejectionReason?: string;
+
+  @ApiProperty({ example: 'request-letter.pdf', required: false })
+  letterFileName?: string;
 }
 
 export class ResourceResponseDto {

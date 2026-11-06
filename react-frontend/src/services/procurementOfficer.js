@@ -47,3 +47,17 @@ export const fetchProcurementOfficerStats = async (department) => {
     }
   };
 };
+
+// Correct vendor / PO document after the PO is issued
+export const editPurchaseOrder = async (id, data) =>
+  apiRequest(`/procurements/${encodeURIComponent(id)}/edit-po`, {
+    method: 'POST',
+    body: data
+  });
+
+// Correct invoice number / amount / document before assets are registered
+export const editInvoice = async (id, data) =>
+  apiRequest(`/procurements/${encodeURIComponent(id)}/edit-invoice`, {
+    method: 'POST',
+    body: data
+  });

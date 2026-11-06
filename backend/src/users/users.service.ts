@@ -1,9 +1,52 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRecord } from '../common/domain';
-import { RequestContext } from '../common/roles';
+import { RequestContext, Role } from '../common/roles';
 import { DataService } from '../data/data.service';
-import { EMPLOYEE_EMAIL_PATTERN, validateOrgEmail } from '../common/email-format';
-import { CreateEmployeeDto, CreateUserDto, UpdateEmployeeDto, UpdateUserDto } from './dto/user.dto';
+import { EMPLOYEE_EMAIL_PATTERN, buildOrgEmail, validateOrgEmail } from '../common/email-format';
+import { PASSWORD_PATTERN, PASSWORD_RULE_MESSAGE } from '../common/password';
+import { BulkImportRow, CreateEmployeeDto, CreateUserDto, UpdateEmployeeDto, UpdateUserDto } from './dto/user.dto';
+
+// Roles a System Admin may create, plus the spellings people tend to type in a spreadsheet
+const IMPORTABLE_ROLES: Record<string, Role> = {
+  requestor: 'Requestor',
+  'dept head': 'Dept Head',
+  'department head': 'Dept Head',
+  hod: 'Dept Head',
+  registrar: 'Registrar',
+  'inventory officer': 'Inventory Officer',
+  'maintenance officer': 'Maintenance Officer',
+  'procurement officer': 'Procurement Officer',
+};
+const ROLES_WITHOUT_DEPARTMENT: Role[] = ['Requestor', 'Registrar'];
+
+export interface BulkImportResult {
+  created: Array<{ row: number; id: string; name: string; email: string; role: string; generatedPassword?: string }>;
+  failed: Array<{ row: number; name: string; email: string; error: string }>;
+}
+
+const DOCUMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
+
+// Every account needs a document, imported or not; returns the validated document fields
+function rowDocument(raw: BulkImportRow) {
+  const name = cell(raw.documentFileName);
+  const type = cell(raw.documentFileType);
+  const dataUrl = typeof raw.documentFileDataUrl === 'string' ? raw.documentFileDataUrl : '';
+  if (!name || !dataUrl) throw new BadRequestException('A document file is required for this account.');
+  const prefix = `data:${type};base64,`;
+  if (!DOCUMENT_TYPES.includes(type) || !dataUrl.startsWith(prefix)) {
+    throw new BadRequestException(`Document "${name}" must be a PDF, PNG or JPG file.`);
+  }
+  if (Math.floor(((dataUrl.length - prefix.length) * 3) / 4) > MAX_DOCUMENT_BYTES) {
+    throw new BadRequestException(`Document "${name}" is too large (max 5 MB).`);
+  }
+  return { documentFileName: name.slice(0, 100), documentFileType: type, documentFileDataUrl: dataUrl };
+}
+
+const cell = (value: unknown): string => (value === undefined || value === null ? '' : String(value).trim());
+
+// Temporary password that satisfies PASSWORD_PATTERN (uppercase, digit, symbol, 8+ chars)
+const generatePassword = (): string => `Rx@${Math.floor(100000 + Math.random() * 900000)}Pw`;
 
 @Injectable()
 export class UsersService {
@@ -67,6 +110,40 @@ export class UsersService {
       documentFileDataUrl,
     };
     return this.dataService.insertUser(user);
+  }
+
+  /** Owner creates many platform Employees from a spreadsheet; each row succeeds or fails on its own */
+  bulkCreateEmployees(rows: BulkImportRow[]): BulkImportResult {
+    const result: BulkImportResult = { created: [], failed: [] };
+    rows.forEach((raw, index) => {
+      const row = Number(raw.row) || index + 2;
+      const name = cell(raw.name);
+      let email = cell(raw.email).toLowerCase();
+      try {
+        if (!name) throw new BadRequestException('Name is required.');
+        if (!email) email = this.nextEmployeeEmail();
+        let password = cell(raw.password);
+        const generatedPassword = password ? undefined : generatePassword();
+        password = password || generatedPassword!;
+        if (!PASSWORD_PATTERN.test(password)) throw new BadRequestException(PASSWORD_RULE_MESSAGE);
+        const document = rowDocument(raw);
+
+        const user = this.createEmployee({ name, email, password, ...document });
+        result.created.push({ row, id: user.id, name: user.name, email: user.email, role: user.role, generatedPassword });
+      } catch (err: any) {
+        result.failed.push({ row, name, email, error: err?.message || 'Could not create this employee.' });
+      }
+    });
+    return result;
+  }
+
+  private nextEmployeeEmail(): string {
+    const numbers = this.dataService
+      .getUsers()
+      .map((u) => /^employee([0-9]+)@resourcex\.com$/i.exec(u.email)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    return `employee${(numbers.length ? Math.max(...numbers) : 0) + 1}@resourcex.com`;
   }
 
   /** Owner edits an employee: name, document, and the full set of organizations they manage */
@@ -148,6 +225,48 @@ export class UsersService {
     const created = this.dataService.insertUser(user);
     this.syncDepartmentHead(orgId, created);
     return created;
+  }
+
+  /** System Admin creates many users from a spreadsheet; each row succeeds or fails on its own */
+  bulkCreate(context: RequestContext, rows: BulkImportRow[]): BulkImportResult {
+    const orgId = context.organizationId || 'ORG-001';
+    const orgName = this.dataService.getOrganizationById(orgId)?.name || '';
+    const orgDepartments = this.dataService.getDepartments().filter((d) => d.organizationId === orgId);
+    const result: BulkImportResult = { created: [], failed: [] };
+
+    rows.forEach((raw, index) => {
+      const row = Number(raw.row) || index + 2;
+      const name = cell(raw.name);
+      let email = cell(raw.email).toLowerCase();
+      try {
+        if (!name) throw new BadRequestException('Name is required.');
+        const role = IMPORTABLE_ROLES[cell(raw.role).toLowerCase().replace(/\s+/g, ' ')];
+        if (!role) {
+          throw new BadRequestException(`Role "${cell(raw.role)}" is not valid. Use one of: Requestor, Dept Head, Registrar, Inventory Officer, Maintenance Officer, Procurement Officer.`);
+        }
+        if (!email) email = buildOrgEmail(name, role, orgName) || '';
+
+        let department: string | undefined;
+        if (!ROLES_WITHOUT_DEPARTMENT.includes(role)) {
+          const wanted = cell(raw.department).toLowerCase();
+          if (!wanted) throw new BadRequestException(`A department is required for ${role}.`);
+          department = orgDepartments.find((d) => d.name.toLowerCase() === wanted)?.name;
+          if (!department) throw new BadRequestException(`Department "${cell(raw.department)}" not found.`);
+        }
+
+        let password = cell(raw.password);
+        const generatedPassword = password ? undefined : generatePassword();
+        password = password || generatedPassword!;
+        if (password.length < 8) throw new BadRequestException('Password must be at least 8 characters.');
+        const document = rowDocument(raw);
+
+        const user = this.create(context, { name, email, role, department, password, status: 'Active', ...document } as CreateUserDto);
+        result.created.push({ row, id: user.id, name: user.name, email: user.email, role: user.role, generatedPassword });
+      } catch (err: any) {
+        result.failed.push({ row, name, email, error: err?.message || 'Could not create this user.' });
+      }
+    });
+    return result;
   }
 
   update(id: string, payload: UpdateUserDto, context: RequestContext): UserRecord {

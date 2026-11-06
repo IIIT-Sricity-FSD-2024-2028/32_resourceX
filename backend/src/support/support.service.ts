@@ -34,13 +34,52 @@ export class SupportService {
       createdById: context.userId || '',
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     };
-    return this.dataService.insertSupportTicket(ticket);
+    const saved = this.dataService.insertSupportTicket(ticket);
+
+    // Platform side: the owner sees every ticket, the employee managing this organization sees theirs
+    const org = this.dataService.getOrganizationById(saved.organizationId);
+    const description = `${saved.createdBy} (${org?.name || saved.organizationId}) opened ticket ${saved.id}: ${saved.title}`;
+    this.dataService.notify({
+      organizationId: 'PLATFORM',
+      recipientRole: 'Owner',
+      title: 'New support ticket',
+      targetType: 'ticket',
+      targetId: saved.id,
+      description,
+    });
+    if (org?.assignedEmployeeId) {
+      this.dataService.notify({
+        organizationId: 'PLATFORM',
+        recipientRole: 'Employee',
+        recipientUserId: org.assignedEmployeeId,
+        title: 'New support ticket',
+        targetType: 'ticket',
+        targetId: saved.id,
+        description,
+      });
+    }
+    return saved;
   }
 
   resolve(id: string, payload: ResolveTicketDto): SupportTicketRecord {
-    return this.dataService.updateSupportTicket(id, { 
-      reply: payload.reply, 
-      status: payload.status || 'Resolved' 
+    const updated = this.dataService.updateSupportTicket(id, {
+      reply: payload.reply,
+      status: payload.status || 'Resolved'
     });
+
+    // Tell whoever raised the ticket that it was answered
+    const creator = this.dataService.getUserById(updated.createdById);
+    if (creator) {
+      this.dataService.notify({
+        organizationId: updated.organizationId,
+        recipientRole: creator.role,
+        recipientUserId: creator.id,
+        title: `Support ticket ${updated.status === 'Resolved' ? 'resolved' : 'updated'}`,
+        targetType: 'ticket',
+        targetId: updated.id,
+        description: `Your ticket "${updated.title}" was ${updated.status === 'Resolved' ? 'resolved' : 'answered'}${payload.reply ? `: ${payload.reply}` : '.'}`,
+      });
+    }
+    return updated;
   }
 }

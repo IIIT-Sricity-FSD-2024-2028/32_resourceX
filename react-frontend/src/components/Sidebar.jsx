@@ -33,12 +33,6 @@ const ROLE_NAV_ITEMS = {
     { id: 'assets', label: 'Allocated Equipment', icon: 'devices' },
     { id: 'repairs', label: 'Maintenance Tickets', icon: 'build' }
   ],
-  'Staff': [
-    { id: 'overview', label: 'Warehouse Overview', icon: 'dashboard' },
-    { id: 'dispatches', label: 'Allocation Dispatch', icon: 'local_shipping' },
-    { id: 'stock', label: 'Stock Monitoring', icon: 'inventory' },
-    { id: 'repairs', label: 'Maintenance Bench', icon: 'build' }
-  ],
   'Registrar': [
     { id: 'overview', label: 'Registrar Overview', icon: 'dashboard' },
     { id: 'procurements', label: 'Procurements & Invoices', icon: 'receipt_long' },

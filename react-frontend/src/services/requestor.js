@@ -51,6 +51,22 @@ export const confirmReceipt = async (id) => {
   });
 };
 
+// Editable only while the request is pending dept head review
+export const editRequest = async (id, payload) => {
+  return await apiRequest(`/requests/${encodeURIComponent(id)}/edit`, {
+    method: 'POST',
+    body: payload
+  });
+};
+
+// Cancellable until an inventory officer allocates resources
+export const cancelRequest = async (id, reason) => {
+  return await apiRequest(`/requests/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: { reason }
+  });
+};
+
 // ==========================================
 // 4. Resources (Allocated Assets) APIs
 // ==========================================

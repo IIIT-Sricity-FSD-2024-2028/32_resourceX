@@ -4,8 +4,21 @@ import {
   fetchProcurements,
   registerProcurement
 } from '../../../../services/inventoryOfficer';
+import { readSpreadsheetRows } from '../../../common/spreadsheet';
 
 const CONDITIONS = ['New', 'Good', 'Average', 'Fair'];
+const ALL_ORDERS = 'ALL';
+
+// Columns of the registration sheet. Asset Code is optional: rows without one fill their order's table in
+// sequence, the order coming from Order ID (or the card the sheet was imported on)
+const SHEET_COLUMNS = [
+  { key: 'orderId', label: 'Order ID', aliases: ['order', 'procurementid', 'procurement', 'procid', 'po'] },
+  { key: 'code', label: 'Asset Code', aliases: ['code', 'assetid', 'resourcecode'] },
+  { key: 'name', label: 'Model / Name', aliases: ['model', 'name', 'modelname'] },
+  { key: 'serialNumber', label: 'Serial Number', aliases: ['serial', 'serialno', 'sn'] },
+  { key: 'location', label: 'Location' },
+  { key: 'condition', label: 'Condition' },
+];
 
 export default function ResourceRegistrationView({ addToast }) {
   const { user } = useAuth();
@@ -14,11 +27,11 @@ export default function ResourceRegistrationView({ addToast }) {
   const [procurements, setProcurements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({});
-  const [bulkConfig, setBulkConfig] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [collapsedOrders, setCollapsedOrders] = useState({});
   const [filterTexts, setFilterTexts] = useState({});
+  const [importingId, setImportingId] = useState(null);
 
   const loadProcurements = useCallback(async () => {
     try {
@@ -29,11 +42,9 @@ export default function ResourceRegistrationView({ addToast }) {
       setProcurements(fulfilled);
 
       const initData = {};
-      const initBulk = {};
       fulfilled.forEach(p => {
         const qty = parseInt(p.quantity, 10) || 1;
         const rows = [];
-        const cleanItem = (p.resourceType || p.item || 'ASSET').replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase();
         for (let i = 0; i < qty; i++) {
           const code = `RES-${p.id.replace(/[^a-zA-Z0-9]/g, '')}-${String(i + 1).padStart(2, '0')}`;
           rows.push({
@@ -50,18 +61,8 @@ export default function ResourceRegistrationView({ addToast }) {
           });
         }
         initData[p.id] = rows;
-        initBulk[p.id] = {
-          model: p.resourceType || p.item || '',
-          location: 'Main Warehouse',
-          condition: 'New',
-          serialPrefix: `SN-${cleanItem}-`,
-          startNum: 101,
-          padLength: 3,
-          showTools: true
-        };
       });
       setFormData(initData);
-      setBulkConfig(initBulk);
     } catch (err) {
       addToast?.(err.message || 'Failed to load fulfilled procurements.', 'error');
     } finally {
@@ -81,93 +82,93 @@ export default function ResourceRegistrationView({ addToast }) {
     });
   };
 
-  const handleBulkConfigChange = (procId, field, value) => {
-    setBulkConfig(prev => ({
-      ...prev,
-      [procId]: { ...(prev[procId] || {}), [field]: value }
-    }));
-  };
+  // ── Excel / CSV Import ───────────────────────────────────────────────────────
 
-  // ── Bulk Apply Actions ─────────────────────────────────────────────────────────
+  // ALL_ORDERS imports one sheet into every order on the page; otherwise only into `scope`
+  const importSheet = async (scope, file) => {
+    const procIds = scope === ALL_ORDERS ? procurements.map((p) => p.id) : [scope];
+    setImportingId(scope);
+    try {
+      const entries = await readSpreadsheetRows(file, SHEET_COLUMNS);
+      if (entries.length === 0) throw new Error('The file has no data rows below the header.');
 
-  const applyBulkModel = (procId) => {
-    const model = bulkConfig[procId]?.model?.trim();
-    if (!model) {
-      addToast?.('Please enter a model name to apply.', 'error');
-      return;
+      const next = {};
+      const locate = new Map();
+      const orderById = new Map();
+      procIds.forEach((id) => {
+        next[id] = (formData[id] || []).map((r) => ({ ...r }));
+        next[id].forEach((r, i) => locate.set(r.code.toLowerCase(), { procId: id, index: i }));
+        orderById.set(id.toLowerCase(), id);
+      });
+      const filled = new Set();
+      const cursors = {};
+      const warnings = [];
+
+      entries.forEach((entry) => {
+        let target;
+        if (entry.code) {
+          target = locate.get(entry.code.toLowerCase());
+          if (!target) {
+            warnings.push(`row ${entry.row}: unknown asset code "${entry.code}"`);
+            return;
+          }
+        } else {
+          const procId = entry.orderId ? orderById.get(entry.orderId.toLowerCase()) : procIds.length === 1 ? procIds[0] : undefined;
+          if (!procId) {
+            warnings.push(entry.orderId
+              ? `row ${entry.row}: unknown order "${entry.orderId}"`
+              : `row ${entry.row}: needs an Asset Code or Order ID`);
+            return;
+          }
+          let cursor = cursors[procId] || 0;
+          while (cursor < next[procId].length && filled.has(`${procId}#${cursor}`)) cursor++;
+          cursors[procId] = cursor;
+          if (cursor >= next[procId].length) {
+            warnings.push(`row ${entry.row}: more rows than the ${next[procId].length} assets in ${procId}`);
+            return;
+          }
+          target = { procId, index: cursor };
+        }
+        filled.add(`${target.procId}#${target.index}`);
+
+        // Blank cells keep the value already in the table
+        const row = next[target.procId][target.index];
+        if (entry.name) row.name = entry.name;
+        if (entry.serialNumber) row.serialNumber = entry.serialNumber;
+        if (entry.location) row.location = entry.location;
+        if (entry.condition) {
+          const condition = CONDITIONS.find((c) => c.toLowerCase() === entry.condition.toLowerCase());
+          if (condition) row.condition = condition;
+          else warnings.push(`row ${entry.row}: condition "${entry.condition}" is not one of ${CONDITIONS.join(', ')}`);
+        }
+      });
+
+      const seen = new Set();
+      procIds.forEach((id) => next[id].forEach((r) => {
+        const serial = r.serialNumber?.trim().toLowerCase();
+        if (!serial) return;
+        if (seen.has(serial)) warnings.push(`${r.code}: duplicate serial number "${r.serialNumber}"`);
+        seen.add(serial);
+      }));
+
+      setFormData((prev) => ({ ...prev, ...next }));
+      const total = procIds.reduce((sum, id) => sum + next[id].length, 0);
+      const touchedOrders = new Set([...filled].map((key) => key.split('#')[0])).size;
+      addToast?.(
+        procIds.length === 1
+          ? `Filled ${filled.size} of ${total} assets from ${file.name}.`
+          : `Filled ${filled.size} of ${total} assets across ${touchedOrders} order${touchedOrders === 1 ? '' : 's'} from ${file.name}.`,
+        'success'
+      );
+      if (warnings.length) {
+        const shown = warnings.slice(0, 3).join('; ');
+        addToast?.(`Check the sheet — ${shown}${warnings.length > 3 ? ` (+${warnings.length - 3} more)` : ''}.`, 'error');
+      }
+    } catch (err) {
+      addToast?.(err.message || 'Could not read this file.', 'error');
+    } finally {
+      setImportingId(null);
     }
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map(r => ({ ...r, name: model }));
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.(`Applied model "${model}" to all items.`, 'success');
-  };
-
-  const applyBulkLocation = (procId) => {
-    const loc = bulkConfig[procId]?.location?.trim() || 'Main Warehouse';
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map(r => ({ ...r, location: loc }));
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.(`Applied location "${loc}" to all items.`, 'success');
-  };
-
-  const applyBulkCondition = (procId) => {
-    const cond = bulkConfig[procId]?.condition || 'New';
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map(r => ({ ...r, condition: cond }));
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.(`Applied condition "${cond}" to all items.`, 'success');
-  };
-
-  const applyAutoSerials = (procId) => {
-    const conf = bulkConfig[procId] || {};
-    const prefix = conf.serialPrefix || 'SN-';
-    const start = parseInt(conf.startNum, 10) || 1;
-    const pad = parseInt(conf.padLength, 10) || 3;
-
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map((r, i) => {
-        const seq = String(start + i).padStart(pad, '0');
-        return { ...r, serialNumber: `${prefix}${seq}` };
-      });
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.(`Generated sequential serial numbers for all ${(formData[procId] || []).length} items.`, 'success');
-  };
-
-  const applyOneClickFill = (procId) => {
-    const conf = bulkConfig[procId] || {};
-    const model = conf.model?.trim() || 'Standard Asset';
-    const loc = conf.location?.trim() || 'Main Warehouse';
-    const cond = conf.condition || 'New';
-    const prefix = conf.serialPrefix || 'SN-';
-    const start = parseInt(conf.startNum, 10) || 1;
-    const pad = parseInt(conf.padLength, 10) || 3;
-
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map((r, i) => {
-        const seq = String(start + i).padStart(pad, '0');
-        return {
-          ...r,
-          name: r.name?.trim() ? r.name : model,
-          location: r.location?.trim() ? r.location : loc,
-          condition: r.condition || cond,
-          serialNumber: r.serialNumber?.trim() ? r.serialNumber : `${prefix}${seq}`
-        };
-      });
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.('1-Click Autofill completed for all empty fields!', 'success');
-  };
-
-  const clearAllSerials = (procId) => {
-    setFormData(prev => {
-      const rows = (prev[procId] || []).map(r => ({ ...r, serialNumber: '' }));
-      return { ...prev, [procId]: rows };
-    });
-    addToast?.('Cleared all serial numbers for this order.', 'info');
   };
 
   const toggleCollapse = (procId) => {
@@ -212,9 +213,41 @@ export default function ResourceRegistrationView({ addToast }) {
             Resource Registration
           </h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-            Register delivered procurement batches with bulk tools, bounded tables, and automated serial sequencing
+            Register delivered procurement batches by importing an Excel or CSV sheet of model names and serial numbers
           </p>
         </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {procurements.length > 1 && (
+          <label
+            title="One sheet for every order below — rows are matched by Asset Code, or by Order ID in sequence"
+            style={{
+              background: importingId === ALL_ORDERS ? '#94a3b8' : '#16a34a',
+              borderRadius: 8,
+              padding: '7px 14px',
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#fff',
+              cursor: importingId === ALL_ORDERS ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+          >
+            <span className="material-icons" style={{ fontSize: 16 }}>upload_file</span>
+            {importingId === ALL_ORDERS ? 'Reading...' : `Import Excel for All ${procurements.length} Orders`}
+            <input
+              type="file"
+              accept=".xlsx,.csv"
+              disabled={importingId === ALL_ORDERS}
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) importSheet(ALL_ORDERS, file);
+              }}
+            />
+          </label>
+        )}
         <button
           onClick={loadProcurements}
           disabled={loading}
@@ -235,6 +268,7 @@ export default function ResourceRegistrationView({ addToast }) {
           <span className="material-icons" style={{ fontSize: 16 }}>refresh</span>
           Refresh Orders
         </button>
+        </div>
       </div>
 
       {loading ? (
@@ -251,13 +285,12 @@ export default function ResourceRegistrationView({ addToast }) {
           </span>
           <div style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>No Fulfilled Orders Pending Registration</div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 6, maxWidth: 480, margin: '6px auto 0' }}>
-            Delivered orders fulfilled by the Procurement Officer will appear here. You can bulk-register assets with automated serial numbers.
+            Delivered orders fulfilled by the Procurement Officer will appear here. You can register their assets by importing an Excel or CSV sheet.
           </div>
         </div>
       ) : (
         procurements.map(proc => {
           const rows = formData[proc.id] || [];
-          const conf = bulkConfig[proc.id] || {};
           const isSubmitting = submittingId === proc.id;
           const isCollapsed = !!collapsedOrders[proc.id];
           const filterText = filterTexts[proc.id] || '';
@@ -438,245 +471,60 @@ export default function ResourceRegistrationView({ addToast }) {
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => applyOneClickFill(proc.id)}
-                      style={{
-                        background: '#3b82f6',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: 8,
-                        padding: '6px 14px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        boxShadow: '0 1px 3px rgba(59,130,246,0.3)'
-                      }}
-                    >
-                      <span className="material-icons" style={{ fontSize: 15 }}>bolt</span>
-                      1-Click Auto-Fill All
-                    </button>
                   </div>
 
-                  {/* Bulk Autofill Toolbar */}
+                  {/* Excel / CSV Import */}
                   <div
                     style={{
-                      background: '#f1f5f9',
-                      border: '1px solid #cbd5e1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      background: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
                       borderRadius: 10,
-                      padding: '0.85rem 1rem'
+                      padding: '0.75rem 1rem'
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="material-icons" style={{ fontSize: 16, color: '#2563eb' }}>auto_fix_high</span>
-                        Bulk Autofill & Serial Generation Toolbar
-                      </span>
-                      <span style={{ fontSize: 11, color: '#64748b' }}>
-                        Fill once to populate all {totalCount} assets instantly
-                      </span>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#14532d', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="material-icons" style={{ fontSize: 16, color: '#16a34a' }}>table_view</span>
+                        Fill from Excel Sheet
+                      </div>
+                      <div style={{ fontSize: 11, color: '#4b5563', marginTop: 3 }}>
+                        Columns: Asset Code, Model / Name, Serial Number, Location, Condition (.xlsx or .csv). Rows without an Asset Code fill this table in order; blank cells keep the current value.
+                      </div>
                     </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
-                      {/* Model Apply */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                          Model / Name
-                        </label>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <input
-                            type="text"
-                            placeholder="e.g. Dell Latitude 5520"
-                            value={conf.model || ''}
-                            onChange={(e) => handleBulkConfigChange(proc.id, 'model', e.target.value)}
-                            style={{
-                              flex: 1,
-                              padding: '6px 8px',
-                              fontSize: 12,
-                              borderRadius: 6,
-                              border: '1px solid #cbd5e1',
-                              background: '#fff'
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => applyBulkModel(proc.id)}
-                            style={{
-                              padding: '6px 10px',
-                              background: '#fff',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Apply this model name to all rows"
-                          >
-                            Apply All
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Location Apply */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                          Location
-                        </label>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <input
-                            type="text"
-                            placeholder="e.g. Main Warehouse"
-                            value={conf.location || ''}
-                            onChange={(e) => handleBulkConfigChange(proc.id, 'location', e.target.value)}
-                            style={{
-                              flex: 1,
-                              padding: '6px 8px',
-                              fontSize: 12,
-                              borderRadius: 6,
-                              border: '1px solid #cbd5e1',
-                              background: '#fff'
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => applyBulkLocation(proc.id)}
-                            style={{
-                              padding: '6px 10px',
-                              background: '#fff',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Apply this location to all rows"
-                          >
-                            Apply All
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Condition Apply */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                          Condition
-                        </label>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <select
-                            value={conf.condition || 'New'}
-                            onChange={(e) => handleBulkConfigChange(proc.id, 'condition', e.target.value)}
-                            style={{
-                              flex: 1,
-                              padding: '6px 8px',
-                              fontSize: 12,
-                              borderRadius: 6,
-                              border: '1px solid #cbd5e1',
-                              background: '#fff'
-                            }}
-                          >
-                            {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => applyBulkCondition(proc.id)}
-                            style={{
-                              padding: '6px 10px',
-                              background: '#fff',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#2563eb',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Apply this condition to all rows"
-                          >
-                            Apply All
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Serial Auto-Sequence */}
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                          Serial Auto-Sequence
-                        </label>
-                        <div style={{ display: 'flex', gap: 4 }}>
-                          <input
-                            type="text"
-                            placeholder="Prefix"
-                            value={conf.serialPrefix || ''}
-                            onChange={(e) => handleBulkConfigChange(proc.id, 'serialPrefix', e.target.value)}
-                            style={{
-                              width: '55%',
-                              padding: '6px 8px',
-                              fontSize: 12,
-                              borderRadius: 6,
-                              border: '1px solid #cbd5e1',
-                              background: '#fff'
-                            }}
-                            title="Serial prefix, e.g. SN-DELL-"
-                          />
-                          <input
-                            type="number"
-                            placeholder="Start"
-                            value={conf.startNum ?? 1}
-                            onChange={(e) => handleBulkConfigChange(proc.id, 'startNum', e.target.value)}
-                            style={{
-                              width: '45%',
-                              padding: '6px 8px',
-                              fontSize: 12,
-                              borderRadius: 6,
-                              border: '1px solid #cbd5e1',
-                              background: '#fff'
-                            }}
-                            title="Starting number, e.g. 101"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => applyAutoSerials(proc.id)}
-                            style={{
-                              padding: '6px 10px',
-                              background: '#0f172a',
-                              border: 'none',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#fff',
-                              cursor: 'pointer',
-                              whiteSpace: 'nowrap'
-                            }}
-                            title="Auto-sequence serial numbers for all items"
-                          >
-                            Sequence
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => clearAllSerials(proc.id)}
-                            style={{
-                              padding: '6px 8px',
-                              background: '#fee2e2',
-                              border: '1px solid #fca5a5',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              color: '#b91c1c',
-                              cursor: 'pointer'
-                            }}
-                            title="Clear serial numbers"
-                          >
-                            Clear
-                          </button>
-                        </div>
-                      </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <label
+                        style={{
+                          padding: '6px 12px',
+                          background: importingId === proc.id ? '#94a3b8' : '#16a34a',
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: '#fff',
+                          cursor: importingId === proc.id ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                      >
+                        <span className="material-icons" style={{ fontSize: 15 }}>upload_file</span>
+                        {importingId === proc.id ? 'Reading...' : 'Import Excel / CSV'}
+                        <input
+                          type="file"
+                          accept=".xlsx,.csv"
+                          disabled={importingId === proc.id}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (file) importSheet(proc.id, file);
+                          }}
+                        />
+                      </label>
                     </div>
                   </div>
 

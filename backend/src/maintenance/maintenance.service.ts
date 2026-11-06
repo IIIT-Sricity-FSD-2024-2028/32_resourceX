@@ -49,12 +49,16 @@ export class MaintenanceService {
       recipientRole: 'Requestor',
       recipientUserId: resource.assignedToId,
       title: 'Maintenance started',
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${resource.name || resource.type} (${resource.id}) has been accepted for maintenance.`,
     });
     return this.dataService.updateResource(resourceId, {
       status: 'Maintenance',
       maintenancePriority: dto?.priority || resource.maintenancePriority || 'Medium',
       maintenanceNotes: dto?.notes || resource.maintenanceNotes || '',
+      maintenanceAcceptedAt: new Date().toISOString(),
+      maintenanceAcceptedBy: getActingUser(this.dataService, context)?.name,
     });
   }
 
@@ -102,6 +106,8 @@ export class MaintenanceService {
       recipientRole: 'Inventory Officer',
       department: resource.department,
       title: status === 'Repaired' ? `🛠️ Resource Repaired: ${resource.name || resource.type}` : `🛑 Resource Scrapped from Maintenance`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: status === 'Repaired'
         ? `Resource "${resource.name || resource.type}" (${resource.id}) was repaired by maintenance and is marked as Repaired in inventory.${resolutionNotes ? ` Resolution: ${resolutionNotes}.` : ''}`
         : `Resource "${resource.name || resource.type}" (${resource.id}) was scrapped by maintenance.`,
@@ -113,6 +119,8 @@ export class MaintenanceService {
         recipientRole: 'Requestor',
         recipientUserId: resource.assignedToId,
         title: status === 'Repaired' ? '✅ Resource Repaired' : '🛑 Resource Scrapped',
+        targetType: 'resource',
+        targetId: resource.id,
         description: `Your allocated asset "${resource.name || resource.type}" (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'}.${resolutionNotes ? ` Notes: ${resolutionNotes}.` : ''}`,
       });
     }
@@ -122,6 +130,8 @@ export class MaintenanceService {
       recipientRole: 'Dept Head',
       department: resource.department,
       title: status === 'Repaired' ? '🛠️ Resource Repaired' : '🛑 Resource Scrapped',
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${resource.name || resource.type} (${resource.id}) was ${status === 'Repaired' ? 'repaired' : 'scrapped'} by maintenance.`,
     });
     // Update resource state
@@ -130,6 +140,8 @@ export class MaintenanceService {
       condition: finalCondition,
       maintenanceNotes: resolutionNotes,
       maintenanceIssue: recordedIssue,
+      maintenanceResolvedAt: new Date().toISOString(),
+      maintenanceOutcome: status,
     });
   }
 

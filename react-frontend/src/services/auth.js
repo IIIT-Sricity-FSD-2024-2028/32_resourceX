@@ -67,7 +67,7 @@ export const loginUser = async (email, password, selectedOrgId) => {
     throw new Error('User does not belong to the selected organization.');
   }
 
-  // Persist session to localStorage
+  // Persist session to sessionStorage
   persistSession(userObj);
   return userObj;
 };
@@ -105,25 +105,25 @@ export const resetPassword = (resetToken, newPassword) =>
   postPublic('/auth/reset-password', { resetToken, newPassword });
 
 /**
- * Save user session to localStorage
+ * Save user session to sessionStorage
  */
 export const persistSession = (user) => {
   try {
-    const currentData = JSON.parse(localStorage.getItem('rx_data')) || {};
+    const currentData = JSON.parse(sessionStorage.getItem('rx_data')) || {};
     currentData.currentUser = user;
-    localStorage.setItem('rx_data', JSON.stringify(currentData));
-    localStorage.setItem('rx_token', user.token || '');
+    sessionStorage.setItem('rx_data', JSON.stringify(currentData));
+    sessionStorage.setItem('rx_token', user.token || '');
   } catch (e) {
-    console.error('Failed to persist session to localStorage:', e);
+    console.error('Failed to persist session to sessionStorage:', e);
   }
 };
 
 /**
- * Get currently logged-in user from localStorage
+ * Get currently logged-in user from sessionStorage
  */
 export const getCurrentUser = () => {
   try {
-    const data = JSON.parse(localStorage.getItem('rx_data'));
+    const data = JSON.parse(sessionStorage.getItem('rx_data'));
     return data?.currentUser || null;
   } catch {
     return null;
@@ -131,14 +131,14 @@ export const getCurrentUser = () => {
 };
 
 /**
- * Clear session from localStorage
+ * Clear session from sessionStorage
  */
 export const logoutUser = () => {
   try {
-    const data = JSON.parse(localStorage.getItem('rx_data')) || {};
+    const data = JSON.parse(sessionStorage.getItem('rx_data')) || {};
     data.currentUser = null;
-    localStorage.setItem('rx_data', JSON.stringify(data));
-    localStorage.removeItem('rx_token');
+    sessionStorage.setItem('rx_data', JSON.stringify(data));
+    sessionStorage.removeItem('rx_token');
   } catch (e) {
     console.error('Failed to clear session:', e);
   }

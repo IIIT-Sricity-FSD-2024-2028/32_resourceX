@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
+import { useNotificationTab } from '../../common/notificationFocus';
 import ProcOfficerOverview from './views/ProcOfficerOverview';
 import IndentsView from './views/IndentsView';
 import ProcurementOrdersView from './views/ProcurementOrdersView';
@@ -15,6 +16,8 @@ const NAV_ITEMS = [
 
 export default function ProcurementOfficerDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  // Clicking a notification can point at one of the tabs
+  useNotificationTab(setActiveTab);
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'success') => {

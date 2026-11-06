@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationRecord, RecipientRole } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
@@ -46,10 +46,13 @@ export class NotificationsService {
                   id: notifId,
                   organizationId: context.organizationId || 'ORG-001',
                   title: `🚨 ACTION REQUIRED: Return Overdue Resource (${res.name || res.type})`,
+                  targetType: 'resource',
+                  targetId: res.id,
                   description: `URGENT: The scheduled return deadline for "${res.name || res.type}" (${res.id}) expired on ${display || retDate}. Please initiate return or request an extension from My Resources immediately.`,
                   time: 'Just now',
                   read: false,
                   recipientRole: 'Requestor',
+                  recipientUserId: user?.id,
                 });
               }
             } else {
@@ -63,10 +66,13 @@ export class NotificationsService {
                     id: notifId,
                     organizationId: context.organizationId || 'ORG-001',
                     title: `⏰ DEADLINE APPROACHING: Return scheduled for ${res.name || res.type}`,
+                    targetType: 'resource',
+                    targetId: res.id,
                     description: `Reminder: "${res.name || res.type}" (${res.id}) is due for return in ${diffDays <= 1 ? '1 day (tomorrow)' : `${diffDays} days`} on ${display || retDate}. If you need more time, you can request an extension from My Resources.`,
                     time: 'Just now',
                     read: false,
                     recipientRole: 'Requestor',
+                    recipientUserId: user?.id,
                   });
                 }
               }
@@ -78,7 +84,7 @@ export class NotificationsService {
 
     if (context.role === 'Procurement Officer' || context.role === 'Inventory Officer' || (context.role as string) === 'Staff') {
       const procs = this.dataService.getProcurements().filter(
-        (p) => !['Fulfilled', 'Registered', 'Rejected'].includes(p.status) && (p.targetDate || p.expectedDeliveryDate)
+        (p) => !['Fulfilled', 'Registered', 'Rejected', 'Cancelled'].includes(p.status) && (p.targetDate || p.expectedDeliveryDate)
       );
       const now = Date.now();
 
@@ -102,10 +108,13 @@ export class NotificationsService {
                 id: notifId,
                 organizationId: proc.organizationId || context.organizationId || 'ORG-001',
                 title: `⏰ PROCUREMENT DEADLINE APPROACHING: ${proc.item || proc.resourceType}`,
+                targetType: 'procurement',
+                targetId: proc.id,
                 description: `Reminder: Procurement ${proc.id} for "${proc.item || proc.resourceType}" (${proc.department}) is due in ${diffDays <= 1 ? '1 day (tomorrow)' : `${diffDays} days`} on ${display}. Please expedite vendor fulfillment.`,
                 time: 'Just now',
                 read: false,
                 recipientRole,
+                department: proc.department,
               });
             }
           } else if (diffMs < 0) {
@@ -116,10 +125,13 @@ export class NotificationsService {
                 id: notifId,
                 organizationId: proc.organizationId || context.organizationId || 'ORG-001',
                 title: `⚠️ PROCUREMENT PAST TARGET DATE: ${proc.item || proc.resourceType}`,
+                targetType: 'procurement',
+                targetId: proc.id,
                 description: `Notice: Procurement ${proc.id} for "${proc.item || proc.resourceType}" was targeted for completion by ${display}. It can still be processed and fulfilled.`,
                 time: 'Just now',
                 read: false,
                 recipientRole,
+                department: proc.department,
               });
             }
           }
@@ -145,6 +157,9 @@ export class NotificationsService {
             recipientRole: 'Dept Head',
             department: t.department,
             title: `Low stock: ${t.resourceType}`,
+            targetType: 'stock',
+            // Stock Monitoring rows are keyed by resource type, so point there
+            targetId: t.resourceType,
             description: `Resource type "${t.resourceType}" is low on stock in ${t.department}: ${current} available against a threshold of ${t.thresholdLevel}.`,
           });
         }
@@ -160,21 +175,40 @@ export class NotificationsService {
     }
     const actingUser = getActingUser(this.dataService, context);
     const deptScopedRoles = ['Dept Head', 'Inventory Officer', 'Maintenance Officer', 'Procurement Officer'];
-    return notifications.filter((notification) => {
-      if (notification.recipientRole !== 'All' && notification.recipientRole !== context.role) return false;
-      if (notification.recipientUserId && notification.recipientUserId !== context.userId) return false;
-      if (
-        notification.department &&
-        deptScopedRoles.includes(context.role as string) &&
-        actingUser?.department !== notification.department
-      ) {
-        return false;
-      }
-      return true;
-    });
+    return notifications
+      .filter((notification) => {
+        if (notification.recipientRole !== 'All' && notification.recipientRole !== context.role) return false;
+        if (notification.recipientUserId && notification.recipientUserId !== context.userId) return false;
+        if (
+          notification.department &&
+          deptScopedRoles.includes(context.role as string) &&
+          actingUser?.department !== notification.department
+        ) {
+          return false;
+        }
+        return true;
+      })
+      .map(({ readBy, ...notification }) => ({ ...notification, read: this.isReadBy(notification, readBy, context.userId) }));
   }
 
-  update(id: string, payload: UpdateNotificationDto): NotificationRecord {
-    return this.dataService.updateNotification(id, payload);
+  update(id: string, payload: UpdateNotificationDto, context?: RequestContext): NotificationRecord {
+    const notification = this.dataService.getNotificationById(id);
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID ${id} not found.`);
+    }
+    // A notification addressed to one user keeps a single read flag; a shared one tracks each reader
+    if (notification.recipientUserId || !context?.userId || payload.read === undefined) {
+      return this.dataService.updateNotification(id, payload);
+    }
+    const readers = new Set(notification.readBy || []);
+    if (payload.read) readers.add(context.userId);
+    else readers.delete(context.userId);
+    const { readBy, ...updated } = this.dataService.updateNotification(id, { readBy: [...readers] });
+    return { ...updated, read: Boolean(payload.read) };
+  }
+
+  private isReadBy(notification: NotificationRecord, readBy: string[] | undefined, userId?: string): boolean {
+    if (notification.recipientUserId || !readBy) return notification.read;
+    return Boolean(userId && readBy.includes(userId));
   }
 }

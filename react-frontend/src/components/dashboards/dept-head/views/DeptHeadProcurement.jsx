@@ -8,6 +8,8 @@ import {
 } from '../../../../services/deptHead';
 import { StatusBadge, EmptyRow, ErrorBlock, FileLink, LoadingBlock } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import ProcurementDetailModal from '../components/ProcurementDetailModal';
+import { useNotificationFocus } from '../../../common/notificationFocus';
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -49,6 +51,7 @@ export default function DeptHeadProcurement() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
+  const [selectedId, setSelectedId] = useState(null);
   const procType = (p) => p.resourceType || p.item;
   const visibleProcurements = procurements.filter((p) =>
     (statusFilter === 'All' || p.status === statusFilter) &&
@@ -77,6 +80,11 @@ export default function DeptHeadProcurement() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // A procurement notification opens that procurement's tracking card
+  useNotificationFocus('procurement', !isLoading, (id) => {
+    if (procurements.some((p) => p.id === id)) setSelectedId(id);
+  });
 
   // Pre-fill from "Send Request" (Stock Monitoring) or the Low Stock banner
   useEffect(() => {
@@ -319,7 +327,16 @@ export default function DeptHeadProcurement() {
                     <EmptyRow colSpan={7} text={procurements.length === 0 ? 'No procurement requests yet.' : 'No procurement requests match your search.'} />
                   ) : (
                     visibleProcurements.map((p) => (
-                      <tr key={p.id}>
+                      <tr
+                        key={p.id}
+                        className="rq-row"
+                        tabIndex={0}
+                        title="View procurement tracking"
+                        onClick={() => setSelectedId(p.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setSelectedId(p.id);
+                        }}
+                      >
                         <td className="td-id">{p.id}</td>
                         <td>{p.resourceType || p.item}</td>
                         <td>{p.quantity}</td>
@@ -333,8 +350,12 @@ export default function DeptHeadProcurement() {
                           )}
                         </td>
                         <td><StatusBadge status={p.status} /></td>
-                        <td><FileLink name={p.specFileName} onClick={() => openProcurementFile(p, 'spec')} /></td>
-                        <td><FileLink name={p.invoiceFileName} onClick={() => openProcurementFile(p, 'invoice')} /></td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FileLink name={p.specFileName} onClick={() => openProcurementFile(p, 'spec')} />
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <FileLink name={p.invoiceFileName} onClick={() => openProcurementFile(p, 'invoice')} />
+                        </td>
                       </tr>
                     ))
                   )}
@@ -344,6 +365,16 @@ export default function DeptHeadProcurement() {
           )}
         </div>
       </div>
+
+      {selectedId && (
+        <ProcurementDetailModal
+          procurement={procurements.find((p) => p.id === selectedId)}
+          onClose={() => setSelectedId(null)}
+          onChanged={loadData}
+          addToast={addToast}
+          onOpenFile={(kind) => openProcurementFile(procurements.find((p) => p.id === selectedId), kind)}
+        />
+      )}
     </div>
   );
 }

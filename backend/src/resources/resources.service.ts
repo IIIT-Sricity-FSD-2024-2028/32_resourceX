@@ -11,6 +11,13 @@ import {
   ensureDepartmentScoped,
 } from '../common/utils';
 
+// A requestor keeps seeing a resource scrapped by maintenance for a while, so the tracking card can show the outcome
+const SCRAPPED_VISIBLE_MS = 14 * 24 * 60 * 60 * 1000;
+function isRecentlyScrapped(resource: ResourceRecord): boolean {
+  const at = resource.maintenanceResolvedAt ? Date.parse(resource.maintenanceResolvedAt) : NaN;
+  return !isNaN(at) && Date.now() - at < SCRAPPED_VISIBLE_MS;
+}
+
 @Injectable()
 export class ResourcesService {
   constructor(private readonly dataService: DataService) { }
@@ -37,7 +44,8 @@ export class ResourcesService {
           (resource) =>
             ((user?.id && resource.assignedToId === user.id) ||
              (uName && resource.assignedTo && resource.assignedTo.toLowerCase().trim() === uName)) &&
-            ['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired'].includes(resource.status)
+            (['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired', 'Returned'].includes(resource.status) ||
+              (resource.status === 'Scrapped' && isRecentlyScrapped(resource) && Boolean(filters?.status?.includes('Scrapped'))))
         );
       } else {
         items = [];
@@ -129,6 +137,8 @@ export class ResourcesService {
       recipientRole: 'Maintenance Officer',
       department: resource.department,
       title: '🛠 Maintenance requested',
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${resource.name || resource.type} (${resource.id}) needs maintenance: ${issueText}. Flagged by ${requesterLabel}.`,
     });
 
@@ -154,7 +164,13 @@ export class ResourcesService {
       status: 'Maintenance Requested',
       maintenanceIssue: issueText,
       maintenancePriority: priority,
-      maintenanceRequestDate: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      maintenanceRequestDate: new Date().toLocaleDateString('en-US'),
+      maintenanceRequestedAt: new Date().toISOString(),
+      maintenanceAcceptedAt: undefined,
+      maintenanceAcceptedBy: undefined,
+      maintenanceResolvedAt: undefined,
+      maintenanceOutcome: undefined,
+      maintenanceConfirmedAt: undefined,
       routedFromInventory: isFromInventory,
     };
 
@@ -169,6 +185,7 @@ export class ResourcesService {
   }
 
   initiateReturn(id: string, dto: InitiateReturnDto | undefined, context: RequestContext): ResourceRecord {
+    const user = getActingUser(this.dataService, context);
     const resource = this.dataService.getResourceById(id);
     if (!resource) {
       throw new NotFoundException(`Resource with ID ${id} not found.`);
@@ -183,20 +200,27 @@ export class ResourcesService {
       organizationId: resource.organizationId,
       recipientRole: 'Inventory Officer',
       department: resource.department,
-      title: 'Return initiated',
-      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}. Please inspect and accept it.`,
+      title: 'Return requested',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.assignedTo || 'A requestor'} requested to return ${resource.name || resource.type} (${resource.id}). Please inspect it and mark the return successful.`,
     });
     this.dataService.notify({
       organizationId: resource.organizationId,
       recipientRole: 'Dept Head',
       department: resource.department,
-      title: 'Return initiated',
-      description: `${resource.name || resource.type} (${resource.id}) was returned by ${resource.assignedTo || 'a requestor'}.`,
+      title: 'Return requested',
+      targetType: 'resource',
+      targetId: resource.id,
+      description: `${resource.assignedTo || 'A requestor'} requested to return ${resource.name || resource.type} (${resource.id}). Awaiting inventory inspection.`,
     });
     return this.dataService.updateResource(id, {
       status: 'Returned',
       returnReason: dto?.reason || 'Return Requested',
       returnNotes: dto?.notes || '',
+      returnRequestedAt: new Date().toISOString(),
+      returnRequestedBy: user?.name || resource.assignedTo,
+      returnRequestedById: user?.id || resource.assignedToId,
     });
   }
 
@@ -211,7 +235,7 @@ export class ResourcesService {
       throw new BadRequestException('Only Repaired resources can be confirmed.');
     }
 
-    return this.dataService.updateResource(id, { status: 'Allocated' });
+    return this.dataService.updateResource(id, { status: 'Allocated', maintenanceConfirmedAt: new Date().toISOString() });
   }
 
   scrap(id: string): ResourceRecord {
@@ -287,6 +311,10 @@ export class ResourcesService {
       }),
       extensionRequestedBy: user.name,
       extensionRequestedById: user.id,
+      extensionRequestedAt: new Date().toISOString(),
+      extensionDecidedAt: undefined,
+      extensionDecidedBy: undefined,
+      extensionRejectionReason: undefined,
     });
 
     // Notify Department Head
@@ -294,10 +322,13 @@ export class ResourcesService {
       id: `NOTIF-EXT-REQ-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `📝 Extension Request: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${user.name} requested an extension for "${resource.name || resource.type}" (${resource.id}) until ${displayDate}. Reason: ${dto.reason}`,
       time: 'Just now',
       read: false,
       recipientRole: 'Dept Head',
+      department: resource.department,
     });
 
     // Notify Requestor
@@ -305,10 +336,13 @@ export class ResourcesService {
       id: `NOTIF-EXT-SUBMIT-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `⏳ Extension Submitted: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request until ${displayDate} for "${resource.name || resource.type}" (${resource.id}) has been submitted for Department Head approval.`,
       time: 'Just now',
       read: false,
       recipientRole: 'Requestor',
+      recipientUserId: user.id,
     });
 
     return updated;
@@ -338,6 +372,9 @@ export class ResourcesService {
       returnDate: newReturnDate,
       returnDateDisplay: newReturnDateDisplay,
       extensionStatus: 'Approved',
+      extensionDecidedAt: new Date().toISOString(),
+      extensionDecidedBy: getActingUser(this.dataService, context)?.name,
+      extensionPreviousReturnDateDisplay: resource.returnDateDisplay || resource.returnDate,
     });
 
     // Sync any linked requests
@@ -362,10 +399,13 @@ export class ResourcesService {
       id: `NOTIF-EXT-APP-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `✅ Extension Approved: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was APPROVED. New return deadline: ${newReturnDateDisplay || newReturnDate}.`,
       time: 'Just now',
       read: false,
       recipientRole: 'Requestor',
+      recipientUserId: resource.extensionRequestedById || resource.assignedToId,
     });
 
     return updated;
@@ -390,6 +430,9 @@ export class ResourcesService {
 
     const updated = this.dataService.updateResource(id, {
       extensionStatus: 'Rejected',
+      extensionDecidedAt: new Date().toISOString(),
+      extensionDecidedBy: getActingUser(this.dataService, context)?.name,
+      extensionRejectionReason: dto?.reason?.trim() || undefined,
     });
 
     // Notify Requestor
@@ -397,10 +440,13 @@ export class ResourcesService {
       id: `NOTIF-EXT-REJ-${id}-${Date.now()}`,
       organizationId: context.organizationId || resource.organizationId || 'ORG-001',
       title: `❌ Extension Rejected: ${resource.name || resource.type}`,
+      targetType: 'resource',
+      targetId: resource.id,
       description: `Your extension request for "${resource.name || resource.type}" (${resource.id}) was REJECTED.${dto?.reason ? ` Reason: ${dto.reason}.` : ''} Please return the asset by the current deadline (${resource.returnDateDisplay || resource.returnDate}).`,
       time: 'Just now',
       read: false,
       recipientRole: 'Requestor',
+      recipientUserId: resource.extensionRequestedById || resource.assignedToId,
     });
 
     return updated;

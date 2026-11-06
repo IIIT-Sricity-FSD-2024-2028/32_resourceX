@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { fetchNotifications, markNotificationRead } from '../services/notifications';
+import { highlightRecord, resolveNotificationDestination } from './common/notificationFocus';
 
 /**
  * Exact replica of the original AppHeader component from app-header.js
@@ -47,6 +48,16 @@ export default function AppHeader() {
     markNotificationRead(n.id).catch(() => null);
   };
 
+  // Open the page (and card, where there is one) for the record the notification is about
+  const handleOpenNotification = (n) => {
+    handleMarkRead(n);
+    const dest = resolveNotificationDestination(user?.role, n);
+    if (!dest) return;
+    setShowNotifMenu(false);
+    navigate(dest.path, { state: { notificationFocus: { type: dest.type, id: dest.id, tab: dest.tab } } });
+    highlightRecord(dest.id);
+  };
+
   const handleLogout = (e) => {
     e.preventDefault();
 
@@ -88,24 +99,41 @@ export default function AppHeader() {
                 {notifications.length === 0 ? (
                   <div style={{ padding: '1rem', fontSize: '0.85rem', color: '#64748b' }}>No notifications.</div>
                 ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => handleMarkRead(n)}
-                      style={{
-                        padding: '0.75rem 1rem',
-                        borderBottom: '1px solid var(--border-color)',
-                        cursor: 'pointer',
-                        background: n.read ? 'transparent' : '#eff6ff'
-                      }}
-                    >
-                      <div style={{ fontSize: '0.85rem', fontWeight: n.read ? 500 : 700, color: 'var(--text-main)' }}>
-                        {n.title}
+                  notifications.map((n) => {
+                    const linked = Boolean(resolveNotificationDestination(user?.role, n));
+                    return (
+                      <div
+                        key={n.id}
+                        className={`notification-item${linked ? ' linked' : ''}`}
+                        role={linked ? 'link' : undefined}
+                        tabIndex={0}
+                        title={linked ? 'Open' : undefined}
+                        onClick={() => handleOpenNotification(n)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleOpenNotification(n);
+                        }}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          borderBottom: '1px solid var(--border-color)',
+                          cursor: 'pointer',
+                          background: n.read ? 'transparent' : '#eff6ff'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: '0.85rem', fontWeight: n.read ? 500 : 700, color: 'var(--text-main)' }}>
+                              {n.title}
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.15rem' }}>{n.description}</div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>{n.time}</div>
+                          </div>
+                          {linked && (
+                            <span className="material-symbols-outlined notification-go" aria-hidden="true">chevron_right</span>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.15rem' }}>{n.description}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.25rem' }}>{n.time}</div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
               <div

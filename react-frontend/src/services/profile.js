@@ -50,15 +50,15 @@ export const updatePassword = async (currentPassword, newPassword) => {
 };
 
 /**
- * Helper to keep localStorage in sync after backend update
+ * Helper to keep sessionStorage in sync after backend update
  */
 const syncLocalProfile = (data) => {
   try {
-    const rxData = JSON.parse(localStorage.getItem('rx_data')) || {};
+    const rxData = JSON.parse(sessionStorage.getItem('rx_data')) || {};
     if (rxData.currentUser) {
       if (data.name) rxData.currentUser.name = data.name;
       if (data.preferences) rxData.currentUser.notifications = data.preferences.notifications;
-      localStorage.setItem('rx_data', JSON.stringify(rxData));
+      sessionStorage.setItem('rx_data', JSON.stringify(rxData));
     }
   } catch {}
 };

@@ -4,16 +4,16 @@
 export const API_BASE = '/api';
 
 /**
- * Fetch authorization headers with JWT Bearer token from localStorage
+ * Fetch authorization headers with JWT Bearer token from sessionStorage
  * @param {boolean} isMultipart - If true, omits Content-Type so browser sets multipart boundary
  */
 export const getAuthHeaders = (isMultipart = false) => {
   let token = null;
   try {
-    const rxData = JSON.parse(localStorage.getItem('rx_data'));
-    token = rxData?.currentUser?.token || localStorage.getItem('rx_token');
+    const rxData = JSON.parse(sessionStorage.getItem('rx_data'));
+    token = rxData?.currentUser?.token || sessionStorage.getItem('rx_token');
   } catch {
-    console.warn('No authentication token found in localStorage');
+    console.warn('No authentication token found in sessionStorage');
   }
 
   const headers = {};

@@ -6,8 +6,10 @@ import {
   fetchRequestorSummary
 } from '../../../../services/requestor';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import RequestDetailModal from '../components/RequestDetailModal';
+import { useNotificationFocus } from '../../../common/notificationFocus';
 
-export default function MyRequestsView({ addToast, onNavigateToResources }) {
+export default function MyRequestsView({ addToast, onNavigateToResources, onPreviewFile }) {
   const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -16,6 +18,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
   const [deptFilter, setDeptFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
 
   const loadData = async () => {
     try {
@@ -37,11 +40,17 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
     loadData();
   }, []);
 
+  // A request notification opens that request's tracking card
+  useNotificationFocus('request', !loading, (id) => {
+    if (requests.some((r) => r.id === id)) setSelectedId(id);
+  });
+
   const handleConfirmReceipt = async (reqId) => {
     setActionLoadingId(reqId);
     try {
       await confirmReceipt(reqId);
       addToast('Item successfully received and confirmed.', 'success');
+      setSelectedId(null);
       await loadData();
       if (onNavigateToResources) {
         onNavigateToResources();
@@ -124,7 +133,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
           onSearchChange={setSearch}
           placeholder="Search by Request ID, department, resource type or date..."
           filters={[
-            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: ['Pending', 'Approved', 'Allocated', 'Completed', 'Rejected'] },
+            { label: 'All Statuses', value: statusFilter, onChange: setStatusFilter, options: ['Pending', 'Approved', 'Allocated', 'Completed', 'Rejected', 'Cancelled'] },
             { label: 'All Departments', value: deptFilter, onChange: setDeptFilter, options: uniqueOptions(myRequests, 'department') },
           ]}
           resultCount={filteredRequests.length}
@@ -162,7 +171,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
                   let statusBadgeClass = `badge ${req.status ? req.status.toLowerCase() : ''}`;
 
                   let actionEl = (
-                    <button className="icon-btn" title="More options" style={{ marginLeft: 'auto' }}>
+                    <button className="icon-btn" title="View details" style={{ marginLeft: 'auto' }}>
                       ⋮
                     </button>
                   );
@@ -173,7 +182,10 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
                         className="btn-primary"
                         style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', whiteSpace: 'nowrap' }}
                         disabled={actionLoadingId === req.id}
-                        onClick={() => handleConfirmReceipt(req.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleConfirmReceipt(req.id);
+                        }}
                       >
                         {actionLoadingId === req.id ? 'Confirming...' : 'I RECEIVED'}
                       </button>
@@ -187,7 +199,15 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
                   }
 
                   return (
-                    <tr key={req.id}>
+                    <tr
+                      key={req.id}
+                      className="rq-row"
+                      tabIndex={0}
+                      onClick={() => setSelectedId(req.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') setSelectedId(req.id);
+                      }}
+                    >
                       <td className="td-id">{req.id}</td>
                       <td>{req.department}</td>
                       <td>{req.resourceType || req.item}</td>
@@ -205,6 +225,18 @@ export default function MyRequestsView({ addToast, onNavigateToResources }) {
           </table>
         </div>
       </div>
+
+      {selectedId && (
+        <RequestDetailModal
+          request={myRequests.find((r) => r.id === selectedId)}
+          onClose={() => setSelectedId(null)}
+          onChanged={loadData}
+          onConfirmReceipt={handleConfirmReceipt}
+          receiptLoading={actionLoadingId === selectedId}
+          addToast={addToast}
+          onPreviewFile={onPreviewFile}
+        />
+      )}
     </div>
   );
 }

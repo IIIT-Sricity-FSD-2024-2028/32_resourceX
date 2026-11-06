@@ -23,16 +23,16 @@ export default function DeptHeadLayout() {
   }, []);
 
   /**
-   * Open a procurement attachment. kind = 'spec' | 'invoice'
+   * Open an attachment. kind = 'spec' | 'invoice' (procurements) | 'letter' (resource requests)
    */
   const openProcurementFile = useCallback(
-    (proc, kind = 'spec') => {
-      const name = kind === 'spec' ? proc?.specFileName : proc?.invoiceFileName;
-      const type = kind === 'spec' ? proc?.specFileType : proc?.invoiceFileType;
-      const dataUrl = kind === 'spec' ? proc?.specFileDataUrl : proc?.invoiceFileDataUrl;
+    (record, kind = 'spec') => {
+      const name = record?.[`${kind}FileName`];
+      const type = record?.[`${kind}FileType`];
+      const dataUrl = record?.[`${kind}FileDataUrl`];
       if (!name) return;
       if (!dataUrl) {
-        addToast('File content is not available for this procurement.', 'error');
+        addToast('File content is not available for this record.', 'error');
         return;
       }
       setPreviewFile({ name, type, dataUrl });

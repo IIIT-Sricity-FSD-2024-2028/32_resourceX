@@ -4,6 +4,7 @@ import {
   approveRegistrarProcurement,
   rejectRegistrarProcurement
 } from '../../../../services/registrar';
+import AdminModal from '../../admin/components/AdminModal';
 
 /**
  * Department Indents & Approvals View for Registrar
@@ -18,6 +19,8 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [processingId, setProcessingId] = useState(null);
   const [localPreviewFile, setLocalPreviewFile] = useState(null);
+  const [rejectId, setRejectId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   // Load indents list
   const loadIndents = useCallback(async () => {
@@ -62,24 +65,34 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
     }
   };
 
-  // Reject procurement / indent
-  const handleReject = async (id) => {
-    if (window.confirm('Are you sure you want to reject this department indent?')) {
-      try {
-        setProcessingId(id);
-        await rejectRegistrarProcurement(id);
-        await loadIndents();
-        if (addToast) addToast('Indent rejected.', 'warning');
-      } catch (err) {
-        console.error('Reject failed:', err);
-        if (addToast) {
-          addToast('Failed to reject indent: ' + (err.message || 'Error'), 'error');
-        } else {
-          alert('Failed to reject indent: ' + (err.message || 'Error'));
-        }
-      } finally {
-        setProcessingId(null);
+  // Reject procurement / indent — opens the reason dialog
+  const handleReject = (id) => {
+    setRejectReason('');
+    setRejectId(id);
+  };
+
+  const confirmReject = async () => {
+    const id = rejectId;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      if (addToast) addToast('Please enter a reason for the rejection.', 'error');
+      return;
+    }
+    setRejectId(null);
+    try {
+      setProcessingId(id);
+      await rejectRegistrarProcurement(id, reason);
+      await loadIndents();
+      if (addToast) addToast('Indent rejected. The department head will see your reason.', 'warning');
+    } catch (err) {
+      console.error('Reject failed:', err);
+      if (addToast) {
+        addToast('Failed to reject indent: ' + (err.message || 'Error'), 'error');
+      } else {
+        alert('Failed to reject indent: ' + (err.message || 'Error'));
       }
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -550,8 +563,13 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
                             }}
                           >
                             <span className="material-symbols-outlined" style={{ fontSize: 14 }}>cancel</span>
-                            Rejected
+                            {p.status === 'Cancelled' ? 'Cancelled' : 'Rejected'}
                           </span>
+                        )}
+                        {p.status === 'Rejected' && p.rejectionReason && (
+                          <div style={{ fontSize: 11, color: '#991b1b', marginTop: 6, maxWidth: 220, marginLeft: 'auto', lineHeight: 1.4 }}>
+                            Reason: {p.rejectionReason}
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -562,6 +580,31 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
           </table>
         </div>
       </div>
+
+      <AdminModal
+        isOpen={Boolean(rejectId)}
+        title="Reject Department Indent"
+        onClose={() => setRejectId(null)}
+        onConfirm={confirmReject}
+        confirmText="Reject"
+        confirmButtonClass="btn-danger"
+      >
+        <p style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+          You are rejecting <strong>{rejectId}</strong>. The department head will see this reason in the procurement tracking card.
+        </p>
+        <label className="form-label" htmlFor="registrar-reject-reason">
+          Reason for rejection <span style={{ color: '#dc2626' }}>*</span>
+        </label>
+        <textarea
+          id="registrar-reject-reason"
+          className="form-control"
+          rows="3"
+          autoFocus
+          placeholder="e.g. Budget for this quarter is exhausted."
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+        />
+      </AdminModal>
 
       {/* Fallback File Preview Modal */}
       {localPreviewFile && (

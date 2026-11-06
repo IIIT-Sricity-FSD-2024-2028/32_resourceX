@@ -64,6 +64,9 @@ export class ReturnsService {
       finalStatus = condition === 'Damaged' || condition === 'Bad' ? 'Scrapped' : 'Available';
     }
 
+    const processor = getActingUser(this.dataService, context);
+    const processedAt = new Date().toISOString();
+
     // Insert log into return history
     this.dataService.insertReturnHistory({
       code: resource.id,
@@ -77,7 +80,23 @@ export class ReturnsService {
       department: resource.department,
       returnReason,
       notes,
+      requestedAt: resource.returnRequestedAt,
+      processedAt,
+      processedBy: processor?.name,
     });
+
+    const returnerId = resource.returnRequestedById || resource.assignedToId;
+    if (returnerId) {
+      this.dataService.notify({
+        organizationId: resource.organizationId,
+        recipientRole: 'Requestor',
+        recipientUserId: returnerId,
+        title: 'Return successful',
+        targetType: 'resource',
+        targetId: resource.id,
+        description: `Your return of ${resource.name || resource.type} (${resource.id}) was inspected and accepted (condition: ${condition}).`,
+      });
+    }
 
     const updatePayload: Partial<ResourceRecord> = {
       status: finalStatus,

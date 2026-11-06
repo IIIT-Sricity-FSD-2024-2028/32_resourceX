@@ -16,8 +16,14 @@ export class UsersValidationMiddleware implements NestMiddleware {
     if (req.method === 'POST') {
       const url = (req.originalUrl || req.url || '').split('?')[0];
       const isCreateEmployee = url.endsWith('/create-employee');
+      // Bulk imports carry many rows; the service validates each row and reports failures per row
+      const isBulkImport = url.endsWith('/bulk');
 
-      if (isCreateEmployee) {
+      if (isBulkImport) {
+        if (!Array.isArray(body.rows)) {
+          this.reject(req, 'rows must be an array of user rows.');
+        }
+      } else if (isCreateEmployee) {
         this.requireText(req, body.name, 'Name', 100);
         this.requireEmail(req, body.email);
       } else {

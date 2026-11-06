@@ -26,7 +26,7 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Update a notification state' })
   @ApiParam({ name: 'id', example: 'N1' })
   @ApiOkResponse({ description: 'Notification updated successfully.', type: NotificationResponseDto })
-  update(@Param('id') id: string, @Body() body: UpdateNotificationDto) {
-    return this.notificationsService.update(id, body);
+  update(@Param('id') id: string, @Body() body: UpdateNotificationDto, @Req() req: any) {
+    return this.notificationsService.update(id, body, req.context);
   }
 }

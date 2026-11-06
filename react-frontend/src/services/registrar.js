@@ -40,9 +40,10 @@ export const approveRegistrarProcurement = async (id) => {
 };
 
 // 6. Reject procurement as Registrar
-export const rejectRegistrarProcurement = async (id) => {
+export const rejectRegistrarProcurement = async (id, reason) => {
   return await apiRequest(`/procurements/${encodeURIComponent(id)}/registrar-reject`, {
-    method: 'POST'
+    method: 'POST',
+    body: { reason }
   });
 };
 

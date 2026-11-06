@@ -25,9 +25,10 @@ export const approveDeptRequest = async (id) => {
   });
 };
 
-export const rejectDeptRequest = async (id) => {
+export const rejectDeptRequest = async (id, reason) => {
   return await apiRequest(`/requests/${encodeURIComponent(id)}/reject`, {
-    method: 'POST'
+    method: 'POST',
+    body: { reason }
   });
 };
 
@@ -93,9 +94,26 @@ export const approveDeptProcurement = async (id) => {
   });
 };
 
-export const rejectDeptProcurement = async (id) => {
+// Editable only while the procurement awaits registrar review
+export const editDeptProcurement = async (id, payload) => {
+  return await apiRequest(`/procurements/${encodeURIComponent(id)}/edit`, {
+    method: 'POST',
+    body: payload
+  });
+};
+
+// Cancellable until a purchase order is issued
+export const cancelDeptProcurement = async (id, reason) => {
+  return await apiRequest(`/procurements/${encodeURIComponent(id)}/cancel`, {
+    method: 'POST',
+    body: { reason }
+  });
+};
+
+export const rejectDeptProcurement = async (id, reason) => {
   return await apiRequest(`/procurements/${encodeURIComponent(id)}/department-reject`, {
-    method: 'POST'
+    method: 'POST',
+    body: { reason }
   });
 };
 

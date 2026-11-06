@@ -1017,3 +1017,23 @@ table.table tbody tr:last-child td, tbody tr:last-child td {
   padding: 1rem !important;
 }
 
+
+/* Notification deep links */
+.notification-item.linked:hover { background: #f1f5f9 !important; }
+.notification-item:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.notification-go { font-size: 1.1rem; color: #94a3b8; margin-top: 0.1rem; }
+.notification-item.linked:hover .notification-go { color: var(--primary-color); }
+
+/* Row a notification pointed at: brief highlight after navigating */
+@keyframes rxFocusFlash {
+  0%, 35% { background-color: #fef3c7; box-shadow: inset 4px 0 0 #f59e0b; }
+  100% { background-color: transparent; box-shadow: inset 4px 0 0 transparent; }
+}
+@keyframes rxFocusFlashBg {
+  0%, 35% { background-color: #fef3c7; }
+  100% { background-color: transparent; }
+}
+.rx-focus-flash:not(tr) { animation: rxFocusFlash 2.6s ease-out; }
+/* Table rows: tint every cell, accent bar on the first one only */
+tr.rx-focus-flash > td { animation: rxFocusFlashBg 2.6s ease-out; }
+tr.rx-focus-flash > td:first-child { animation: rxFocusFlash 2.6s ease-out; }

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
+import { useNotificationTab } from '../../common/notificationFocus';
 import InvOfficerOverview from './views/InvOfficerOverview';
 import AllocationQueueView from './views/AllocationQueueView';
 import ResourceRegistrationView from './views/ResourceRegistrationView';
@@ -18,6 +19,8 @@ const NAV_ITEMS = [
 
 export default function InventoryOfficerDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
+  // Clicking a notification can point at one of the tabs
+  useNotificationTab(setActiveTab);
   const [toasts, setToasts] = useState([]);
 
   const addToast = useCallback((message, type = 'success') => {

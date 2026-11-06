@@ -8,6 +8,7 @@ import {
   fetchResourceAvailability,
   createRequest
 } from '../../../../services/requestor';
+import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
   const { user } = useAuth();
@@ -25,6 +26,9 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const [availableCount, setAvailableCount] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // { documentFileName, documentFileType, documentFileDataUrl } from DocumentUpload
+  const [letter, setLetter] = useState(null);
+  const [letterResetKey, setLetterResetKey] = useState(0);
 
   // The requirement date must be at least 2 days after the request date (local time, YYYY-MM-DD)
   const MIN_LEAD_DAYS = 2;
@@ -134,6 +138,11 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       return;
     }
 
+    if (!letter) {
+      addToast('Please attach a Request Letter / Proof before submitting.', 'error');
+      return;
+    }
+
     // Note: Requestors can request any quantity needed, even if exceeding current stock
 
     const newId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -157,7 +166,10 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       requirementDate: requirementDate,
       returnDate: returnDate,
       requirementDateDisplay: formatDate(requirementDate),
-      returnDateDisplay: formatDate(returnDate)
+      returnDateDisplay: formatDate(returnDate),
+      letterFileName: letter.documentFileName,
+      letterFileType: letter.documentFileType,
+      letterFileDataUrl: letter.documentFileDataUrl
     };
 
     setSubmitting(true);
@@ -172,6 +184,8 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       setRequirementDate('');
       setReturnDate('');
       setAvailableCount(null);
+      setLetter(null);
+      setLetterResetKey((k) => k + 1);
 
       if (onNavigateToRequests) {
         onNavigateToRequests();
@@ -330,6 +344,14 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
               required
             />
           </div>
+
+          <DocumentUpload
+            label="Request Letter / Proof"
+            required
+            onChange={setLetter}
+            resetKey={letterResetKey}
+            hint="Attach a signed request letter or supporting proof. PDF, PNG or JPG, up to 5 MB."
+          />
 
           <button type="submit" className="btn-primary" disabled={submitting}>
             {submitting ? 'Submitting...' : 'Submit Request'}

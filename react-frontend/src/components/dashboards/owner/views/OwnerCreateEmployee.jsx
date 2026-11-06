@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { createOwnerEmployee } from '../../../../services/owner';
+import { createOwnerEmployee, bulkCreateOwnerEmployees } from '../../../../services/owner';
 import DocumentUpload from '../../../common/DocumentUpload';
+import BulkImportModal from '../../../common/BulkImportModal';
 
 // Mirrors backend/src/common/password.ts's PASSWORD_PATTERN — keep in sync by hand.
 const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s]).{8,}$/;
@@ -23,6 +24,7 @@ export default function OwnerCreateEmployee() {
   const [resetKey, setResetKey] = useState(0);
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -63,6 +65,19 @@ export default function OwnerCreateEmployee() {
     <div id="create-employee-view" className="view-section active">
       <h1 className="page-title">Create Employee</h1>
       <p className="page-subtitle">Add a new platform support employee account.</p>
+
+      <div
+        className="data-section"
+        style={{ maxWidth: '520px', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}
+      >
+        <div>
+          <div style={{ fontWeight: 600, color: '#0f172a' }}>Adding many employees?</div>
+          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Import them all at once from an Excel sheet with their documents.</div>
+        </div>
+        <button type="button" className="btn-secondary" onClick={() => setIsImportOpen(true)}>
+          Import from Excel
+        </button>
+      </div>
 
       <div className="data-section" style={{ maxWidth: '520px', padding: '1.5rem' }}>
         <form id="createEmpForm" onSubmit={handleSubmit}>
@@ -151,6 +166,26 @@ export default function OwnerCreateEmployee() {
           </button>
         </form>
       </div>
+
+      <BulkImportModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        title="Import Employees from Excel"
+        description="Create many platform employees at once. Rows with problems are listed so you can fix and re-import just those. Assign organizations afterwards from Employee Management."
+        columns={[
+          { key: 'name', label: 'Name', required: true, aliases: ['full name', 'employee name'] },
+          { key: 'email', label: 'Email', aliases: ['email address', 'mail'], hint: 'employee{number}@resourcex.com; leave blank to use the next free number', blankText: 'auto' },
+          { key: 'password', label: 'Password', hint: '8+ characters with an uppercase letter, a number and a symbol; leave blank to generate one', blankText: 'auto' },
+          { key: 'document', label: 'Document File', required: true, document: true, aliases: ['document', 'file', 'document name', 'file name'], hint: "file name of the employee's ID/details document (PDF, PNG or JPG, max 5 MB), e.g. priya-id.pdf — you select these files in step 2" },
+        ]}
+        templateRows={[
+          ['Priya Sharma', '', '', 'priya-id.pdf'],
+          ['Arjun Mehta', '', 'Welcome@123', 'arjun-id.jpg'],
+        ]}
+        templateFileName="employees-import-template.csv"
+        onImport={bulkCreateOwnerEmployees}
+        onDone={() => addToast('Imported employees are now listed in Employee Management.', 'success')}
+      />
     </div>
   );
 }

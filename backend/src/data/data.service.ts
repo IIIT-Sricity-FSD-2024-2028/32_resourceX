@@ -285,6 +285,8 @@ export class DataService {
     description: string;
     department?: string;
     recipientUserId?: string;
+    targetType?: NotificationRecord['targetType'];
+    targetId?: string;
     id?: string;
   }): NotificationRecord | undefined {
     const id = input.id || `NOTIF-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
@@ -301,6 +303,8 @@ export class DataService {
       recipientRole: input.recipientRole,
       department: input.department,
       recipientUserId: input.recipientUserId,
+      targetType: input.targetType,
+      targetId: input.targetId,
     });
   }
 

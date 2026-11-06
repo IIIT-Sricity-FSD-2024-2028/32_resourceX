@@ -579,8 +579,8 @@ export const seedState: AppState = {
   ],
   notifications: [
     { id: 'N1', organizationId: 'ORG-001', title: 'Welcome to ResourceX', description: 'Enterprise resource management suite ready.', time: '1 day ago', read: false, recipientRole: 'All' },
-    { id: 'N2', organizationId: 'ORG-001', title: 'Maintenance Alert', description: 'RES-5011 requires fan diagnostics.', time: '2 hours ago', read: false, recipientRole: 'Maintenance Officer' },
-    { id: 'N3', organizationId: 'ORG-001', title: 'Procurement Indent Approved', description: 'Network Switches indent approved by Registrar.', time: '10 mins ago', read: false, recipientRole: 'Dept Head' }
+    { id: 'N2', organizationId: 'ORG-001', title: 'Maintenance Alert', description: 'RES-5011 requires fan diagnostics.', time: '2 hours ago', read: false, recipientRole: 'Maintenance Officer', targetType: 'resource', targetId: 'RES-5011' },
+    { id: 'N3', organizationId: 'ORG-001', title: 'Procurement Indent Approved', description: 'Network Switches indent approved by Registrar.', time: '10 mins ago', read: false, recipientRole: 'Dept Head', targetType: 'procurement' }
   ],
   maintenanceHistory: [
     { code: 'RES-2233', organizationId: 'ORG-001', type: 'Printers', allocatedTo: 'None', issue: 'Paper Feed Roller Jam', actionDate: 'Oct 14, 2026', status: 'Repaired', department: 'Administration', resolutionNotes: 'Replaced rubber roller kit and recalibrated feeder', cost: 35, priority: 'Medium' },

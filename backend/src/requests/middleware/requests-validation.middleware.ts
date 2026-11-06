@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { RequestsFileLoggerService } from './requests-file-logger';
 
 // The write actions the Requests controller exposes under /:id.
-const ALLOWED_ACTIONS = ['approve', 'reject', 'allocate', 'receipt'];
+const ALLOWED_ACTIONS = ['approve', 'reject', 'allocate', 'receipt', 'edit', 'cancel'];
 
 // Request ids look like REQ-102 — letters, digits and dashes only.
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
@@ -17,6 +17,8 @@ const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 //   POST  /:id/reject            — dept head rejects
 //   POST  /:id/allocate          — staff allocates resources
 //   POST  /:id/receipt           — requestor confirms receipt
+//   POST  /:id/edit              — requestor edits a pending request
+//   POST  /:id/cancel            — requestor cancels before allocation
 //
 // Approve / reject / allocate / receipt all mutate request state irreversibly,
 // so the id and action segment are validated here before the request reaches

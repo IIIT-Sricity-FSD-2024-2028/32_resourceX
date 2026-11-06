@@ -9,7 +9,7 @@ import {
   approveResourceExtension,
   rejectResourceExtension
 } from '../../../../services/deptHead';
-import { EmptyRow, LoadingBlock, ErrorBlock, padQty } from '../components/deptHeadUtils';
+import { EmptyRow, LoadingBlock, ErrorBlock, FileLink, padQty } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 /**
@@ -18,7 +18,7 @@ import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/Tabl
  * by departmental staff/requestors before passing them to the Inventory Officer for allocation.
  */
 export default function DeptHeadIncomingRequests() {
-  const { addToast = () => {} } = useOutletContext() || {};
+  const { addToast = () => {}, openProcurementFile = () => {} } = useOutletContext() || {};
 
   const [requests, setRequests] = useState([]);
   const [extensionRequests, setExtensionRequests] = useState([]);
@@ -26,6 +26,7 @@ export default function DeptHeadIncomingRequests() {
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [rejectRequestId, setRejectRequestId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [extSearch, setExtSearch] = useState('');
@@ -78,12 +79,25 @@ export default function DeptHeadIncomingRequests() {
     }
   };
 
-  const handleRejectRequest = async (id) => {
+  const openReject = (id) => {
+    setRejectReason('');
+    setRejectRequestId(id);
+  };
+
+  const onConfirmReject = async () => {
+    const id = rejectRequestId;
+    if (!id) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      addToast('Please enter a reason for the rejection.', 'error');
+      return;
+    }
+    setRejectRequestId(null);
     setBusyId(id);
     try {
-      await rejectDeptRequest(id);
+      await rejectDeptRequest(id, reason);
       setRequests((prev) => prev.filter((r) => r.id !== id));
-      addToast(`Request ${id} rejected.`, 'error');
+      addToast(`${id} rejected. The requestor will see your reason.`, 'error');
     } catch (err) {
       addToast(`Rejection failed: ${err.message}`, 'error');
     } finally {
@@ -127,12 +141,6 @@ export default function DeptHeadIncomingRequests() {
     matchesSearch(extSearch, item.id, extensionType(item), item.extensionRequestedBy, item.assignedTo, item.extensionReason)
   );
 
-  const onConfirmReject = async () => {
-    const id = rejectRequestId;
-    setRejectRequestId(null);
-    if (!id) return;
-    await handleRejectRequest(id);
-  };
 
   return (
     <div className="view-section">
@@ -265,12 +273,13 @@ export default function DeptHeadIncomingRequests() {
                   <th>Qty</th>
                   <th>Usage Period</th>
                   <th>Reason</th>
+                  <th>Letter / Proof</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleRequests.length === 0 ? (
-                  <EmptyRow colSpan={7} text={requests.length === 0 ? 'No pending resource requests. 🎉' : 'No requests match your search.'} />
+                  <EmptyRow colSpan={8} text={requests.length === 0 ? 'No pending resource requests. 🎉' : 'No requests match your search.'} />
                 ) : (
                   visibleRequests.map((req) => (
                     <tr key={req.id}>
@@ -300,6 +309,9 @@ export default function DeptHeadIncomingRequests() {
                         )}
                       </td>
                       <td style={{ fontSize: '0.75rem', color: '#64748b' }}>{req.justification || '—'}</td>
+                      <td>
+                        <FileLink name={req.letterFileName} onClick={() => openProcurementFile(req, 'letter')} />
+                      </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
                           type="button"
@@ -313,7 +325,7 @@ export default function DeptHeadIncomingRequests() {
                           type="button"
                           className="btn-danger btn-reject-sm"
                           disabled={busyId === req.id}
-                          onClick={() => setRejectRequestId(req.id)}
+                          onClick={() => openReject(req.id)}
                         >
                           Reject
                         </button>
@@ -325,6 +337,7 @@ export default function DeptHeadIncomingRequests() {
             </table>
           </div>
         </div>
+
         </>
       )}
 
@@ -336,9 +349,21 @@ export default function DeptHeadIncomingRequests() {
         confirmText="Reject"
         confirmButtonClass="btn-danger"
       >
-        <p style={{ color: '#475569', fontSize: '0.9rem' }}>
-          Are you sure you want to reject resource request <strong>{rejectRequestId}</strong>? This cannot be undone.
+        <p style={{ color: '#475569', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+          You are rejecting <strong>{rejectRequestId}</strong>. The requestor will see this reason in their request tracking.
         </p>
+        <label className="form-label" htmlFor="reject-reason">
+          Reason for rejection <span style={{ color: '#dc2626' }}>*</span>
+        </label>
+        <textarea
+          id="reject-reason"
+          className="form-control"
+          rows="3"
+          autoFocus
+          placeholder="e.g. Requested quantity exceeds the team allowance."
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+        />
       </AdminModal>
     </div>
   );
