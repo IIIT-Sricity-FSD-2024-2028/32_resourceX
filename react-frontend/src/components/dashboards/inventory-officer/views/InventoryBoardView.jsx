@@ -532,7 +532,7 @@ export default function InventoryBoardView({ addToast }) {
                                 Needs Maintenance
                               </button>
                             )}
-                            {res.status === 'Repaired' && (
+                            {res.status === 'Repaired' && !res.assignedToId && (
                               <button
                                 onClick={() => handleRestockAvailable(res.id)}
                                 style={{

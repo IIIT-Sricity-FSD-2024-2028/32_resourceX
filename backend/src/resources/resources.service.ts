@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { DepartmentResourceCatalogRecord, ResourceCondition, ResourceRecord } from '../common/domain';
+import { DepartmentResourceCatalogRecord, ResourceRecord } from '../common/domain';
 import { RequestContext } from '../common/roles';
 import { DataService } from '../data/data.service';
 import { CreateResourceDto, UpdateResourceDto, UpdateCatalogDto, RequestMaintenanceDto, InitiateReturnDto, RequestExtensionDto, RejectExtensionDto } from './dto/resource.dto';
@@ -112,6 +112,10 @@ export class ResourcesService {
   }
 
   update(id: string, payload: UpdateResourceDto): ResourceRecord {
+    const resource = this.dataService.getResourceById(id);
+    if (resource?.status === 'Repaired' && payload.status === 'Available' && resource.assignedToId) {
+      throw new BadRequestException('This repaired resource is still allocated; the requestor must confirm receipt instead.');
+    }
     return this.dataService.updateResource(id, payload);
   }
 
@@ -127,6 +131,13 @@ export class ResourcesService {
     }
 
     const user = getActingUser(this.dataService, context);
+    if (context.role === 'Requestor') {
+      const ownsResource = Boolean(user && (resource.assignedToId === user.id || resource.assignedTo === user.name));
+      if (resource.status !== 'Allocated' || !ownsResource) {
+        throw new ForbiddenException('You can only request maintenance for resources allocated to you.');
+      }
+    }
+
     const requesterLabel = user?.name || context.role || 'Inventory Officer';
     const issueText = dto?.issue?.trim() || resource.maintenanceIssue || 'General Maintenance Requested';
     const priority = dto?.priority || resource.maintenancePriority || 'Medium';
@@ -147,6 +158,8 @@ export class ResourcesService {
       recipientRole: 'Dept Head',
       department: resource.department,
       title: '🛠 Maintenance requested',
+      targetType: 'resource',
+      targetId: resource.id,
       description: `${resource.name || resource.type} (${resource.id}) flagged for maintenance by ${requesterLabel}: ${issueText}.`,
     });
 
@@ -156,6 +169,8 @@ export class ResourcesService {
         recipientRole: 'Requestor',
         recipientUserId: resource.assignedToId,
         title: '🛠 Asset routed to maintenance',
+        targetType: 'resource',
+        targetId: resource.id,
         description: `Your allocated asset "${resource.name || resource.type}" (${resource.id}) has been sent for maintenance: ${issueText}.`,
       });
     }
@@ -172,10 +187,11 @@ export class ResourcesService {
       maintenanceOutcome: undefined,
       maintenanceConfirmedAt: undefined,
       routedFromInventory: isFromInventory,
+      routedFromReturn: false,
     };
 
     if (dto?.condition) {
-      updates.condition = dto.condition as ResourceCondition;
+      updates.condition = dto.condition;
     }
     if (dto?.notes) {
       updates.maintenanceNotes = dto.notes;

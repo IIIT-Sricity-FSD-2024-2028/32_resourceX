@@ -344,7 +344,7 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
                       }}>
                         {res.status}
                       </span>
-                      {isRepaired && (
+                      {isRepaired && !res.assignedToId && (
                         <button
                           type="button"
                           onClick={() => handleRestockAvailable(res.id)}
