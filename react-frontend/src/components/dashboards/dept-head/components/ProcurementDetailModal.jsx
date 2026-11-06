@@ -111,9 +111,9 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
   const canEdit = proc.status === 'Pending' || proc.status === 'Pending Approval';
   const canCancel = ['Pending Approval', 'Pending', 'Approved'].includes(proc.status);
   const stages = buildStages(proc);
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minTarget = toYmd(tomorrow);
+  const minTargetDate = new Date();
+  minTargetDate.setDate(minTargetDate.getDate() + 2);
+  const minTarget = toYmd(minTargetDate);
 
   const startEdit = async () => {
     setForm({
@@ -139,6 +139,14 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     const quantity = Number(form.quantity);
     if (!form.resourceType || !Number.isInteger(quantity) || quantity < 1 || !form.justification.trim()) {
       addToast('Please fill in all fields correctly.', 'error');
+      return;
+    }
+    if (quantity > 1000) {
+      addToast('❌ Quantity cannot exceed 1,000 units.', 'error');
+      return;
+    }
+    if (form.targetDate && form.targetDate < minTarget) {
+      addToast('❌ Target needed by date must be at least 2 days after the requesting day.', 'error');
       return;
     }
     setSaving(true);
@@ -251,8 +259,8 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
                   </select>
                 </label>
                 <label className="form-group">
-                  <span className="form-label">Quantity</span>
-                  <input className="form-control" type="number" min="1" value={form.quantity} onChange={setField('quantity')} />
+                  <span className="form-label">Quantity (max 1000)</span>
+                  <input className="form-control" type="number" min="1" max="1000" value={form.quantity} onChange={setField('quantity')} />
                 </label>
                 <label className="form-group">
                   <span className="form-label">Priority</span>
@@ -261,7 +269,7 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
                   </select>
                 </label>
                 <label className="form-group">
-                  <span className="form-label">Needed By (optional)</span>
+                  <span className="form-label">Needed By (optional · min 2 days after today)</span>
                   <input className="form-control" type="date" min={minTarget} value={form.targetDate} onChange={setField('targetDate')} />
                 </label>
               </div>

@@ -25,6 +25,15 @@ const formatSize = (bytes) => {
   return kb < 1024 ? `${kb.toFixed(1)} KB` : `${(kb / 1024).toFixed(2)} MB`;
 };
 
+const getMinTargetDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 /**
  * #procurement-view from department_head.html
  * New procurement form (multipart upload of spec file) + recent procurements table.
@@ -124,12 +133,24 @@ export default function DeptHeadProcurement() {
   };
 
   // ---- Submit ----
+  const minTargetDate = getMinTargetDate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const qty = parseInt(form.quantity, 10);
 
     if (!form.resourceType.trim() || Number.isNaN(qty) || qty < 1 || !form.justification.trim()) {
       addToast('Please fill in all fields correctly before submitting.', 'error');
+      return;
+    }
+
+    if (qty > 1000) {
+      addToast('❌ Quantity cannot exceed 1,000 units. Please enter a quantity up to 1,000.', 'error');
+      return;
+    }
+
+    if (form.targetDate && form.targetDate < minTargetDate) {
+      addToast('❌ Target needed by date must be at least 2 days after the requesting day.', 'error');
       return;
     }
 
@@ -201,10 +222,14 @@ export default function DeptHeadProcurement() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Quantity Required</label>
+              <label className="form-label">
+                Quantity Required
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}> (Max 1,000 units)</span>
+              </label>
               <input
                 type="number"
                 min="1"
+                max="1000"
                 className="form-control"
                 value={form.quantity}
                 onChange={(e) => setForm({ ...form, quantity: e.target.value })}
@@ -215,11 +240,11 @@ export default function DeptHeadProcurement() {
             <div className="form-group">
               <label className="form-label">
                 Target / Needed By Date (Suggested)
-                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}> (Desired fulfillment timeline · fulfillment accepted even if later)</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}> (Desired fulfillment timeline · minimum 2 days after requesting day)</span>
               </label>
               <input
                 type="date"
-                min={new Date().toISOString().split('T')[0]}
+                min={minTargetDate}
                 className="form-control"
                 value={form.targetDate}
                 onChange={(e) => setForm({ ...form, targetDate: e.target.value })}

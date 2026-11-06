@@ -1,6 +1,6 @@
 import { PartialType } from '@nestjs/swagger';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMinSize, IsArray, IsEnum, IsInt, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsEnum, IsInt, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PROCUREMENT_STATUSES, REQUEST_PRIORITIES, RESOURCE_CONDITIONS, RESOURCE_STATUSES } from '../../common/domain';
 
@@ -27,6 +27,7 @@ export class CreateProcurementDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1000)
   quantity!: number;
 
   @ApiPropertyOptional({ example: 'IT Services' })
@@ -322,6 +323,7 @@ export class EditProcurementDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(1000)
   quantity?: number;
 
   @ApiPropertyOptional({ example: 'Capacity increase required.' })

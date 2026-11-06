@@ -138,6 +138,11 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
       return;
     }
 
+    if (Number(quantity) > 1000) {
+      addToast('❌ Quantity cannot exceed 1,000 units.', 'error');
+      return;
+    }
+
     if (!specFile) {
       addToast('⚠️ Please attach a Resource Specification / Intent File before submitting.', 'warning');
       setFileWarning(true);
@@ -245,13 +250,14 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Quantity</label>
+            <label className="form-label">Quantity <span style={{ fontSize: '0.75rem', color: '#64748b' }}>(Max 1,000)</span></label>
             <input
               type="number"
               className="form-control"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               min="1"
+              max="1000"
               required
             />
           </div>

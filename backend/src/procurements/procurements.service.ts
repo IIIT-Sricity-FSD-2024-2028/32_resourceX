@@ -56,6 +56,15 @@ function ensureValidInvoiceNumber(value: string): void {
   }
 }
 
+function getMinNeededDateString(today: Date = new Date()): string {
+  const d = new Date(today);
+  d.setDate(d.getDate() + 2);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 @Injectable()
 export class ProcurementsService {
   constructor(private readonly dataService: DataService) {}
@@ -104,7 +113,17 @@ export class ProcurementsService {
     ensureDepartmentScoped(this.dataService, context, department);
     ensureValidDepartmentResourceType(this.dataService, department, resourceType, context.organizationId);
 
+    if (payload.quantity > 1000) {
+      throw new BadRequestException('Procurement quantity cannot exceed 1000.');
+    }
+
     const targetDate = payload.targetDate || payload.expectedDeliveryDate;
+    if (targetDate) {
+      const targetYmd = targetDate.slice(0, 10);
+      if (targetYmd < getMinNeededDateString()) {
+        throw new BadRequestException('Target needed by date must be at least 2 days after the requesting day.');
+      }
+    }
     let targetDateDisplay = payload.targetDateDisplay;
     if (targetDate && !targetDateDisplay) {
       const parsed = Date.parse(targetDate);
@@ -200,7 +219,12 @@ export class ProcurementsService {
       updates.resourceType = payload.resourceType;
       updates.item = payload.resourceType;
     }
-    if (payload.quantity !== undefined) updates.quantity = payload.quantity;
+    if (payload.quantity !== undefined) {
+      if (payload.quantity > 1000) {
+        throw new BadRequestException('Procurement quantity cannot exceed 1000.');
+      }
+      updates.quantity = payload.quantity;
+    }
     if (payload.priority !== undefined) updates.priority = payload.priority;
     if (payload.justification !== undefined) {
       if (!payload.justification.trim()) {
@@ -209,6 +233,12 @@ export class ProcurementsService {
       updates.justification = payload.justification.trim();
     }
     if (payload.targetDate !== undefined) {
+      if (payload.targetDate) {
+        const targetYmd = payload.targetDate.slice(0, 10);
+        if (targetYmd < getMinNeededDateString()) {
+          throw new BadRequestException('Target needed by date must be at least 2 days after the requesting day.');
+        }
+      }
       updates.targetDate = payload.targetDate || undefined;
       updates.targetDateDisplay = payload.targetDate ? payload.targetDateDisplay : undefined;
       updates.expectedDeliveryDate = payload.targetDate || undefined;
