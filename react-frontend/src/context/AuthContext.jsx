@@ -1,57 +1,72 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
-  getCurrentUser,
+  setCredentials,
+  updateUserProfile,
+  logout as logoutAction,
+  setLoading,
+  selectCurrentUser,
+  selectIsAuthenticated,
+  selectAuthLoading
+} from '../store/slices/auth/authSlice';
+import {
   loginUser as apiLoginUser,
   logoutUser as apiLogoutUser,
-  persistSession
+  getCurrentUser
 } from '../services/auth';
 
 const AuthContext = createContext(null);
 
 /**
- * Global Authentication Provider
- * Manages reactive user session state and synchronizes with sessionStorage and backend auth APIs.
+ * Global Authentication Provider (Redux-Integrated Bridge)
+ * Uses Redux store as single source of truth while maintaining backward-compatibility
+ * with existing components during sector migration.
  */
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => getCurrentUser());
-  const [isLoading, setIsLoading] = useState(false);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
+  const isAuthenticated = useAppSelector(selectIsAuthenticated);
+  const isLoading = useAppSelector(selectAuthLoading);
 
-  /**
-   * Log in via backend API and update reactive state
-   */
+  // Sync with storage events across browser tabs
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'rx_data' || e.key === 'rx_token') {
+        const storedUser = getCurrentUser();
+        if (storedUser) {
+          dispatch(setCredentials(storedUser));
+        } else {
+          dispatch(logoutAction());
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [dispatch]);
+
   const login = useCallback(async (email, password, selectedOrgId) => {
-    setIsLoading(true);
+    dispatch(setLoading(true));
     try {
       const userObj = await apiLoginUser(email, password, selectedOrgId);
-      setUser(userObj);
+      dispatch(setCredentials(userObj));
       return userObj;
     } finally {
-      setIsLoading(false);
+      dispatch(setLoading(false));
     }
-  }, []);
+  }, [dispatch]);
 
-  /**
-   * Log out and clear reactive state
-   */
   const logout = useCallback(() => {
+    dispatch(logoutAction());
     apiLogoutUser();
-    setUser(null);
-  }, []);
+  }, [dispatch]);
 
-  /**
-   * Update active user attributes (e.g. name, preferences) and persist
-   */
   const updateUser = useCallback((updatedUserData) => {
-    setUser((prev) => {
-      const merged = { ...(prev || {}), ...updatedUserData };
-      persistSession(merged);
-      return merged;
-    });
-  }, []);
+    dispatch(updateUserProfile(updatedUserData));
+  }, [dispatch]);
 
   const value = {
     user,
-    isAuthenticated: Boolean(user),
+    isAuthenticated,
     isLoading,
     login,
     logout,
@@ -61,9 +76,6 @@ export function AuthProvider({ children }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-/**
- * Hook to consume the authentication context
- */
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {

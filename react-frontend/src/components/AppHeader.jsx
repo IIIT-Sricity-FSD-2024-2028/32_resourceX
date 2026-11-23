@@ -1,54 +1,46 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { fetchNotifications, markNotificationRead } from '../services/notifications';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { selectCurrentUser, logout } from '../store/slices/auth/authSlice';
+import { useGetNotificationsQuery, useMarkNotificationReadMutation } from '../store/slices/notifications/notificationsApi';
 import { highlightRecord, resolveNotificationDestination } from './common/notificationFocus';
 
 /**
- * Exact replica of the original AppHeader component from app-header.js
+ * Universal AppHeader component connected to Redux Toolkit & RTK Query
  */
 export default function AppHeader() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
 
-  const name = user?.name || 'yashwath';
+  const name = user?.name || 'User';
   const role = user?.role || 'Administrator';
 
-  const [notifications, setNotifications] = useState([]);
+  // RTK Query: Automatic polling every 15 seconds, caching, and background deduplication
+  const { data: rawNotifications = [], refetch: refetchNotifications } = useGetNotificationsQuery(undefined, {
+    pollingInterval: 15000,
+    skip: !user,
+  });
+
+  const notifications = Array.isArray(rawNotifications) ? rawNotifications : [];
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const list = await fetchNotifications();
-      setNotifications(Array.isArray(list) ? list : []);
-    } catch {
-      // Notifications are best-effort; ignore failures (e.g. expired session)
-    }
-  }, []);
-
-  useEffect(() => {
-    loadNotifications();
-    const timer = setInterval(loadNotifications, 15000);
-    return () => clearInterval(timer);
-  }, [loadNotifications]);
+  const [markNotificationRead] = useMarkNotificationReadMutation();
 
   const handleMarkAllRead = async () => {
     const unread = notifications.filter((n) => !n.read);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setShowNotifMenu(false);
-    await Promise.all(unread.map((n) => markNotificationRead(n.id).catch(() => null)));
+    await Promise.all(unread.map((n) => markNotificationRead(n.id).unwrap().catch(() => null)));
   };
 
-  const handleMarkRead = async (n) => {
+  const handleMarkRead = (n) => {
     if (n.read) return;
-    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)));
-    markNotificationRead(n.id).catch(() => null);
+    markNotificationRead(n.id).unwrap().catch(() => null);
   };
 
-  // Open the page (and card, where there is one) for the record the notification is about
   const handleOpenNotification = (n) => {
     handleMarkRead(n);
     const dest = resolveNotificationDestination(user?.role, n);
@@ -60,15 +52,12 @@ export default function AppHeader() {
 
   const handleLogout = (e) => {
     e.preventDefault();
-
-    logout();
+    dispatch(logout());
     navigate('/login');
-
   };
 
   return (
     <header className="top-header">
-      {/* Global search removed: each page provides its own search/filters */}
       <div style={{ flex: 1 }} />
 
       <div className="header-actions">
@@ -79,7 +68,7 @@ export default function AppHeader() {
             className="icon-btn notification-btn"
             title="Notifications"
             onClick={() => {
-              if (!showNotifMenu) loadNotifications();
+              if (!showNotifMenu) refetchNotifications();
               setShowNotifMenu(!showNotifMenu);
               setShowProfileMenu(false);
             }}
