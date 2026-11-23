@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useEditDeptProcurementMutation, useCancelDeptProcurementMutation } from '../../../../api/deptHeadApi';
-import { fetchDeptResourceTypes } from '../../../../services/deptHead';
+import { useLazyGetResourceCatalogQuery } from '../../../../api/requestorApi';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -92,6 +92,7 @@ function buildStages(proc) {
 export default function ProcurementDetailModal({ procurement, onClose, onChanged, addToast, onOpenFile }) {
   const [editDeptProcurementMutation] = useEditDeptProcurementMutation();
   const [cancelDeptProcurementMutation] = useCancelDeptProcurementMutation();
+  const [triggerGetCatalog] = useLazyGetResourceCatalogQuery();
 
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
@@ -130,7 +131,9 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     setNewSpec(null);
     setMode('edit');
     try {
-      setResourceTypes((await fetchDeptResourceTypes(proc.department)) || []);
+      const catalog = await triggerGetCatalog(proc.department ? { department: proc.department } : undefined).unwrap();
+      const entry = (catalog || []).find((c) => c.department === proc.department) || (catalog || [])[0];
+      setResourceTypes(entry ? [...(entry.resourceTypes || [])] : []);
     } catch {
       setResourceTypes([]);
     }

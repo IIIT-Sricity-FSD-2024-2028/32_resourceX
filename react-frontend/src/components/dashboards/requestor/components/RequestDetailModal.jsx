@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useEditRequestMutation, useCancelRequestMutation } from '../../../../api/requestorApi';
-import { fetchResourceCatalog } from '../../../../services/requestor';
+import {
+  useEditRequestMutation,
+  useCancelRequestMutation,
+  useLazyGetResourceCatalogQuery
+} from '../../../../api/requestorApi';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -80,6 +83,7 @@ function buildStages(req) {
 export default function RequestDetailModal({ request, onClose, onChanged, onConfirmReceipt, receiptLoading, addToast, onPreviewFile }) {
   const [editRequestMutation] = useEditRequestMutation();
   const [cancelRequestMutation] = useCancelRequestMutation();
+  const [triggerGetCatalog] = useLazyGetResourceCatalogQuery();
 
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
@@ -121,7 +125,7 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     setNewLetter(null);
     setMode('edit');
     try {
-      const catalog = await fetchResourceCatalog();
+      const catalog = await triggerGetCatalog().unwrap();
       const entry = (catalog || []).find((c) => c.department === request.department);
       setResourceTypes(entry?.resourceTypes || []);
     } catch {

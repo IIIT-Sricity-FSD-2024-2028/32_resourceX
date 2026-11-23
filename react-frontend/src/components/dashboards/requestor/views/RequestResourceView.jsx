@@ -5,9 +5,9 @@ import {
   useGetResourceCatalogQuery,
   useGetMyResourcesQuery,
   useCreateRequestMutation,
+  useLazyGetResourceAvailabilityQuery,
 } from '../../../../api/requestorApi';
 import { useGetDeptStockQuery } from '../../../../api/deptHeadApi';
-import { fetchResourceAvailability } from '../../../../services/requestor';
 import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
@@ -17,6 +17,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const { data: stock = [] } = useGetDeptStockQuery();
   const { data: existingResources = [] } = useGetMyResourcesQuery();
   const [createRequestMutation, { isLoading: submitting }] = useCreateRequestMutation();
+  const [triggerGetAvailability] = useLazyGetResourceAvailabilityQuery();
 
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -69,7 +70,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
     if (selectedDept && type) {
       setCheckingAvailability(true);
       try {
-        const avail = await fetchResourceAvailability(selectedDept, type);
+        const avail = await triggerGetAvailability({ department: selectedDept, type }).unwrap();
         setAvailableCount(Number(avail?.availableCount || 0));
       } catch (err) {
         console.error('Failed to check resource availability:', err);
