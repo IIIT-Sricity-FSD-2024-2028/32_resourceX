@@ -2,13 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import AdminStatsCards from '../components/AdminStatsCards';
 import AdminModal from '../components/AdminModal';
-import {
-  fetchAdminUsers,
-  fetchAdminDepartments,
-  updateAdminUser,
-  deactivateAdminUser
-} from '../../../../services/admin';
+import EditUserModal from '../components/EditUserModal';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchAdminOverview,
+  fetchUsers,
+  updateUser,
+  deactivateUser,
+  selectAdminUsers,
+  selectAdminDepartments,
+  selectAdminOverviewLoading,
+  selectUserOperationLoading,
+} from '../../../../store/slices/admin/adminSlice';
 
 export function renderRoleBadge(role) {
   if (role === 'Dept Head') {
@@ -43,108 +49,66 @@ export function renderRoleBadge(role) {
 }
 
 /**
- * Exact replica of dashboard-view from admin.html
+ * AdminOverview View
+ * Displays high-level system metrics, topology stats, and recent user accounts.
+ * Fully integrated with Redux Toolkit (adminSlice).
  */
 export default function AdminOverview() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [users, setUsers] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Redux state selectors
+  const users = useAppSelector(selectAdminUsers);
+  const departments = useAppSelector(selectAdminDepartments);
+  const isLoading = useAppSelector(selectAdminOverviewLoading);
+  const isOperating = useAppSelector(selectUserOperationLoading);
+
+  // Local UI states
   const [search, setSearch] = useState('');
-
-  // Edit User Modal state
-  const [editUser, setEditUser] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('Requestor');
-  const [editDept, setEditDept] = useState('');
-  const [editStatus, setEditStatus] = useState('Active');
-  const [editPassword, setEditPassword] = useState('');
-
-  // Delete User Modal state
+  const [editUserTarget, setEditUserTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [uList, dList] = await Promise.all([
-        fetchAdminUsers(),
-        fetchAdminDepartments().catch(() => [])
-      ]);
-      setUsers(uList || []);
-      setDepartments(dList || []);
-    } catch (err) {
-      addToast(err.message || 'Failed to load dashboard data', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Initial data dispatch
   useEffect(() => {
-    loadData();
-  }, []);
+    dispatch(fetchAdminOverview())
+      .unwrap()
+      .catch((err) => {
+        addToast(err || 'Failed to load administrative overview', 'error');
+      });
+  }, [dispatch, addToast]);
 
   const roles = new Set(users.map((u) => u.role));
   const displayUsers = [...users].reverse();
-  const managableUsers = displayUsers.filter((u) => u.role !== 'System Admin');
-  const recentUsers = managableUsers
+  const manageableUsers = displayUsers.filter((u) => u.role !== 'System Admin');
+  const recentUsers = manageableUsers
     .filter((u) => matchesSearch(search, u.name, u.email, u.role, u.department, u.status))
     .slice(0, 5);
 
-  const openEditModal = (user) => {
-    setEditUser(user);
-    setEditName(user.name || '');
-    setEditRole(user.role || 'Requestor');
-    setEditDept(user.department || (departments[0]?.name || ''));
-    setEditStatus(user.status || 'Active');
-    setEditPassword('');
-  };
-
-  const handleSaveEdit = async () => {
-    const nameRegex = /^[a-zA-Z0-9\s.-]+$/;
-    if (!editName.trim()) {
-      addToast('Name cannot be empty.', 'error');
-      return;
-    }
-    if (!nameRegex.test(editName.trim())) {
-      addToast('Name can only contain characters and numbers.', 'error');
-      return;
-    }
-    if (editPassword && editPassword.length < 6) {
-      addToast('Password must be at least 6 characters long.', 'error');
-      return;
-    }
-
+  const handleSaveEdit = async (updates) => {
+    if (!editUserTarget) return;
     try {
-      const updates = {
-        name: editName.trim(),
-        role: editRole,
-        department: editDept,
-        status: editStatus
-      };
-      if (editPassword) {
-        updates.password = editPassword;
-      }
-      await updateAdminUser(editUser.id, updates);
-      addToast('User details updated permanently.', 'success');
-      setEditUser(null);
-      loadData();
+      await dispatch(updateUser({ id: editUserTarget.id, updates })).unwrap();
+      addToast('User details updated successfully.', 'success');
+      setEditUserTarget(null);
+      // Refresh list to maintain state consistency
+      dispatch(fetchUsers());
     } catch (err) {
-      addToast(err.message || 'Failed to update user', 'error');
+      addToast(err || 'Failed to update user', 'error');
+      throw err;
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await updateAdminUser(deleteTarget.id, { status: 'Inactive' });
-      addToast('User deactivated.', 'success');
+      await dispatch(deactivateUser(deleteTarget.id)).unwrap();
+      addToast('User account deactivated.', 'success');
       setDeleteTarget(null);
-      loadData();
+      dispatch(fetchUsers());
     } catch (err) {
-      addToast(err.message || 'Failed to deactivate user', 'error');
+      addToast(err || 'Failed to deactivate user', 'error');
     }
   };
 
@@ -173,11 +137,13 @@ export default function AdminOverview() {
             View All
           </button>
         </div>
+
         <TableToolbar
           search={search}
           onSearchChange={setSearch}
           placeholder="Search users by name, email, role or department..."
         />
+
         <table className="table">
           <thead>
             <tr>
@@ -198,42 +164,67 @@ export default function AdminOverview() {
             ) : recentUsers.length === 0 ? (
               <tr>
                 <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  {search.trim() ? 'No users match your search.' : 'No users available.'}
+                  No users found matching query.
                 </td>
               </tr>
             ) : (
               recentUsers.map((u) => (
                 <tr key={u.id}>
-                  <td style={{ fontWeight: 600 }}>
-                    {u.name}
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'normal' }}>
-                      {u.email}
-                    </div>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{u.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{u.email}</div>
                   </td>
                   <td>{renderRoleBadge(u.role)}</td>
-                  <td>{u.department}</td>
+                  <td>{u.department || 'N/A'}</td>
                   <td>
-                    <span className="badge allocated">{u.status || 'Active'}</span>
+                    <span
+                      className={`badge ${
+                        u.status === 'Active'
+                          ? 'active'
+                          : u.status === 'Suspended'
+                          ? 'pending'
+                          : 'rejected'
+                      }`}
+                      style={
+                        u.status === 'Active'
+                          ? { background: '#dcfce7', color: '#15803d' }
+                          : u.status === 'Suspended'
+                          ? { background: '#fef3c7', color: '#b45309' }
+                          : { background: '#fee2e2', color: '#b91c1c' }
+                      }
+                    >
+                      {u.status || 'Active'}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ fontSize: '0.75rem' }}
-                      onClick={() => openEditModal(u)}
-                    >
-                      Edit Access
-                    </button>
-                    {u.role !== 'System Admin' && (
+                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                       <button
                         type="button"
-                        className="btn-danger"
-                        style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }}
-                        onClick={() => setDeleteTarget(u)}
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => setEditUserTarget(u)}
                       >
-                        Delete
+                        Edit
                       </button>
-                    )}
+                      {u.status !== 'Inactive' && (
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.75rem',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setDeleteTarget(u)}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -243,95 +234,28 @@ export default function AdminOverview() {
       </div>
 
       {/* Edit User Modal */}
-      <AdminModal
-        isOpen={Boolean(editUser)}
-        title="Edit User"
-        onClose={() => setEditUser(null)}
-        onConfirm={handleSaveEdit}
-        confirmText="Confirm"
-      >
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Name</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Role</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editRole}
-            onChange={(e) => setEditRole(e.target.value)}
-          >
-            <option value="Requestor">Requestor</option>
-            <option value="Dept Head">Dept Head</option>
-            <option value="Registrar">Registrar</option>
-            <option value="Inventory Officer">Inventory Officer</option>
-            <option value="Maintenance Officer">Maintenance Officer</option>
-            <option value="Procurement Officer">Procurement Officer</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editDept}
-            onChange={(e) => setEditDept(e.target.value)}
-          >
-            {departments.map((d) => (
-              <option key={d.id} value={d.name}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Account Status</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editStatus}
-            onChange={(e) => setEditStatus(e.target.value)}
-          >
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Suspended">Suspended</option>
-          </select>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-            New Password{' '}
-            <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'normal' }}>
-              (Leave blank to keep current)
-            </span>
-          </label>
-          <input
-            type="password"
-            placeholder="Enter new password"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editPassword}
-            onChange={(e) => setEditPassword(e.target.value)}
-          />
-        </div>
-      </AdminModal>
+      <EditUserModal
+        isOpen={Boolean(editUserTarget)}
+        user={editUserTarget}
+        onClose={() => setEditUserTarget(null)}
+        onSave={handleSaveEdit}
+        departments={departments}
+        users={users}
+        isSubmitting={isOperating}
+      />
 
-      {/* Deactivate User Modal */}
+      {/* Deactivate User Confirmation Modal */}
       <AdminModal
         isOpen={Boolean(deleteTarget)}
-        title="Deactivate User"
+        title="Confirm Deactivation"
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
-        confirmText="Confirm"
+        confirmText="Deactivate"
+        confirmButtonClass="btn-danger"
       >
-        <p style={{ color: '#64748b', margin: 0 }}>
-          Are you absolutely sure you want to deactivate this user? They will lose access immediately.
+        <p style={{ margin: 0, color: '#334155', fontSize: '0.875rem' }}>
+          Are you sure you want to deactivate access for user{' '}
+          <strong>{deleteTarget?.name}</strong>? This user will no longer be able to log in.
         </p>
       </AdminModal>
     </div>

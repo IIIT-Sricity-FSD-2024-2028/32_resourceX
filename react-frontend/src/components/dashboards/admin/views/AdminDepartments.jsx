@@ -1,26 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import AdminModal from '../components/AdminModal';
+import AddDeptModal from '../components/AddDeptModal';
+import { matchesSearch } from '../../../common/TableToolbar';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import {
-  fetchAdminDepartments,
-  createAdminDepartment,
-  updateAdminDepartment,
-  deleteAdminDepartment,
-  fetchResourceCatalog,
-  updateResourceCatalog
-} from '../../../../services/admin';
-import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
+  fetchDepartments,
+  createDepartment,
+  updateDepartment,
+  deleteDepartment,
+  fetchCatalog,
+  updateCatalog,
+  selectAdminDepartments,
+  selectAdminCatalog,
+  selectAdminDeptsLoading,
+  selectDeptOperationLoading,
+} from '../../../../store/slices/admin/adminSlice';
 
 /**
- * Exact replica of dept-manage-view from admin.html
+ * AdminDepartments View
+ * Manages institutional departments and associated resource catalog types.
+ * Fully integrated with Redux Toolkit (adminSlice).
  */
 export default function AdminDepartments() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [departments, setDepartments] = useState([]);
-  const [catalog, setCatalog] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Redux state
+  const departments = useAppSelector(selectAdminDepartments);
+  const catalog = useAppSelector(selectAdminCatalog);
+  const isLoading = useAppSelector(selectAdminDeptsLoading);
+  const isOperating = useAppSelector(selectDeptOperationLoading);
 
   // Catalog View sub-mode
   const [activeCatalogDept, setActiveCatalogDept] = useState(null);
@@ -28,78 +39,36 @@ export default function AdminDepartments() {
   const [deptSearch, setDeptSearch] = useState('');
   const [headFilter, setHeadFilter] = useState('All');
 
-  // Add Dept Modal
+  // Modals state
   const [isAddDeptOpen, setIsAddDeptOpen] = useState(false);
-  const [addDeptName, setAddDeptName] = useState('');
-
-  // Edit Dept Modal
   const [editDeptTarget, setEditDeptTarget] = useState(null);
   const [editDeptName, setEditDeptName] = useState('');
   const [editDeptMembers, setEditDeptMembers] = useState(0);
-
-  // Delete Dept Modal
   const [deleteDeptTarget, setDeleteDeptTarget] = useState(null);
 
-  // Catalog Modals
+  // Catalog Modals state
   const [isAddTypeOpen, setIsAddTypeOpen] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
-
   const [renameTypeTarget, setRenameTypeTarget] = useState(null);
   const [renamedTypeName, setRenamedTypeName] = useState('');
-
   const [deleteTypeTarget, setDeleteTypeTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [dList, cList] = await Promise.all([
-        fetchAdminDepartments(),
-        fetchResourceCatalog().catch(() => [])
-      ]);
-      setDepartments(dList || []);
-      setCatalog(cList || []);
-    } catch (err) {
-      addToast(err.message || 'Failed to load department data', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Initial data dispatch
   useEffect(() => {
-    loadData();
-  }, []);
+    dispatch(fetchDepartments());
+    dispatch(fetchCatalog());
+  }, [dispatch]);
 
-  // Department CRUD
-  const handleSaveAddDept = async () => {
-    const nameRegex = /^[a-zA-Z\s.-]+$/;
-
-    const name = addDeptName.trim();
-
-    if (!name) {
-      addToast('Please enter a department name.', 'error');
-      return;
-    }
-    if (!nameRegex.test(name)) {
-      addToast('Department name can only contain letters, spaces, hyphens and dots.', 'error');
-      return;
-    }
-
-    const exists = departments.some((d) => d.name.toLowerCase() === name.toLowerCase());
-    if (exists) {
-      addToast('A department with this name already exists.', 'error');
-      return;
-    }
-
+  // Department CRUD Handlers
+  const handleSaveAddDept = async (name) => {
     try {
-      await createAdminDepartment({
-        name,
-        memberCount: 0
-      });
+      await dispatch(createDepartment({ name, memberCount: 0 })).unwrap();
       addToast('Department added successfully.', 'success');
       setIsAddDeptOpen(false);
-      loadData();
+      dispatch(fetchDepartments());
     } catch (err) {
-      addToast(err.message || 'Failed to add department', 'error');
+      addToast(err || 'Failed to add department', 'error');
+      throw err;
     }
   };
 
@@ -111,7 +80,6 @@ export default function AdminDepartments() {
 
   const handleSaveEditDept = async () => {
     const nameRegex = /^[a-zA-Z\s.-]+$/;
-
     const name = editDeptName.trim();
     const members = parseInt(editDeptMembers, 10);
 
@@ -137,31 +105,33 @@ export default function AdminDepartments() {
     }
 
     try {
-      await updateAdminDepartment(editDeptTarget.id, {
-        name,
-        memberCount: members
-      });
+      await dispatch(
+        updateDepartment({
+          id: editDeptTarget.id,
+          updates: { name, memberCount: members },
+        })
+      ).unwrap();
       addToast('Department updated successfully.', 'success');
       setEditDeptTarget(null);
-      loadData();
+      dispatch(fetchDepartments());
     } catch (err) {
-      addToast(err.message || 'Failed to update department', 'error');
+      addToast(err || 'Failed to update department', 'error');
     }
   };
 
   const handleConfirmDeleteDept = async () => {
     if (!deleteDeptTarget) return;
     try {
-      await deleteAdminDepartment(deleteDeptTarget.id);
+      await dispatch(deleteDepartment(deleteDeptTarget.id)).unwrap();
       addToast('Department securely removed.', 'warning');
       setDeleteDeptTarget(null);
-      loadData();
+      dispatch(fetchDepartments());
     } catch (err) {
-      addToast(err.message || 'Failed to delete department', 'error');
+      addToast(err || 'Failed to delete department', 'error');
     }
   };
 
-  // Catalog CRUD
+  // Catalog Helper and Handlers
   const getDeptTypes = (deptName) => {
     const entry = catalog.find((item) => item.department === deptName);
     return entry ? entry.resourceTypes || [] : [];
@@ -181,13 +151,15 @@ export default function AdminDepartments() {
 
     try {
       const updated = [...currentTypes, val];
-      await updateResourceCatalog(activeCatalogDept, updated);
+      await dispatch(
+        updateCatalog({ department: activeCatalogDept, resourceTypes: updated })
+      ).unwrap();
       addToast('Resource type added successfully.', 'success');
       setIsAddTypeOpen(false);
       setNewTypeName('');
-      loadData();
+      dispatch(fetchCatalog());
     } catch (err) {
-      addToast(err.message || 'Failed to add resource type.', 'error');
+      addToast(err || 'Failed to add resource type.', 'error');
     }
   };
 
@@ -202,19 +174,27 @@ export default function AdminDepartments() {
       return;
     }
     const currentTypes = getDeptTypes(activeCatalogDept);
-    if (currentTypes.some((t) => t.toLowerCase() === val.toLowerCase() && t.toLowerCase() !== renameTypeTarget.toLowerCase())) {
+    if (
+      currentTypes.some(
+        (t) =>
+          t.toLowerCase() === val.toLowerCase() &&
+          t.toLowerCase() !== renameTypeTarget.toLowerCase()
+      )
+    ) {
       addToast('Another resource type with this name already exists.', 'error');
       return;
     }
 
     try {
       const updated = currentTypes.map((t) => (t === renameTypeTarget ? val : t));
-      await updateResourceCatalog(activeCatalogDept, updated);
+      await dispatch(
+        updateCatalog({ department: activeCatalogDept, resourceTypes: updated })
+      ).unwrap();
       addToast('Resource type renamed and records propagated successfully.', 'success');
       setRenameTypeTarget(null);
-      loadData();
+      dispatch(fetchCatalog());
     } catch (err) {
-      addToast(err.message || 'Failed to rename resource type.', 'error');
+      addToast(err || 'Failed to rename resource type.', 'error');
     }
   };
 
@@ -223,16 +203,18 @@ export default function AdminDepartments() {
     try {
       const currentTypes = getDeptTypes(activeCatalogDept);
       const updated = currentTypes.filter((t) => t !== deleteTypeTarget);
-      await updateResourceCatalog(activeCatalogDept, updated);
+      await dispatch(
+        updateCatalog({ department: activeCatalogDept, resourceTypes: updated })
+      ).unwrap();
       addToast('Resource type removed from catalog.', 'warning');
       setDeleteTypeTarget(null);
-      loadData();
+      dispatch(fetchCatalog());
     } catch (err) {
-      addToast(err.message || 'Failed to remove resource type.', 'error');
+      addToast(err || 'Failed to remove resource type.', 'error');
     }
   };
 
-  // If viewing Catalog
+  // If viewing Catalog sub-mode
   if (activeCatalogDept) {
     const allowedTypes = getDeptTypes(activeCatalogDept);
     const filteredTypes = allowedTypes.filter((t) =>
@@ -242,360 +224,352 @@ export default function AdminDepartments() {
     return (
       <div id="dept-manage-view" className="view-section active">
         <h1 className="page-title">Department Topology</h1>
-        <p className="page-subtitle">Define organizational structures. Department heads are assigned from User Management.</p>
+        <p className="page-subtitle">
+          Define organizational structures. Department heads are assigned from User Management.
+        </p>
 
-        <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+        <div
+          style={{
+            background: 'white',
+            padding: '2rem',
+            borderRadius: '12px',
+            border: '1px solid #e2e8f0',
+          }}
+        >
           <div style={{ marginBottom: '1rem', textAlign: 'left' }}>
             <button
               type="button"
               className="btn-secondary"
-              onClick={() => setActiveCatalogDept(null)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                marginBottom: '1.5rem'
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8125rem' }}
+              onClick={() => {
+                setActiveCatalogDept(null);
+                setCatalogSearch('');
               }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', verticalAlign: 'middle' }}>
-                arrow_back
-              </span>{' '}
-              Back to Departments
+              &larr; Back to Department List
             </button>
-
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#0f172a' }}>
-              {activeCatalogDept} - Resource Catalog
-            </h3>
-            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-              Configure and manage allowed resource types for this department with full CRUD operations.
-            </p>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-                gap: '1rem',
-                flexWrap: 'wrap'
-              }}
-            >
-              <div
-                className="search-bar"
-                style={{
-                  width: '250px',
-                  margin: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  border: '1px solid #cbd5e1',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '6px',
-                  background: '#fff'
-                }}
-              >
-                <span className="material-symbols-outlined" style={{ color: '#94a3b8', fontSize: '1.25rem' }}>
-                  search
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search types..."
-                  value={catalogSearch}
-                  onChange={(e) => setCatalogSearch(e.target.value)}
-                  style={{
-                    border: 'none',
-                    outline: 'none',
-                    fontSize: '0.875rem',
-                    width: '100%',
-                    marginLeft: '0.25rem'
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  setNewTypeName('');
-                  setIsAddTypeOpen(true);
-                }}
-              >
-                + Add Resource Type
-              </button>
-            </div>
-
-            <div
-              className="table-responsive"
-              style={{
-                background: '#fff',
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                padding: '0.5rem'
-              }}
-            >
-              <table className="table" style={{ margin: 0 }}>
-                <thead>
-                  <tr>
-                    <th style={{ borderBottom: '2px solid #e2e8f0' }}>Resource Type Name</th>
-                    <th style={{ textAlign: 'right', width: '180px', borderBottom: '2px solid #e2e8f0' }}>
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody id="catalog-types-tbody">
-                  {allowedTypes.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan="2"
-                        style={{
-                          textAlign: 'center',
-                          color: '#64748b',
-                          fontStyle: 'italic',
-                          padding: '2rem'
-                        }}
-                      >
-                        No resource types configured. Click "+ Add Resource Type" to begin.
-                      </td>
-                    </tr>
-                  ) : filteredTypes.length === 0 ? (
-                    <tr>
-                      <td colSpan="2" style={{ textAlign: 'center', color: '#64748b', padding: '1.5rem' }}>
-                        No types matching filter.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredTypes.map((type) => (
-                      <tr key={type}>
-                        <td>
-                          <strong style={{ color: '#1e293b', fontSize: '0.95rem' }}>{type}</strong>
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="btn-secondary"
-                            style={{
-                              padding: '0.25rem 0.5rem',
-                              fontSize: '0.75rem',
-                              marginRight: '0.25rem'
-                            }}
-                            onClick={() => {
-                              setRenameTypeTarget(type);
-                              setRenamedTypeName(type);
-                            }}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-danger"
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                            onClick={() => setDeleteTypeTarget(type)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+                Catalog Resource Types:{' '}
+                <span style={{ color: '#2563eb' }}>{activeCatalogDept}</span>
+              </h2>
+              <p style={{ margin: '0.25rem 0 0', color: '#64748b', fontSize: '0.875rem' }}>
+                Specify which physical equipment and asset categories can be requested in this department.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                setNewTypeName('');
+                setIsAddTypeOpen(true);
+              }}
+            >
+              + Add Resource Type
+            </button>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem', maxWidth: '350px' }}>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search resource types..."
+              value={catalogSearch}
+              onChange={(e) => setCatalogSearch(e.target.value)}
+            />
+          </div>
+
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Resource Type Name</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredTypes.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan="2"
+                    style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}
+                  >
+                    No resource types registered for this department.
+                  </td>
+                </tr>
+              ) : (
+                filteredTypes.map((type) => (
+                  <tr key={type}>
+                    <td>
+                      <span style={{ fontWeight: 600, color: '#1e293b' }}>{type}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                          onClick={() => {
+                            setRenameTypeTarget(type);
+                            setRenamedTypeName(type);
+                          }}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.75rem',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setDeleteTypeTarget(type)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Add Type Modal */}
         <AdminModal
           isOpen={isAddTypeOpen}
-          title="Add Resource Type to Catalog"
+          title={`Add Resource Type to ${activeCatalogDept}`}
           onClose={() => setIsAddTypeOpen(false)}
           onConfirm={handleSaveAddType}
-          confirmText="Confirm"
+          confirmText="Add Type"
         >
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-              Resource Type Name
-            </label>
+          <div className="form-group">
+            <label className="form-label">Resource Type Title</label>
             <input
               type="text"
               className="form-control"
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-              placeholder="e.g. Developer Laptops"
+              placeholder="e.g. GPU Workstations"
               value={newTypeName}
               onChange={(e) => setNewTypeName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSaveAddType();
+                }
+              }}
             />
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-              Enter the category/type of resources for this department.
-            </div>
           </div>
         </AdminModal>
 
         {/* Rename Type Modal */}
         <AdminModal
           isOpen={Boolean(renameTypeTarget)}
-          title="Rename Resource Type"
+          title={`Rename Resource Type (${renameTypeTarget})`}
           onClose={() => setRenameTypeTarget(null)}
           onConfirm={handleSaveRenameType}
-          confirmText="Confirm"
+          confirmText="Save Name"
         >
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-              Rename Resource Type
-            </label>
+          <div className="form-group">
+            <label className="form-label">Updated Type Title</label>
             <input
               type="text"
               className="form-control"
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
               value={renamedTypeName}
               onChange={(e) => setRenamedTypeName(e.target.value)}
             />
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-              Existing requests, procurements, and resources of this type will be updated automatically.
-            </div>
           </div>
         </AdminModal>
 
         {/* Delete Type Modal */}
         <AdminModal
           isOpen={Boolean(deleteTypeTarget)}
-          title="Delete Resource Type"
+          title="Remove Resource Type"
           onClose={() => setDeleteTypeTarget(null)}
           onConfirm={handleConfirmDeleteType}
-          confirmText="Confirm"
+          confirmText="Remove"
+          confirmButtonClass="btn-danger"
         >
-          <p style={{ color: '#b91c1c', margin: 0 }}>
-            Warning: Are you sure you want to delete <strong>"{deleteTypeTarget}"</strong> from the catalog?
-            This will prevent users from submitting any new requests or procurements for this resource type.
+          <p style={{ margin: 0, color: '#334155', fontSize: '0.875rem' }}>
+            Are you sure you want to remove <strong>{deleteTypeTarget}</strong> from the catalog for{' '}
+            <strong>{activeCatalogDept}</strong>?
           </p>
         </AdminModal>
       </div>
     );
   }
 
-  // Regular Department Topology View
-  const visibleDepartments = departments.filter((d) =>
-    (headFilter === 'All' || (headFilter === 'Head Assigned') === Boolean(d.head)) &&
-    matchesSearch(deptSearch, d.name, d.id, d.head)
-  );
+  // Filter department list
+  const filteredDepts = departments.filter((d) => {
+    if (headFilter === 'Assigned' && (!d.head || d.head === 'Unassigned')) return false;
+    if (headFilter === 'Unassigned' && d.head && d.head !== 'Unassigned') return false;
+    return matchesSearch(deptSearch, d.id, d.name, d.head, d.memberCount);
+  });
 
   return (
     <div id="dept-manage-view" className="view-section active">
       <h1 className="page-title">Department Topology</h1>
-      <p className="page-subtitle">Define organizational structures. Department heads are assigned from User Management.</p>
+      <p className="page-subtitle">
+        Define organizational structures. Department heads are assigned from User Management.
+      </p>
 
+      {/* Control Bar: Add Button, Head Filter, and Search */}
       <div
         style={{
-          background: 'white',
-          padding: '2rem',
-          borderRadius: '12px',
-          border: '1px solid #e2e8f0',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem'
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: '1.5rem',
         }}
       >
-        <TableToolbar
-          search={deptSearch}
-          onSearchChange={setDeptSearch}
-          placeholder="Search by department name, ID or head..."
-          filters={[
-            { label: 'All Departments', value: headFilter, onChange: setHeadFilter, options: ['Head Assigned', 'No Head'] },
-          ]}
-          resultCount={visibleDepartments.length}
-          totalCount={departments.length}
-        />
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-            Loading department topology...
-          </div>
-        ) : visibleDepartments.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-            {departments.length === 0 ? 'No departments found.' : 'No departments match your search.'}
-          </div>
-        ) : (
-          visibleDepartments.map((d) => (
-            <div
-              key={d.id}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingBottom: '1rem',
-                borderBottom: '1px solid #e2e8f0',
-                marginBottom: '1rem'
-              }}
-            >
-              <div>
-                <strong style={{ fontSize: '1.1rem', color: 'var(--primary-color)' }}>{d.name}</strong>
-                <div style={{ color: '#64748b', fontSize: '0.875rem' }}>
-                  ID: {d.id} | Head: {d.head || 'Not assigned'} | Members: {d.memberCount ?? 0}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  style={{ fontSize: '0.75rem', background: '#3b82f6', borderColor: '#3b82f6' }}
-                  onClick={() => setActiveCatalogDept(d.name)}
-                >
-                  Catalog
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '0.75rem' }}
-                  onClick={() => openEditDept(d)}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="btn-danger"
-                  style={{ fontSize: '0.75rem' }}
-                  onClick={() => setDeleteDeptTarget(d)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+        <button
+          type="button"
+          className="btn-primary"
+          id="open-add-dept-btn"
+          onClick={() => setIsAddDeptOpen(true)}
+        >
+          + Add New Department
+        </button>
 
-        <div style={{ marginTop: '1rem' }}>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => {
-              setAddDeptName('');
-              setIsAddDeptOpen(true);
-            }}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <select
+            className="form-control"
+            style={{ width: 'auto', minWidth: '150px' }}
+            value={headFilter}
+            onChange={(e) => setHeadFilter(e.target.value)}
           >
-            + Add New Department
-          </button>
-        </div>
-      </div>
+            <option value="All">All Departments</option>
+            <option value="Assigned">With Assigned Head</option>
+            <option value="Unassigned">Without Head</option>
+          </select>
 
-      {/* Add Department Modal */}
-      <AdminModal
-        isOpen={isAddDeptOpen}
-        title="Add New Department"
-        onClose={() => setIsAddDeptOpen(false)}
-        onConfirm={handleSaveAddDept}
-        confirmText="Confirm"
-      >
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-            Department Name
-          </label>
           <input
             type="text"
             className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="e.g. IT Services"
-            value={addDeptName}
-            onChange={(e) => setAddDeptName(e.target.value)}
+            placeholder="Search departments..."
+            style={{ width: '220px' }}
+            value={deptSearch}
+            onChange={(e) => setDeptSearch(e.target.value)}
           />
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            Letters, spaces, hyphens and dots only.
-          </div>
         </div>
-      </AdminModal>
+      </div>
+
+      {/* Department Table */}
+      <div className="data-section">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Department Name</th>
+              <th>Department Head</th>
+              <th>Active Members</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dept-table-tbody">
+            {isLoading ? (
+              <tr>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  Loading departments...
+                </td>
+              </tr>
+            ) : filteredDepts.length === 0 ? (
+              <tr>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  No departments found.
+                </td>
+              </tr>
+            ) : (
+              filteredDepts.map((d) => (
+                <tr key={d.id}>
+                  <td style={{ fontWeight: 600, color: '#64748b' }}>{d.id}</td>
+                  <td>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{d.name}</div>
+                  </td>
+                  <td>
+                    {d.head && d.head !== 'Unassigned' ? (
+                      <span className="badge pending" style={{ background: '#dbeafe', color: '#1d4ed8' }}>
+                        {d.head}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.8125rem' }}>
+                        No Head Assigned
+                      </span>
+                    )}
+                  </td>
+                  <td>{d.memberCount || 0} users</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => {
+                          setActiveCatalogDept(d.name);
+                          setCatalogSearch('');
+                        }}
+                      >
+                        Manage Catalog
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => openEditDept(d)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-danger"
+                        style={{
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.75rem',
+                          background: '#fee2e2',
+                          color: '#b91c1c',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setDeleteDeptTarget(d)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Department Modal */}
+      <AddDeptModal
+        isOpen={isAddDeptOpen}
+        onClose={() => setIsAddDeptOpen(false)}
+        onSubmit={handleSaveAddDept}
+        departments={departments}
+        isSubmitting={isOperating}
+      />
 
       {/* Edit Department Modal */}
       <AdminModal
@@ -603,33 +577,32 @@ export default function AdminDepartments() {
         title="Edit Department"
         onClose={() => setEditDeptTarget(null)}
         onConfirm={handleSaveEditDept}
-        confirmText="Confirm"
+        confirmText="Save Changes"
       >
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
-            Department Name
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editDeptName}
-            onChange={(e) => setEditDeptName(e.target.value)}
-          />
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            Letters, spaces, hyphens and dots only.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+          <div>
+            <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+              Department Name <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <input
+              type="text"
+              className="form-control"
+              value={editDeptName}
+              onChange={(e) => setEditDeptName(e.target.value)}
+            />
           </div>
-        </div>
-        <div>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Member Count</label>
-          <input
-            type="number"
-            min="0"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editDeptMembers}
-            onChange={(e) => setEditDeptMembers(e.target.value)}
-          />
+          <div>
+            <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600 }}>
+              Member Count
+            </label>
+            <input
+              type="number"
+              className="form-control"
+              min="0"
+              value={editDeptMembers}
+              onChange={(e) => setEditDeptMembers(e.target.value)}
+            />
+          </div>
         </div>
       </AdminModal>
 
@@ -639,10 +612,12 @@ export default function AdminDepartments() {
         title="Delete Department"
         onClose={() => setDeleteDeptTarget(null)}
         onConfirm={handleConfirmDeleteDept}
-        confirmText="Confirm"
+        confirmText="Delete"
+        confirmButtonClass="btn-danger"
       >
-        <p style={{ color: '#b91c1c', margin: 0 }}>
-          Warning: Deleting this department affects all linked associated users and active resources. Proceed at your own risk.
+        <p style={{ margin: 0, color: '#334155', fontSize: '0.875rem' }}>
+          Are you sure you want to delete department{' '}
+          <strong>{deleteDeptTarget?.name}</strong>? This action cannot be undone.
         </p>
       </AdminModal>
     </div>
