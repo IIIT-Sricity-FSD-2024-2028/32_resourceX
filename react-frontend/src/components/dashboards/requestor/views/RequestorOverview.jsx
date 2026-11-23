@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useAppSelector } from '../../../../store/hooks';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
 import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchRequestorDashboardOverview,
   fetchRequestorReturnHistory,
   fetchRequestorMaintenanceHistory
-} from '../../../../services/requestor';
+} from '../../../../store/slices/requestor/requestorSlice';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function RequestorOverview({ onSwitchView }) {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
   const [loading, setLoading] = useState(true);
   const [requestSearch, setRequestSearch] = useState('');
@@ -21,13 +22,13 @@ export default function RequestorOverview({ onSwitchView }) {
     maintenanceHistory: []
   });
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [res, returns, maint] = await Promise.all([
-        fetchRequestorDashboardOverview(),
-        fetchRequestorReturnHistory().catch(() => []),
-        fetchRequestorMaintenanceHistory().catch(() => [])
+        dispatch(fetchRequestorDashboardOverview()).unwrap().catch(() => ({})),
+        dispatch(fetchRequestorReturnHistory()).unwrap().catch(() => []),
+        dispatch(fetchRequestorMaintenanceHistory()).unwrap().catch(() => [])
       ]);
       setData({
         requests: res.requests || [],
@@ -41,11 +42,11 @@ export default function RequestorOverview({ onSwitchView }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const myRequests = data.requests || [];
   const uName = user?.name ? user.name.trim().toLowerCase() : '';

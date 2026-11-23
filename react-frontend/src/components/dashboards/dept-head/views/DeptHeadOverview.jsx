@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptDashboardOverview } from '../../../../services/deptHead';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
+import { fetchDeptDashboardOverview } from '../../../../store/slices/dept-head/deptHeadSlice';
 import {
   StatusBadge,
   EmptyRow,
@@ -17,7 +18,8 @@ import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
  */
 export default function DeptHeadOverview() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const { addToast = () => {} } = useOutletContext() || {};
 
   const [data, setData] = useState(null);
@@ -32,15 +34,15 @@ export default function DeptHeadOverview() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await fetchDeptDashboardOverview();
+      const result = await dispatch(fetchDeptDashboardOverview()).unwrap();
       setData(result);
     } catch (err) {
-      setError(err.message || 'Failed to load department dashboard.');
-      addToast(err.message || 'Error loading dashboard', 'error');
+      setError(err || 'Failed to load department dashboard.');
+      addToast(err || 'Error loading dashboard', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadData();

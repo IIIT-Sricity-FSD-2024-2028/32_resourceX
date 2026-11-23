@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchDepartments,
   fetchResourceCatalog,
@@ -7,10 +8,11 @@ import {
   fetchResources,
   fetchProcurements,
   createProcurement
-} from '../../../../services/requestor';
+} from '../../../../store/slices/requestor/requestorSlice';
 
 export default function ProcurementView({ addToast, onPreviewFile }) {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const [departments, setDepartments] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [stock, setStock] = useState([]);
@@ -29,15 +31,15 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [depts, cat, stk, resList, procList] = await Promise.all([
-        fetchDepartments().catch(() => []),
-        fetchResourceCatalog().catch(() => []),
-        fetchStock().catch(() => []),
-        fetchResources().catch(() => []),
-        fetchProcurements().catch(() => [])
+        dispatch(fetchDepartments()).unwrap().catch(() => []),
+        dispatch(fetchResourceCatalog()).unwrap().catch(() => []),
+        dispatch(fetchStock()).unwrap().catch(() => []),
+        dispatch(fetchResources()).unwrap().catch(() => []),
+        dispatch(fetchProcurements()).unwrap().catch(() => [])
       ]);
       setDepartments(depts || []);
       setCatalog(cat || []);
@@ -49,11 +51,11 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const getDeptResourceTypes = (deptName) => {
     if (!deptName) return [];
@@ -176,7 +178,7 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
 
     setSubmitting(true);
     try {
-      await createProcurement(payload, specFile.rawFile);
+      await dispatch(createProcurement({ payload, rawFile: specFile.rawFile })).unwrap();
       addToast(`Procurement Request Submitted Successfully! ID: ${newId}`, 'success');
 
       // Reset form

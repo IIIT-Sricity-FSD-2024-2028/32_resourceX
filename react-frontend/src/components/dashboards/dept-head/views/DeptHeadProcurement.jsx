@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
-import { useAuth } from '../../../../context/AuthContext';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchDeptProcurements,
   fetchDeptResourceTypes,
   createDeptProcurement
-} from '../../../../services/deptHead';
+} from '../../../../store/slices/dept-head/deptHeadSlice';
 import { StatusBadge, EmptyRow, ErrorBlock, FileLink, LoadingBlock } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import ProcurementDetailModal from '../components/ProcurementDetailModal';
@@ -39,7 +40,8 @@ const getMinTargetDate = () => {
  * New procurement form (multipart upload of spec file) + recent procurements table.
  */
 export default function DeptHeadProcurement() {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const location = useLocation();
   const navigate = useNavigate();
   const { addToast = () => {}, openProcurementFile = () => {} } = useOutletContext() || {};
@@ -73,18 +75,18 @@ export default function DeptHeadProcurement() {
     setError(null);
     try {
       const [procs, typeList] = await Promise.all([
-        fetchDeptProcurements(),
-        user?.department ? fetchDeptResourceTypes(user.department) : Promise.resolve([])
+        dispatch(fetchDeptProcurements()).unwrap(),
+        user?.department ? dispatch(fetchDeptResourceTypes(user.department)).unwrap() : Promise.resolve([])
       ]);
       setProcurements(procs || []);
       setTypes(typeList || []);
     } catch (err) {
-      setError(err.message || 'Failed to load procurement data.');
-      addToast(err.message || 'Error loading procurements', 'error');
+      setError(err || 'Failed to load procurement data.');
+      addToast(err || 'Error loading procurements', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast, user?.department]);
+  }, [addToast, dispatch, user?.department]);
 
   useEffect(() => {
     loadData();
@@ -177,7 +179,7 @@ export default function DeptHeadProcurement() {
 
     setIsSubmitting(true);
     try {
-      const created = await createDeptProcurement(payload, specFile);
+      const created = await dispatch(createDeptProcurement({ payload, specFile })).unwrap();
       if (created) setProcurements((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
       addToast('Procurement Request submitted and sent to Registrar for approval.', 'success');
       setForm({ resourceType: '', quantity: '', justification: '', targetDate: '' });

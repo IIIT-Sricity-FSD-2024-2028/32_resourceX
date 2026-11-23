@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { editDeptProcurement, cancelDeptProcurement, fetchDeptResourceTypes } from '../../../../services/deptHead';
+import { useAppDispatch } from '../../../../store/hooks';
+import { editDeptProcurement, cancelDeptProcurement, fetchDeptResourceTypes } from '../../../../store/slices/dept-head/deptHeadSlice';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -89,6 +90,7 @@ function buildStages(proc) {
 }
 
 export default function ProcurementDetailModal({ procurement, onClose, onChanged, addToast, onOpenFile }) {
+  const dispatch = useAppDispatch();
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
   const [resourceTypes, setResourceTypes] = useState([]);
@@ -126,7 +128,8 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     setNewSpec(null);
     setMode('edit');
     try {
-      setResourceTypes((await fetchDeptResourceTypes(proc.department)) || []);
+      const types = await dispatch(fetchDeptResourceTypes(proc.department)).unwrap();
+      setResourceTypes(types || []);
     } catch {
       setResourceTypes([]);
     }
@@ -151,24 +154,29 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     }
     setSaving(true);
     try {
-      await editDeptProcurement(proc.id, {
-        resourceType: form.resourceType,
-        quantity,
-        priority: form.priority,
-        justification: form.justification.trim(),
-        targetDate: form.targetDate,
-        targetDateDisplay: formatYmd(form.targetDate),
-        ...(newSpec && {
-          specFileName: newSpec.documentFileName,
-          specFileType: newSpec.documentFileType,
-          specFileDataUrl: newSpec.documentFileDataUrl,
-        }),
-      });
+      await dispatch(
+        editDeptProcurement({
+          id: proc.id,
+          payload: {
+            resourceType: form.resourceType,
+            quantity,
+            priority: form.priority,
+            justification: form.justification.trim(),
+            targetDate: form.targetDate,
+            targetDateDisplay: formatYmd(form.targetDate),
+            ...(newSpec && {
+              specFileName: newSpec.documentFileName,
+              specFileType: newSpec.documentFileType,
+              specFileDataUrl: newSpec.documentFileDataUrl,
+            }),
+          },
+        })
+      ).unwrap();
       addToast('Procurement updated.', 'success');
       setMode('view');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update procurement.', 'error');
+      addToast(err || 'Failed to update procurement.', 'error');
     } finally {
       setSaving(false);
     }
@@ -182,17 +190,22 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     }
     setSaving(true);
     try {
-      await editDeptProcurement(proc.id, {
-        specFileName: newSpec.documentFileName,
-        specFileType: newSpec.documentFileType,
-        specFileDataUrl: newSpec.documentFileDataUrl,
-      });
+      await dispatch(
+        editDeptProcurement({
+          id: proc.id,
+          payload: {
+            specFileName: newSpec.documentFileName,
+            specFileType: newSpec.documentFileType,
+            specFileDataUrl: newSpec.documentFileDataUrl,
+          },
+        })
+      ).unwrap();
       addToast('Specification file updated.', 'success');
       setSpecOpen(false);
       setNewSpec(null);
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update the specification file.', 'error');
+      addToast(err || 'Failed to update the specification file.', 'error');
     } finally {
       setSaving(false);
     }
@@ -201,12 +214,17 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await cancelDeptProcurement(proc.id, cancelReason.trim() || undefined);
+      await dispatch(
+        cancelDeptProcurement({
+          id: proc.id,
+          reason: cancelReason.trim() || undefined,
+        })
+      ).unwrap();
       addToast('Procurement cancelled.', 'success');
       setCancelReason('');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to cancel procurement.', 'error');
+      addToast(err || 'Failed to cancel procurement.', 'error');
     } finally {
       setSaving(false);
     }
