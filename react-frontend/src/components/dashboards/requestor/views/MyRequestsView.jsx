@@ -1,44 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchRequests,
   confirmReceipt,
-  fetchRequestorSummary
-} from '../../../../services/requestor';
+  fetchRequestorSummary,
+  selectRequests,
+  selectRequestorSummary,
+  selectRequestorLoading,
+} from '../../../../store/slices/requestor/requestorSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import RequestDetailModal from '../components/RequestDetailModal';
 import { useNotificationFocus } from '../../../common/notificationFocus';
 
 export default function MyRequestsView({ addToast, onNavigateToResources, onPreviewFile }) {
-  const { user } = useAuth();
-  const [requests, setRequests] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
+  const requests = useAppSelector(selectRequests);
+  const summary = useAppSelector(selectRequestorSummary);
+  const loading = useAppSelector(selectRequestorLoading);
+
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
-  const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      const [reqList, sum] = await Promise.all([
-        fetchRequests().catch(() => []),
-        fetchRequestorSummary().catch(() => null)
+      await Promise.all([
+        dispatch(fetchRequests()).unwrap().catch(() => []),
+        dispatch(fetchRequestorSummary()).unwrap().catch(() => null)
       ]);
-      setRequests(reqList || []);
-      setSummary(sum || null);
     } catch (err) {
       console.error('Failed to load my requests data:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [dispatch]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // A request notification opens that request's tracking card
   useNotificationFocus('request', !loading, (id) => {
@@ -48,7 +49,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources, onPrev
   const handleConfirmReceipt = async (reqId) => {
     setActionLoadingId(reqId);
     try {
-      await confirmReceipt(reqId);
+      await dispatch(confirmReceipt(reqId)).unwrap();
       addToast('Item successfully received and confirmed.', 'success');
       setSelectedId(null);
       await loadData();
@@ -57,7 +58,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources, onPrev
       }
     } catch (err) {
       console.error('Error confirming receipt:', err);
-      addToast(err.message || 'Failed to confirm receipt.', 'error');
+      addToast(err || 'Failed to confirm receipt.', 'error');
     } finally {
       setActionLoadingId(null);
     }

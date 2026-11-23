@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useAppDispatch } from '../../../../store/hooks';
 import AdminModal from '../../admin/components/AdminModal';
 import {
   fetchDeptRequests,
@@ -8,7 +9,7 @@ import {
   fetchDeptResources,
   approveResourceExtension,
   rejectResourceExtension
-} from '../../../../services/deptHead';
+} from '../../../../store/slices/dept-head/deptHeadSlice';
 import { EmptyRow, LoadingBlock, ErrorBlock, FileLink, padQty } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
@@ -18,6 +19,7 @@ import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/Tabl
  * by departmental staff/requestors before passing them to the Inventory Officer for allocation.
  */
 export default function DeptHeadIncomingRequests() {
+  const dispatch = useAppDispatch();
   const { addToast = () => {}, openProcurementFile = () => {} } = useOutletContext() || {};
 
   const [requests, setRequests] = useState([]);
@@ -37,8 +39,8 @@ export default function DeptHeadIncomingRequests() {
     setError(null);
     try {
       const [reqs, resList] = await Promise.all([
-        fetchDeptRequests({ status: 'Pending' }).catch(() => []),
-        fetchDeptResources().catch(() => [])
+        dispatch(fetchDeptRequests({ status: 'Pending' })).unwrap().catch(() => []),
+        dispatch(fetchDeptResources()).unwrap().catch(() => [])
       ]);
       const isExpired = (req) => {
         if (!req.requirementDate) return false;
@@ -54,12 +56,12 @@ export default function DeptHeadIncomingRequests() {
       const extPending = (resList || []).filter(r => r.extensionStatus === 'Pending');
       setExtensionRequests(extPending);
     } catch (err) {
-      setError(err.message || 'Failed to load incoming requests.');
-      addToast(err.message || 'Error loading incoming requests', 'error');
+      setError(err || 'Failed to load incoming requests.');
+      addToast(err || 'Error loading incoming requests', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadData();
@@ -69,11 +71,11 @@ export default function DeptHeadIncomingRequests() {
   const handleApproveRequest = async (id) => {
     setBusyId(id);
     try {
-      await approveDeptRequest(id);
+      await dispatch(approveDeptRequest(id)).unwrap();
       setRequests((prev) => prev.filter((r) => r.id !== id));
       addToast('Request approved. It has been passed to the Inventory Officer for allocation.', 'success');
     } catch (err) {
-      addToast(`Approval failed: ${err.message}`, 'error');
+      addToast(`Approval failed: ${err}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -95,11 +97,11 @@ export default function DeptHeadIncomingRequests() {
     setRejectRequestId(null);
     setBusyId(id);
     try {
-      await rejectDeptRequest(id, reason);
+      await dispatch(rejectDeptRequest({ id, reason })).unwrap();
       setRequests((prev) => prev.filter((r) => r.id !== id));
       addToast(`${id} rejected. The requestor will see your reason.`, 'error');
     } catch (err) {
-      addToast(`Rejection failed: ${err.message}`, 'error');
+      addToast(`Rejection failed: ${err}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -108,11 +110,11 @@ export default function DeptHeadIncomingRequests() {
   const handleApproveExtension = async (id) => {
     setBusyId(id);
     try {
-      await approveResourceExtension(id);
+      await dispatch(approveResourceExtension(id)).unwrap();
       setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
       addToast('Deadline extension approved. Return deadline has been updated.', 'success');
     } catch (err) {
-      addToast(`Extension approval failed: ${err.message}`, 'error');
+      addToast(`Extension approval failed: ${err}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -121,11 +123,11 @@ export default function DeptHeadIncomingRequests() {
   const handleRejectExtension = async (id) => {
     setBusyId(id);
     try {
-      await rejectResourceExtension(id, { reason: 'Department scheduling constraints' });
+      await dispatch(rejectResourceExtension({ id, payload: { reason: 'Department scheduling constraints' } })).unwrap();
       setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
       addToast('Deadline extension rejected.', 'info');
     } catch (err) {
-      addToast(`Extension rejection failed: ${err.message}`, 'error');
+      addToast(`Extension rejection failed: ${err}`, 'error');
     } finally {
       setBusyId(null);
     }

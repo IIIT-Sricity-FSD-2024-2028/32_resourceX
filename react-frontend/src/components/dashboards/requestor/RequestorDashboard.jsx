@@ -2,7 +2,8 @@ import React, { useState, useCallback } from 'react';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import { useNotificationTab } from '../../common/notificationFocus';
-import { useAuth } from '../../../context/AuthContext';
+import { useAppSelector } from '../../../store/hooks';
+import { selectCurrentUser } from '../../../store/slices/auth/authSlice';
 import AdminToast from '../admin/components/AdminToast';
 import FilePreviewModal from './components/FilePreviewModal';
 
@@ -31,7 +32,7 @@ const REQUESTOR_NAV_ITEMS = [
 ];
 
 export default function RequestorDashboard() {
-  const { user } = useAuth();
+  const user = useAppSelector(selectCurrentUser);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [toasts, setToasts] = useState([]);
   const [previewFile, setPreviewFile] = useState(null);
