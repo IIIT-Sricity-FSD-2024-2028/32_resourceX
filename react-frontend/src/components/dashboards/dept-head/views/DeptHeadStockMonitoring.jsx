@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptStock, updateDeptStockThreshold } from '../../../../services/deptHead';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
+import { fetchDeptStock, updateDeptStockThreshold } from '../../../../store/slices/dept-head/deptHeadSlice';
 import EditThresholdModal from '../components/EditThresholdModal';
 import { StockBadge, EmptyRow, LoadingBlock, ErrorBlock, stockStatusOf } from '../components/deptHeadUtils';
 
@@ -10,7 +11,8 @@ import { StockBadge, EmptyRow, LoadingBlock, ErrorBlock, stockStatusOf } from '.
  * Current quantity/status are computed by the backend (GET /analytics/stock).
  */
 export default function DeptHeadStockMonitoring() {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const navigate = useNavigate();
   const { addToast = () => {} } = useOutletContext() || {};
 
@@ -26,7 +28,7 @@ export default function DeptHeadStockMonitoring() {
     setIsLoading(true);
     setError(null);
     try {
-      const list = await fetchDeptStock();
+      const list = await dispatch(fetchDeptStock()).unwrap();
       const scoped = (list || [])
         .filter((s) => !user?.department || s.department === user.department)
         .map((s) => ({
@@ -36,12 +38,12 @@ export default function DeptHeadStockMonitoring() {
         }));
       setRows(scoped);
     } catch (err) {
-      setError(err.message || 'Failed to load stock levels.');
-      addToast(err.message || 'Error loading stock levels', 'error');
+      setError(err || 'Failed to load stock levels.');
+      addToast(err || 'Error loading stock levels', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast, user?.department]);
+  }, [addToast, dispatch, user?.department]);
 
   useEffect(() => {
     loadData();
@@ -74,7 +76,7 @@ export default function DeptHeadStockMonitoring() {
     }
     setIsSaving(true);
     try {
-      await updateDeptStockThreshold(editItem.id, val);
+      await dispatch(updateDeptStockThreshold({ id: editItem.id, level: val })).unwrap();
       setRows((prev) =>
         prev.map((r) =>
           r.id === editItem.id ? { ...r, thresholdLevel: val, status: stockStatusOf(r.currentQuantity, val) } : r
@@ -83,7 +85,7 @@ export default function DeptHeadStockMonitoring() {
       addToast('Threshold updated successfully.', 'success');
       setEditItem(null);
     } catch (err) {
-      addToast(`Failed to update threshold: ${err.message}`, 'error');
+      addToast(`Failed to update threshold: ${err}`, 'error');
     } finally {
       setIsSaving(false);
     }

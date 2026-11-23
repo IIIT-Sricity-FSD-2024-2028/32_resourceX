@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useAppSelector } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchRequestorDashboardOverview,
   fetchRequestorReturnHistory,
@@ -8,7 +9,7 @@ import {
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function RequestorOverview({ onSwitchView }) {
-  const { user } = useAuth();
+  const user = useAppSelector(selectCurrentUser);
   const [loading, setLoading] = useState(true);
   const [requestSearch, setRequestSearch] = useState('');
   const [resourceSearch, setResourceSearch] = useState('');

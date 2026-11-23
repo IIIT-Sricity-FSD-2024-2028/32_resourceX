@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchResources,
   fetchProcurements,
@@ -8,7 +9,7 @@ import {
   confirmRepairedAllocation,
   requestResourceExtension,
   fetchRequestorReturnHistory
-} from '../../../../services/requestor';
+} from '../../../../store/slices/requestor/requestorSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import { useNotificationFocus } from '../../../common/notificationFocus';
 import RecentServiceUpdates, { ServiceTrackingModal, hasServiceTracking, recentCompletedReturns } from '../components/ServiceTrackingCards';
@@ -16,7 +17,8 @@ import RecentServiceUpdates, { ServiceTrackingModal, hasServiceTracking, recentC
 const MY_STATUSES = ['Allocated', 'Maintenance Requested', 'Maintenance', 'Repaired', 'Returned', 'Scrapped'];
 
 export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToHistory }) {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const [resources, setResources] = useState([]);
   // Resources scrapped by maintenance and accepted returns, which have left the table
   const [scrappedResources, setScrappedResources] = useState([]);
@@ -30,13 +32,13 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [resList, procList, returnHistory] = await Promise.all([
-        fetchResources({ status: MY_STATUSES.join(',') }).catch(() => []),
-        fetchProcurements().catch(() => []),
-        fetchRequestorReturnHistory().catch(() => [])
+        dispatch(fetchResources({ status: MY_STATUSES.join(',') })).unwrap().catch(() => []),
+        dispatch(fetchProcurements()).unwrap().catch(() => []),
+        dispatch(fetchRequestorReturnHistory()).unwrap().catch(() => [])
       ]);
 
       // Strictly ensure only allocated resources belonging to the active requestor are shown
@@ -66,11 +68,11 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch, user]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   useNotificationFocus('resource', !loading, (id) => {
     if (resources.some((r) => r.id === id && hasServiceTracking(r))) setTrackingId(id);
@@ -126,16 +128,21 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
     const resId = extensionModalItem.id;
     setActionLoadingId(resId);
     try {
-      await requestResourceExtension(resId, {
-        proposedReturnDate,
-        reason: extensionReason.trim(),
-      });
+      await dispatch(
+        requestResourceExtension({
+          id: resId,
+          payload: {
+            proposedReturnDate,
+            reason: extensionReason.trim(),
+          },
+        })
+      ).unwrap();
       addToast('Extension request submitted to Department Head for review.', 'success');
       setExtensionModalItem(null);
       await loadData();
     } catch (err) {
       console.error('Extension request failed:', err);
-      addToast(err.message || 'Failed to submit extension request.', 'error');
+      addToast(err || 'Failed to submit extension request.', 'error');
     } finally {
       setActionLoadingId(null);
     }
@@ -151,16 +158,21 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
     const resId = maintenanceModalItem.id;
     setActionLoadingId(resId);
     try {
-      await requestResourceMaintenance(resId, {
-        issue: maintIssue.trim(),
-        priority: maintPriority,
-      });
+      await dispatch(
+        requestResourceMaintenance({
+          id: resId,
+          payload: {
+            issue: maintIssue.trim(),
+            priority: maintPriority,
+          },
+        })
+      ).unwrap();
       addToast('Maintenance request submitted successfully.', 'success');
       setMaintenanceModalItem(null);
       await loadData();
     } catch (err) {
       console.error('Maintenance request failed:', err);
-      addToast(err.message || 'Failed to submit maintenance request.', 'error');
+      addToast(err || 'Failed to submit maintenance request.', 'error');
     } finally {
       setActionLoadingId(null);
     }
@@ -172,16 +184,21 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
     const resId = returnModalItem.id;
     setActionLoadingId(resId);
     try {
-      await initiateResourceReturn(resId, {
-        reason: returnReason,
-        notes: returnNotes.trim(),
-      });
+      await dispatch(
+        initiateResourceReturn({
+          id: resId,
+          payload: {
+            reason: returnReason,
+            notes: returnNotes.trim(),
+          },
+        })
+      ).unwrap();
       addToast('Return requested. It will be marked successful once the inventory officer inspects the asset.', 'success');
       setReturnModalItem(null);
       await loadData();
     } catch (err) {
       console.error('Resource return failed:', err);
-      addToast(err.message || 'Failed to initiate resource return.', 'error');
+      addToast(err || 'Failed to initiate resource return.', 'error');
     } finally {
       setActionLoadingId(null);
     }
@@ -190,12 +207,12 @@ export default function MyResourcesView({ addToast, onPreviewFile, onNavigateToH
   const handleConfirmRepaired = async (resId) => {
     setActionLoadingId(resId);
     try {
-      await confirmRepairedAllocation(resId);
+      await dispatch(confirmRepairedAllocation(resId)).unwrap();
       addToast('Repaired allocation confirmed.', 'success');
       await loadData();
     } catch (err) {
       console.error('Confirm repaired allocation failed:', err);
-      addToast(err.message || 'Failed to confirm repaired allocation.', 'error');
+      addToast(err || 'Failed to confirm repaired allocation.', 'error');
     } finally {
       setActionLoadingId(null);
     }

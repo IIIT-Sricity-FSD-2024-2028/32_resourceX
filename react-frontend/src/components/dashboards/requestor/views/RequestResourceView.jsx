@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchDepartments,
   fetchResourceCatalog,
-  fetchStock,
   fetchResources,
-  fetchResourceAvailability,
   createRequest
-} from '../../../../services/requestor';
+} from '../../../../store/slices/requestor/requestorSlice';
+import { fetchResourceAvailability, fetchStock } from '../../../../services/requestor';
 import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const [departments, setDepartments] = useState([]);
   const [catalog, setCatalog] = useState([]);
   const [stock, setStock] = useState([]);
@@ -40,10 +41,10 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
     const init = async () => {
       try {
         const [depts, cat, stk, resList] = await Promise.all([
-          fetchDepartments().catch(() => []),
-          fetchResourceCatalog().catch(() => []),
+          dispatch(fetchDepartments()).unwrap().catch(() => []),
+          dispatch(fetchResourceCatalog()).unwrap().catch(() => []),
           fetchStock().catch(() => []),
-          fetchResources().catch(() => [])
+          dispatch(fetchResources()).unwrap().catch(() => [])
         ]);
         setDepartments(depts || []);
         setCatalog(cat || []);
@@ -54,7 +55,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       }
     };
     init();
-  }, []);
+  }, [dispatch]);
 
   // Compute available resource types for the selected department
   const getDeptResourceTypes = (deptName) => {
@@ -174,7 +175,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
 
     setSubmitting(true);
     try {
-      await createRequest(payload);
+      await dispatch(createRequest(payload)).unwrap();
       addToast(`Request Submitted Successfully! ID: ${newId}`, 'success');
       // Reset form
       setSelectedDept('');
@@ -192,7 +193,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       }
     } catch (err) {
       console.error('Error submitting request:', err);
-      addToast(err.message || 'Failed to submit request. Please try again.', 'error');
+      addToast(err || 'Failed to submit request. Please try again.', 'error');
     } finally {
       setSubmitting(false);
     }

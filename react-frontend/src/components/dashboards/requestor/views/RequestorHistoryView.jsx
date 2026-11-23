@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchRequestorReturnHistory,
-  fetchRequestorMaintenanceHistory
-} from '../../../../services/requestor';
+  fetchRequestorMaintenanceHistory,
+  selectReturnHistory,
+  selectMaintenanceHistory,
+  selectRequestorLoading,
+} from '../../../../store/slices/requestor/requestorSlice';
 
 export default function RequestorHistoryView({ addToast }) {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
+  const storeReturns = useAppSelector(selectReturnHistory);
+  const storeMaint = useAppSelector(selectMaintenanceHistory);
+  const storeLoading = useAppSelector(selectRequestorLoading);
+
   const [activeTab, setActiveTab] = useState('returns'); // 'returns' | 'maintenance'
   const [returnHistory, setReturnHistory] = useState([]);
   const [maintenanceHistory, setMaintenanceHistory] = useState([]);
@@ -21,18 +30,18 @@ export default function RequestorHistoryView({ addToast }) {
     try {
       setLoading(true);
       const [returns, maint] = await Promise.all([
-        fetchRequestorReturnHistory().catch(() => []),
-        fetchRequestorMaintenanceHistory().catch(() => [])
+        dispatch(fetchRequestorReturnHistory()).unwrap().catch(() => []),
+        dispatch(fetchRequestorMaintenanceHistory()).unwrap().catch(() => [])
       ]);
 
       setReturnHistory(Array.isArray(returns) ? returns : []);
       setMaintenanceHistory(Array.isArray(maint) ? maint : []);
     } catch (err) {
-      if (addToast) addToast(err.message || 'Failed to load activity history.', 'error');
+      if (addToast) addToast(err || 'Failed to load activity history.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadData();
