@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { selectCurrentUser, logout } from '../store/slices/auth/authSlice';
-import { useGetNotificationsQuery, useMarkNotificationReadMutation } from '../store/slices/notifications/notificationsApi';
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllLocallyRead,
+  selectNotifications,
+  selectUnreadCount,
+} from '../store/slices/notifications/notificationsSlice';
 import { highlightRecord, resolveNotificationDestination } from './common/notificationFocus';
 
 /**
- * Universal AppHeader component connected to Redux Toolkit & RTK Query
+ * Universal AppHeader component connected to Redux Toolkit Classic Slices
  */
 export default function AppHeader() {
   const navigate = useNavigate();
@@ -19,26 +25,32 @@ export default function AppHeader() {
   const name = user?.name || 'User';
   const role = user?.role || 'Administrator';
 
-  // RTK Query: Automatic polling every 15 seconds, caching, and background deduplication
-  const { data: rawNotifications = [], refetch: refetchNotifications } = useGetNotificationsQuery(undefined, {
-    pollingInterval: 15000,
-    skip: !user,
-  });
+  // Redux-connected notifications state
+  const notifications = useAppSelector(selectNotifications) || [];
+  const unreadCount = useAppSelector(selectUnreadCount);
 
-  const notifications = Array.isArray(rawNotifications) ? rawNotifications : [];
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const loadNotifications = useCallback(() => {
+    if (user) {
+      dispatch(fetchNotifications());
+    }
+  }, [dispatch, user]);
 
-  const [markNotificationRead] = useMarkNotificationReadMutation();
+  useEffect(() => {
+    loadNotifications();
+    const timer = setInterval(loadNotifications, 15000);
+    return () => clearInterval(timer);
+  }, [loadNotifications]);
 
   const handleMarkAllRead = async () => {
     const unread = notifications.filter((n) => !n.read);
+    dispatch(markAllLocallyRead());
     setShowNotifMenu(false);
-    await Promise.all(unread.map((n) => markNotificationRead(n.id).unwrap().catch(() => null)));
+    await Promise.all(unread.map((n) => dispatch(markNotificationRead(n.id)).unwrap().catch(() => null)));
   };
 
   const handleMarkRead = (n) => {
     if (n.read) return;
-    markNotificationRead(n.id).unwrap().catch(() => null);
+    dispatch(markNotificationRead(n.id));
   };
 
   const handleOpenNotification = (n) => {
@@ -68,7 +80,7 @@ export default function AppHeader() {
             className="icon-btn notification-btn"
             title="Notifications"
             onClick={() => {
-              if (!showNotifMenu) refetchNotifications();
+              if (!showNotifMenu) loadNotifications();
               setShowNotifMenu(!showNotifMenu);
               setShowProfileMenu(false);
             }}
