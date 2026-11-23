@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchDepartments,
-  fetchResourceCatalog,
-  fetchStock,
-  fetchResources,
-  fetchProcurements,
-  createProcurement
-} from '../../../../services/requestor';
+  useGetDepartmentsQuery,
+  useGetResourceCatalogQuery,
+  useGetMyResourcesQuery,
+  useGetProcurementsQuery,
+  useCreateProcurementMutation
+} from '../../../../api/requestorApi';
+import { useGetDeptStockQuery } from '../../../../api/deptHeadApi';
 
 export default function ProcurementView({ addToast, onPreviewFile }) {
   const { user } = useAuth();
-  const [departments, setDepartments] = useState([]);
-  const [catalog, setCatalog] = useState([]);
-  const [stock, setStock] = useState([]);
-  const [existingResources, setExistingResources] = useState([]);
-  const [procurements, setProcurements] = useState([]);
+  const { data: departments = [] } = useGetDepartmentsQuery();
+  const { data: catalog = [] } = useGetResourceCatalogQuery();
+  const { data: stock = [] } = useGetDeptStockQuery();
+  const { data: existingResources = [] } = useGetMyResourcesQuery();
+  const { data: procurements = [], isLoading: loading } = useGetProcurementsQuery();
+  const [createProcurementMutation] = useCreateProcurementMutation();
 
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -26,34 +27,7 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
   const [specFile, setSpecFile] = useState(null);
   const [fileWarning, setFileWarning] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [depts, cat, stk, resList, procList] = await Promise.all([
-        fetchDepartments().catch(() => []),
-        fetchResourceCatalog().catch(() => []),
-        fetchStock().catch(() => []),
-        fetchResources().catch(() => []),
-        fetchProcurements().catch(() => [])
-      ]);
-      setDepartments(depts || []);
-      setCatalog(cat || []);
-      setStock(stk || []);
-      setExistingResources(resList || []);
-      setProcurements(procList || []);
-    } catch (err) {
-      console.error('Failed to load procurement metadata:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const getDeptResourceTypes = (deptName) => {
     if (!deptName) return [];
@@ -176,7 +150,18 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
 
     setSubmitting(true);
     try {
-      await createProcurement(payload, specFile.rawFile);
+      let body = payload;
+      if (specFile.rawFile) {
+        const formData = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && key !== 'rawFile') {
+            formData.append(key, value);
+          }
+        });
+        formData.append('specFile', specFile.rawFile);
+        body = formData;
+      }
+      await createProcurementMutation(body).unwrap();
       addToast(`Procurement Request Submitted Successfully! ID: ${newId}`, 'success');
 
       // Reset form
@@ -186,13 +171,9 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
       setReason('');
       setSpecFile(null);
       setFileWarning(false);
-
-      // Reload procurement history
-      const updated = await fetchProcurements();
-      setProcurements(updated || []);
     } catch (err) {
       console.error('Procurement submit error:', err);
-      addToast(`❌ Failed to submit: ${err.message || 'Unknown error. Please try again.'}`, 'error');
+      addToast(`❌ Failed to submit: ${err?.data?.message || err.message || 'Unknown error. Please try again.'}`, 'error');
     } finally {
       setSubmitting(false);
     }

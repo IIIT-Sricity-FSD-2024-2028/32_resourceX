@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchDeptProcurements,
-  fetchDeptResourceTypes,
-  createDeptProcurement
-} from '../../../../services/deptHead';
+  useGetDeptProcurementsQuery,
+  useCreateDeptProcurementMutation
+} from '../../../../api/deptHeadApi';
+import { useGetResourceCatalogQuery } from '../../../../api/requestorApi';
 import { StatusBadge, EmptyRow, ErrorBlock, FileLink, LoadingBlock } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import ProcurementDetailModal from '../components/ProcurementDetailModal';
@@ -47,11 +47,19 @@ export default function DeptHeadProcurement() {
   const fileInputRef = useRef(null);
   const typeSelectRef = useRef(null);
 
-  const [types, setTypes] = useState([]);
-  const [procurements, setProcurements] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: procurements = [], isLoading: isProcLoading, error: procError, refetch: refetchProcurements } = useGetDeptProcurementsQuery();
+  const { data: catalog = [] } = useGetResourceCatalogQuery(user?.department ? { department: user.department } : undefined);
+  const [createDeptProcurementMutation] = useCreateDeptProcurementMutation();
+
+  const types = useMemo(() => {
+    if (!user?.department) return [];
+    const entry = (catalog || []).find((c) => c.department === user.department) || (catalog || [])[0];
+    return entry ? [...(entry.resourceTypes || [])] : [];
+  }, [catalog, user?.department]);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState(null);
+  const isLoading = isProcLoading;
+  const error = procError;
 
   const [form, setForm] = useState({ resourceType: '', quantity: '', justification: '', targetDate: '' });
   const [specFile, setSpecFile] = useState(null);
@@ -68,23 +76,9 @@ export default function DeptHeadProcurement() {
     matchesSearch(search, p.id, procType(p), p.status, p.targetDateDisplay, p.targetDate, p.justification, p.vendor)
   );
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [procs, typeList] = await Promise.all([
-        fetchDeptProcurements(),
-        user?.department ? fetchDeptResourceTypes(user.department) : Promise.resolve([])
-      ]);
-      setProcurements(procs || []);
-      setTypes(typeList || []);
-    } catch (err) {
-      setError(err.message || 'Failed to load procurement data.');
-      addToast(err.message || 'Error loading procurements', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast, user?.department]);
+  const loadData = () => {
+    refetchProcurements();
+  };
 
   useEffect(() => {
     loadData();
@@ -177,13 +171,21 @@ export default function DeptHeadProcurement() {
 
     setIsSubmitting(true);
     try {
-      const created = await createDeptProcurement(payload, specFile);
-      if (created) setProcurements((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
+      let body = payload;
+      if (specFile) {
+        const formData = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) formData.append(key, value);
+        });
+        formData.append('specFile', specFile);
+        body = formData;
+      }
+      await createDeptProcurementMutation(body).unwrap();
       addToast('Procurement Request submitted and sent to Registrar for approval.', 'success');
       setForm({ resourceType: '', quantity: '', justification: '', targetDate: '' });
       setSpecFile(null);
     } catch (err) {
-      addToast('❌ Failed to submit: ' + (err.message || 'Unknown error. Please try again.'), 'error');
+      addToast('❌ Failed to submit: ' + (err?.data?.message || err.message || 'Unknown error. Please try again.'), 'error');
     } finally {
       setIsSubmitting(false);
     }

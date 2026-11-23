@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptStock, updateDeptStockThreshold } from '../../../../services/deptHead';
+import { useGetDeptStockQuery, useUpdateThresholdMutation } from '../../../../api/deptHeadApi';
 import EditThresholdModal from '../components/EditThresholdModal';
 import { StockBadge, EmptyRow, LoadingBlock, ErrorBlock, stockStatusOf } from '../components/deptHeadUtils';
 
@@ -14,38 +14,22 @@ export default function DeptHeadStockMonitoring() {
   const navigate = useNavigate();
   const { addToast = () => {} } = useOutletContext() || {};
 
-  const [rows, setRows] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: rawStock = [], isLoading, error: queryError, refetch } = useGetDeptStockQuery();
+  const [updateThresholdMutation, { isLoading: isSaving }] = useUpdateThresholdMutation();
+
   const [editItem, setEditItem] = useState(null);
-  const [isSaving, setIsSaving] = useState(false);
   const [typeQuery, setTypeQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const list = await fetchDeptStock();
-      const scoped = (list || [])
-        .filter((s) => !user?.department || s.department === user.department)
-        .map((s) => ({
-          ...s,
-          currentQuantity: s.currentQuantity ?? 0,
-          status: s.status || stockStatusOf(s.currentQuantity ?? 0, s.thresholdLevel)
-        }));
-      setRows(scoped);
-    } catch (err) {
-      setError(err.message || 'Failed to load stock levels.');
-      addToast(err.message || 'Error loading stock levels', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast, user?.department]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const rows = useMemo(() => {
+    return (rawStock || [])
+      .filter((s) => !user?.department || s.department === user.department)
+      .map((s) => ({
+        ...s,
+        currentQuantity: s.currentQuantity ?? 0,
+        status: s.status || stockStatusOf(s.currentQuantity ?? 0, s.thresholdLevel)
+      }));
+  }, [rawStock, user?.department]);
 
   const counts = rows.reduce(
     (acc, r) => {
@@ -72,20 +56,12 @@ export default function DeptHeadStockMonitoring() {
       addToast('Threshold must be a non-negative integer.', 'error');
       return;
     }
-    setIsSaving(true);
     try {
-      await updateDeptStockThreshold(editItem.id, val);
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === editItem.id ? { ...r, thresholdLevel: val, status: stockStatusOf(r.currentQuantity, val) } : r
-        )
-      );
+      await updateThresholdMutation({ id: editItem.id, level: val }).unwrap();
       addToast('Threshold updated successfully.', 'success');
       setEditItem(null);
     } catch (err) {
-      addToast(`Failed to update threshold: ${err.message}`, 'error');
-    } finally {
-      setIsSaving(false);
+      addToast(`Failed to update threshold: ${err?.data?.message || err.message}`, 'error');
     }
   };
 
@@ -149,15 +125,15 @@ export default function DeptHeadStockMonitoring() {
               <option value="Near Threshold">Near Threshold</option>
               <option value="Low Stock">Low Stock</option>
             </select>
-            <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }} onClick={loadData}>
+            <button type="button" className="btn-secondary" style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }} onClick={refetch}>
               <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>refresh</span> Refresh
             </button>
           </div>
         </div>
         {isLoading ? (
           <LoadingBlock text="Loading stock levels..." />
-        ) : error ? (
-          <ErrorBlock text={error} onRetry={loadData} />
+        ) : queryError ? (
+          <ErrorBlock text={queryError?.data?.message || queryError?.message || 'Failed to load stock levels.'} onRetry={refetch} />
         ) : (
           <div className="table-responsive">
             <table className="table">

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { fetchDeptResources, fetchDeptRequests } from '../../../../services/deptHead';
+import { useGetDeptResourcesQuery, useGetDeptIncomingRequestsQuery } from '../../../../api/deptHeadApi';
 import { DoughnutChart, LineChart, HBarChart } from '../components/DeptCharts';
 import { LoadingBlock, ErrorBlock, countBuckets, parseDate } from '../components/deptHeadUtils';
 
@@ -14,29 +14,16 @@ const APPROVED_STATES = ['Approved', 'Allocated', 'Completed'];
 export default function DeptHeadAnalytics() {
   const { addToast = () => {} } = useOutletContext() || {};
 
-  const [resources, setResources] = useState([]);
-  const [requests, setRequests] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: resources = [], isLoading: resLoading, error: resError, refetch: refetchResources } = useGetDeptResourcesQuery();
+  const { data: requests = [], isLoading: reqLoading, error: reqError, refetch: refetchRequests } = useGetDeptIncomingRequestsQuery();
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [res, reqs] = await Promise.all([fetchDeptResources(), fetchDeptRequests()]);
-      setResources(res || []);
-      setRequests(reqs || []);
-    } catch (err) {
-      setError(err.message || 'Failed to load analytics.');
-      addToast(err.message || 'Error loading analytics', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast]);
+  const isLoading = resLoading || reqLoading;
+  const error = resError || reqError;
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const handleRetry = () => {
+    refetchResources();
+    refetchRequests();
+  };
 
   const analytics = useMemo(() => {
     // 1. Distribution
@@ -97,7 +84,7 @@ export default function DeptHeadAnalytics() {
   }, [resources, requests]);
 
   if (isLoading) return <LoadingBlock text="Loading analytics..." />;
-  if (error) return <ErrorBlock text={error} onRetry={loadData} />;
+  if (error) return <ErrorBlock text={error?.data?.message || error?.message || 'Failed to load analytics.'} onRetry={handleRetry} />;
 
   const a = analytics;
   const trendUp = a.trendPct >= 0;

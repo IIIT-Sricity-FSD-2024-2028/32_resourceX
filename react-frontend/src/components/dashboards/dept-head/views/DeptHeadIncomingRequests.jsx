@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import AdminModal from '../../admin/components/AdminModal';
 import {
-  fetchDeptRequests,
-  approveDeptRequest,
-  rejectDeptRequest,
-  fetchDeptResources,
-  approveResourceExtension,
-  rejectResourceExtension
-} from '../../../../services/deptHead';
+  useGetDeptIncomingRequestsQuery,
+  useApproveRequestMutation,
+  useRejectRequestMutation,
+  useGetDeptResourcesQuery,
+  useApproveResourceExtensionMutation,
+  useRejectResourceExtensionMutation
+} from '../../../../api/deptHeadApi';
 import { EmptyRow, LoadingBlock, ErrorBlock, FileLink, padQty } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
@@ -20,10 +20,14 @@ import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/Tabl
 export default function DeptHeadIncomingRequests() {
   const { addToast = () => {}, openProcurementFile = () => {} } = useOutletContext() || {};
 
-  const [requests, setRequests] = useState([]);
-  const [extensionRequests, setExtensionRequests] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: rawRequests = [], isLoading: reqLoading, error: reqError, refetch: refetchRequests } = useGetDeptIncomingRequestsQuery({ status: 'Pending' });
+  const { data: resList = [], isLoading: resLoading, error: resError, refetch: refetchResources } = useGetDeptResourcesQuery();
+
+  const [approveRequestMutation] = useApproveRequestMutation();
+  const [rejectRequestMutation] = useRejectRequestMutation();
+  const [approveExtensionMutation] = useApproveResourceExtensionMutation();
+  const [rejectExtensionMutation] = useRejectResourceExtensionMutation();
+
   const [busyId, setBusyId] = useState(null);
   const [rejectRequestId, setRejectRequestId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -32,48 +36,38 @@ export default function DeptHeadIncomingRequests() {
   const [extSearch, setExtSearch] = useState('');
   const [extTypeFilter, setExtTypeFilter] = useState('All');
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [reqs, resList] = await Promise.all([
-        fetchDeptRequests({ status: 'Pending' }).catch(() => []),
-        fetchDeptResources().catch(() => [])
-      ]);
-      const isExpired = (req) => {
-        if (!req.requirementDate) return false;
-        const parsed = Date.parse(req.requirementDate);
-        if (isNaN(parsed)) return false;
-        const deadline = new Date(parsed);
-        deadline.setHours(23, 59, 59, 999);
-        return Date.now() > deadline.getTime();
-      };
-      setRequests((reqs || []).filter(r => !isExpired(r)));
+  const isLoading = reqLoading || resLoading;
+  const error = reqError || resError;
 
-      // Pending resource extension requests
-      const extPending = (resList || []).filter(r => r.extensionStatus === 'Pending');
-      setExtensionRequests(extPending);
-    } catch (err) {
-      setError(err.message || 'Failed to load incoming requests.');
-      addToast(err.message || 'Error loading incoming requests', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast]);
+  const requests = useMemo(() => {
+    const isExpired = (req) => {
+      if (!req.requirementDate) return false;
+      const parsed = Date.parse(req.requirementDate);
+      if (isNaN(parsed)) return false;
+      const deadline = new Date(parsed);
+      deadline.setHours(23, 59, 59, 999);
+      return Date.now() > deadline.getTime();
+    };
+    return (rawRequests || []).filter(r => (r.status === 'Pending') && !isExpired(r));
+  }, [rawRequests]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const extensionRequests = useMemo(() => {
+    return (resList || []).filter(r => r.extensionStatus === 'Pending');
+  }, [resList]);
+
+  const loadData = () => {
+    refetchRequests();
+    refetchResources();
+  };
 
   // ---- Resource requests actions ----
   const handleApproveRequest = async (id) => {
     setBusyId(id);
     try {
-      await approveDeptRequest(id);
-      setRequests((prev) => prev.filter((r) => r.id !== id));
+      await approveRequestMutation(id).unwrap();
       addToast('Request approved. It has been passed to the Inventory Officer for allocation.', 'success');
     } catch (err) {
-      addToast(`Approval failed: ${err.message}`, 'error');
+      addToast(`Approval failed: ${err?.data?.message || err.message}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -95,11 +89,10 @@ export default function DeptHeadIncomingRequests() {
     setRejectRequestId(null);
     setBusyId(id);
     try {
-      await rejectDeptRequest(id, reason);
-      setRequests((prev) => prev.filter((r) => r.id !== id));
+      await rejectRequestMutation({ id, reason }).unwrap();
       addToast(`${id} rejected. The requestor will see your reason.`, 'error');
     } catch (err) {
-      addToast(`Rejection failed: ${err.message}`, 'error');
+      addToast(`Rejection failed: ${err?.data?.message || err.message}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -108,11 +101,10 @@ export default function DeptHeadIncomingRequests() {
   const handleApproveExtension = async (id) => {
     setBusyId(id);
     try {
-      await approveResourceExtension(id);
-      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
+      await approveExtensionMutation(id).unwrap();
       addToast('Deadline extension approved. Return deadline has been updated.', 'success');
     } catch (err) {
-      addToast(`Extension approval failed: ${err.message}`, 'error');
+      addToast(`Extension approval failed: ${err?.data?.message || err.message}`, 'error');
     } finally {
       setBusyId(null);
     }
@@ -121,11 +113,10 @@ export default function DeptHeadIncomingRequests() {
   const handleRejectExtension = async (id) => {
     setBusyId(id);
     try {
-      await rejectResourceExtension(id, { reason: 'Department scheduling constraints' });
-      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
-      addToast('Deadline extension rejected.', 'info');
+      await rejectExtensionMutation({ id, reason: 'Department scheduling constraints' }).unwrap();
+      addToast('Extension request rejected.', 'error');
     } catch (err) {
-      addToast(`Extension rejection failed: ${err.message}`, 'error');
+      addToast(`Extension rejection failed: ${err?.data?.message || err.message}`, 'error');
     } finally {
       setBusyId(null);
     }

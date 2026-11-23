@@ -1,44 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchRequests,
-  confirmReceipt,
-  fetchRequestorSummary
-} from '../../../../services/requestor';
+  useGetMyRequestsQuery,
+  useGetRequestorSummaryQuery,
+  useConfirmReceiptMutation
+} from '../../../../api/requestorApi';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import RequestDetailModal from '../components/RequestDetailModal';
 import { useNotificationFocus } from '../../../common/notificationFocus';
 
 export default function MyRequestsView({ addToast, onNavigateToResources, onPreviewFile }) {
   const { user } = useAuth();
-  const [requests, setRequests] = useState([]);
-  const [summary, setSummary] = useState(null);
+  const { data: requests = [], isLoading: reqLoading, refetch: refetchRequests } = useGetMyRequestsQuery();
+  const { data: summary = null, isLoading: sumLoading, refetch: refetchSummary } = useGetRequestorSummaryQuery();
+  const [confirmReceiptMutation] = useConfirmReceiptMutation();
+
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
-  const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [reqList, sum] = await Promise.all([
-        fetchRequests().catch(() => []),
-        fetchRequestorSummary().catch(() => null)
-      ]);
-      setRequests(reqList || []);
-      setSummary(sum || null);
-    } catch (err) {
-      console.error('Failed to load my requests data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  const loading = reqLoading || sumLoading;
 
   // A request notification opens that request's tracking card
   useNotificationFocus('request', !loading, (id) => {
@@ -48,19 +31,23 @@ export default function MyRequestsView({ addToast, onNavigateToResources, onPrev
   const handleConfirmReceipt = async (reqId) => {
     setActionLoadingId(reqId);
     try {
-      await confirmReceipt(reqId);
+      await confirmReceiptMutation(reqId).unwrap();
       addToast('Item successfully received and confirmed.', 'success');
       setSelectedId(null);
-      await loadData();
       if (onNavigateToResources) {
         onNavigateToResources();
       }
     } catch (err) {
       console.error('Error confirming receipt:', err);
-      addToast(err.message || 'Failed to confirm receipt.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to confirm receipt.', 'error');
     } finally {
       setActionLoadingId(null);
     }
+  };
+
+  const handleDataChanged = () => {
+    refetchRequests();
+    refetchSummary();
   };
 
   // Compute metrics
@@ -230,7 +217,7 @@ export default function MyRequestsView({ addToast, onNavigateToResources, onPrev
         <RequestDetailModal
           request={myRequests.find((r) => r.id === selectedId)}
           onClose={() => setSelectedId(null)}
-          onChanged={loadData}
+          onChanged={handleDataChanged}
           onConfirmReceipt={handleConfirmReceipt}
           receiptLoading={actionLoadingId === selectedId}
           addToast={addToast}

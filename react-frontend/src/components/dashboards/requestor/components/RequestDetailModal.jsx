@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { editRequest, cancelRequest, fetchResourceCatalog } from '../../../../services/requestor';
+import { useEditRequestMutation, useCancelRequestMutation } from '../../../../api/requestorApi';
+import { fetchResourceCatalog } from '../../../../services/requestor';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -77,6 +78,9 @@ function buildStages(req) {
 }
 
 export default function RequestDetailModal({ request, onClose, onChanged, onConfirmReceipt, receiptLoading, addToast, onPreviewFile }) {
+  const [editRequestMutation] = useEditRequestMutation();
+  const [cancelRequestMutation] = useCancelRequestMutation();
+
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
   const [resourceTypes, setResourceTypes] = useState([]);
@@ -144,7 +148,8 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     }
     setSaving(true);
     try {
-      await editRequest(request.id, {
+      await editRequestMutation({
+        id: request.id,
         resourceType: form.resourceType,
         quantity,
         priority: form.priority,
@@ -162,12 +167,12 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
           letterFileType: newLetter.documentFileType,
           letterFileDataUrl: newLetter.documentFileDataUrl,
         }),
-      });
+      }).unwrap();
       addToast('Request updated.', 'success');
       setMode('view');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update request.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to update request.', 'error');
     } finally {
       setSaving(false);
     }
@@ -181,17 +186,18 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     }
     setSaving(true);
     try {
-      await editRequest(request.id, {
+      await editRequestMutation({
+        id: request.id,
         letterFileName: newLetter.documentFileName,
         letterFileType: newLetter.documentFileType,
         letterFileDataUrl: newLetter.documentFileDataUrl,
-      });
+      }).unwrap();
       addToast('Request letter updated.', 'success');
       setLetterOpen(false);
       setNewLetter(null);
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update the request letter.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to update the request letter.', 'error');
     } finally {
       setSaving(false);
     }
@@ -200,12 +206,15 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await cancelRequest(request.id, cancelReason.trim() || undefined);
+      await cancelRequestMutation({
+        id: request.id,
+        reason: cancelReason.trim() || undefined,
+      }).unwrap();
       addToast('Request cancelled.', 'success');
       setCancelReason('');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to cancel request.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to cancel request.', 'error');
     } finally {
       setSaving(false);
     }

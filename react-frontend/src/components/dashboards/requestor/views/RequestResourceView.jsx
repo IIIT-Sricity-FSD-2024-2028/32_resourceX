@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchDepartments,
-  fetchResourceCatalog,
-  fetchStock,
-  fetchResources,
-  fetchResourceAvailability,
-  createRequest
-} from '../../../../services/requestor';
+  useGetDepartmentsQuery,
+  useGetResourceCatalogQuery,
+  useGetMyResourcesQuery,
+  useCreateRequestMutation,
+} from '../../../../api/requestorApi';
+import { useGetDeptStockQuery } from '../../../../api/deptHeadApi';
+import { fetchResourceAvailability } from '../../../../services/requestor';
 import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
   const { user } = useAuth();
-  const [departments, setDepartments] = useState([]);
-  const [catalog, setCatalog] = useState([]);
-  const [stock, setStock] = useState([]);
-  const [existingResources, setExistingResources] = useState([]);
+  const { data: departments = [] } = useGetDepartmentsQuery();
+  const { data: catalog = [] } = useGetResourceCatalogQuery();
+  const { data: stock = [] } = useGetDeptStockQuery();
+  const { data: existingResources = [] } = useGetMyResourcesQuery();
+  const [createRequestMutation, { isLoading: submitting }] = useCreateRequestMutation();
 
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedType, setSelectedType] = useState('');
@@ -25,7 +26,6 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const [returnDate, setReturnDate] = useState('');
   const [availableCount, setAvailableCount] = useState(null);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   // { documentFileName, documentFileType, documentFileDataUrl } from DocumentUpload
   const [letter, setLetter] = useState(null);
   const [letterResetKey, setLetterResetKey] = useState(0);
@@ -35,26 +35,6 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
   const earliest = new Date();
   earliest.setDate(earliest.getDate() + MIN_LEAD_DAYS);
   const minRequirementStr = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const [depts, cat, stk, resList] = await Promise.all([
-          fetchDepartments().catch(() => []),
-          fetchResourceCatalog().catch(() => []),
-          fetchStock().catch(() => []),
-          fetchResources().catch(() => [])
-        ]);
-        setDepartments(depts || []);
-        setCatalog(cat || []);
-        setStock(stk || []);
-        setExistingResources(resList || []);
-      } catch (err) {
-        console.error('Failed to load initial request metadata:', err);
-      }
-    };
-    init();
-  }, []);
 
   // Compute available resource types for the selected department
   const getDeptResourceTypes = (deptName) => {
@@ -143,8 +123,6 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       return;
     }
 
-    // Note: Requestors can request any quantity needed, even if exceeding current stock
-
     const newId = `REQ-${Math.floor(1000 + Math.random() * 9000)}`;
     const dateStr = new Date().toLocaleDateString('en-US', {
       month: 'short',
@@ -172,9 +150,8 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       letterFileDataUrl: letter.documentFileDataUrl
     };
 
-    setSubmitting(true);
     try {
-      await createRequest(payload);
+      await createRequestMutation(payload).unwrap();
       addToast(`Request Submitted Successfully! ID: ${newId}`, 'success');
       // Reset form
       setSelectedDept('');
@@ -192,9 +169,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
       }
     } catch (err) {
       console.error('Error submitting request:', err);
-      addToast(err.message || 'Failed to submit request. Please try again.', 'error');
-    } finally {
-      setSubmitting(false);
+      addToast(err?.data?.message || err.message || 'Failed to submit request. Please try again.', 'error');
     }
   };
 
@@ -248,15 +223,13 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
               </small>
             )}
             {!checkingAvailability && availableCount !== null && (
-              <small
-                style={{
-                  display: 'block',
-                  color: availableCount > 0 ? '#16a34a' : '#dc2626',
-                  marginTop: '0.5rem',
-                  fontWeight: 500
-                }}
-              >
-                Available in Inventory: {availableCount}
+              <small style={{
+                display: 'block',
+                marginTop: '0.5rem',
+                fontWeight: 600,
+                color: availableCount > 0 ? '#16a34a' : '#dc2626'
+              }}>
+                Available in Department Inventory: {availableCount}
               </small>
             )}
           </div>
@@ -266,96 +239,95 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
             <input
               type="number"
               className="form-control"
+              min="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              min="1"
               required
             />
           </div>
 
-          {/* Timing Section */}
-          <div className="form-group">
-            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '1.1rem', color: 'var(--primary-color, #0F386E)' }}>schedule</span>
-              Resource Usage Period
-            </label>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1rem',
-              background: 'linear-gradient(135deg, #f0f6ff 0%, #e8f0fe 100%)',
-              border: '1.5px solid #c7d9f8',
-              borderRadius: '10px',
-              padding: '1rem 1.2rem',
-              marginTop: '0.3rem'
-            }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  📅 Requirement Date
-                </label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={requirementDate}
-                  min={minRequirementStr}
-                  onChange={(e) => {
-                    setRequirementDate(e.target.value);
-                    // Clear return date if it becomes invalid
-                    if (returnDate && e.target.value && new Date(returnDate) <= new Date(e.target.value)) {
-                      setReturnDate('');
-                    }
-                  }}
-                  required
-                  style={{ fontSize: '0.9rem' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  🔄 Return Date
-                </label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={returnDate}
-                  min={requirementDate || minRequirementStr}
-                  onChange={(e) => setReturnDate(e.target.value)}
-                  disabled={!requirementDate}
-                  required
-                  style={{ fontSize: '0.9rem' }}
-                />
-              </div>
-            </div>
-            {requirementDate && returnDate && (
-              <small style={{ display: 'block', marginTop: '0.5rem', color: '#0F386E', fontWeight: 500 }}>
-                📆 Duration:{' '}
-                {Math.ceil((new Date(returnDate) - new Date(requirementDate)) / (1000 * 60 * 60 * 24))} day(s)
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem', marginBottom: '1.25rem' }}>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Requirement Date</label>
+              <input
+                type="date"
+                className="form-control"
+                min={minRequirementStr}
+                value={requirementDate}
+                onChange={(e) => setRequirementDate(e.target.value)}
+                required
+              />
+              <small style={{ display: 'block', color: '#64748b', marginTop: '0.4rem', fontSize: '0.8rem' }}>
+                At least {MIN_LEAD_DAYS} days lead time required.
               </small>
-            )}
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Return Date</label>
+              <input
+                type="date"
+                className="form-control"
+                min={requirementDate || minRequirementStr}
+                value={returnDate}
+                onChange={(e) => setReturnDate(e.target.value)}
+                required
+              />
+              <small style={{ display: 'block', color: '#64748b', marginTop: '0.4rem', fontSize: '0.8rem' }}>
+                Expected date the resource will be returned.
+              </small>
+            </div>
           </div>
 
           <div className="form-group">
-            <label className="form-label">Reason</label>
+            <label className="form-label">Justification / Purpose</label>
             <textarea
               className="form-control"
+              rows="4"
+              placeholder="State the academic or operational justification for this request..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              rows="3"
-              placeholder="Provide a justification for your request..."
               required
+            ></textarea>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">
+              Request Letter / Proof <span style={{ color: '#ef4444' }}>*</span>
+            </label>
+            <DocumentUpload
+              key={letterResetKey}
+              label="Request Letter / Proof"
+              hint="Upload signed permission letter or syllabus requirement (PDF, PNG, JPG up to 10 MB)"
+              onFileChange={setLetter}
             />
           </div>
 
-          <DocumentUpload
-            label="Request Letter / Proof"
-            required
-            onChange={setLetter}
-            resetKey={letterResetKey}
-            hint="Attach a signed request letter or supporting proof. PDF, PNG or JPG, up to 5 MB."
-          />
-
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Submitting...' : 'Submit Request'}
-          </button>
+          <div className="form-actions" style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={submitting}
+            >
+              {submitting ? 'Submitting Request...' : 'Submit Request'}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                setSelectedDept('');
+                setSelectedType('');
+                setQuantity(1);
+                setReason('');
+                setRequirementDate('');
+                setReturnDate('');
+                setAvailableCount(null);
+                setLetter(null);
+                setLetterResetKey((k) => k + 1);
+              }}
+            >
+              Reset Form
+            </button>
+          </div>
         </form>
       </div>
     </div>

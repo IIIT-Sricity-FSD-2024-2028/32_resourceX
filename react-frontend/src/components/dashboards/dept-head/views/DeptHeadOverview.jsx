@@ -1,7 +1,13 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptDashboardOverview } from '../../../../services/deptHead';
+import {
+  useGetDeptSummaryQuery,
+  useGetDeptIncomingRequestsQuery,
+  useGetDeptResourcesQuery,
+  useGetDeptStockQuery,
+  useGetDeptProcurementsQuery,
+} from '../../../../api/deptHeadApi';
 import {
   StatusBadge,
   EmptyRow,
@@ -20,37 +26,31 @@ export default function DeptHeadOverview() {
   const { user } = useAuth();
   const { addToast = () => {} } = useOutletContext() || {};
 
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [requestSearch, setRequestSearch] = useState('');
   const [procSearch, setProcSearch] = useState('');
 
   const department = user?.department || 'your department';
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const result = await fetchDeptDashboardOverview();
-      setData(result);
-    } catch (err) {
-      setError(err.message || 'Failed to load department dashboard.');
-      addToast(err.message || 'Error loading dashboard', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast]);
+  const { data: summary, isLoading: sumLoading, error: sumError, refetch: refetchSummary } = useGetDeptSummaryQuery();
+  const { data: requests = [], isLoading: reqLoading, error: reqError, refetch: refetchRequests } = useGetDeptIncomingRequestsQuery();
+  const { data: resources = [], isLoading: resLoading, error: resError, refetch: refetchResources } = useGetDeptResourcesQuery();
+  const { data: stock = [], isLoading: stkLoading, error: stkError, refetch: refetchStock } = useGetDeptStockQuery();
+  const { data: procurementsList = [], isLoading: prcLoading, error: prcError, refetch: refetchProcurements } = useGetDeptProcurementsQuery();
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const isLoading = sumLoading || reqLoading || resLoading || stkLoading || prcLoading;
+  const error = sumError || reqError || resError || stkError || prcError;
+
+  const handleRetry = () => {
+    refetchSummary();
+    refetchRequests();
+    refetchResources();
+    refetchStock();
+    refetchProcurements();
+  };
 
   if (isLoading) return <LoadingBlock text="Loading department dashboard..." />;
-  if (error) return <ErrorBlock text={error} onRetry={loadData} />;
+  if (error) return <ErrorBlock text={error?.data?.message || error?.message || 'Failed to load department dashboard.'} onRetry={handleRetry} />;
 
-  const resources = data?.resources || [];
-  const summary = data?.summary;
   const buckets = countBuckets(resources);
   const stats = {
     total: summary?.totalResources ?? resources.length,
@@ -61,15 +61,15 @@ export default function DeptHeadOverview() {
     scrap: summary?.scrap ?? buckets.scrap
   };
 
-  const incoming = (data?.requests || []).filter(
+  const incoming = (requests || []).filter(
     (r) => r.status === 'Pending' && matchesSearch(requestSearch, r.id, r.resourceType, r.requestor)
   );
-  const procurements = (summary?.procurements || data?.procurements || []).filter(
+  const procurements = (summary?.procurements || procurementsList || []).filter(
     (p) => matchesSearch(procSearch, p.id, p.resourceType, p.item, p.status)
   );
 
-  const stock = (data?.stock || []).filter((s) => !user?.department || s.department === user.department);
-  const lowStockTypes = stock
+  const scopedStock = (stock || []).filter((s) => !user?.department || s.department === user.department);
+  const lowStockTypes = scopedStock
     .filter((s) => (s.status || stockStatusOf(s.currentQuantity, s.thresholdLevel)) === 'Low Stock')
     .map((s) => s.resourceType);
 

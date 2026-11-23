@@ -1,50 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchRequestorDashboardOverview,
-  fetchRequestorReturnHistory,
-  fetchRequestorMaintenanceHistory
-} from '../../../../services/requestor';
+  useGetMyRequestsQuery,
+  useGetMyResourcesQuery,
+  useGetRequestorSummaryQuery,
+  useGetReturnHistoryQuery,
+  useGetMaintenanceHistoryQuery
+} from '../../../../api/requestorApi';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function RequestorOverview({ onSwitchView }) {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
   const [requestSearch, setRequestSearch] = useState('');
   const [resourceSearch, setResourceSearch] = useState('');
-  const [data, setData] = useState({
-    requests: [],
-    resources: [],
-    summary: null,
-    returnHistory: [],
-    maintenanceHistory: []
-  });
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [res, returns, maint] = await Promise.all([
-        fetchRequestorDashboardOverview(),
-        fetchRequestorReturnHistory().catch(() => []),
-        fetchRequestorMaintenanceHistory().catch(() => [])
-      ]);
-      setData({
-        requests: res.requests || [],
-        resources: res.resources || [],
-        summary: res.summary || null,
-        returnHistory: returns || [],
-        maintenanceHistory: maint || []
-      });
-    } catch (err) {
-      console.error('Failed to load overview data:', err);
-    } finally {
-      setLoading(false);
-    }
+  const { data: requests = [], isLoading: reqLoading } = useGetMyRequestsQuery();
+  const { data: resources = [], isLoading: resLoading } = useGetMyResourcesQuery();
+  const { data: summaryData = null, isLoading: sumLoading } = useGetRequestorSummaryQuery();
+  const { data: returnHistory = [], isLoading: retLoading } = useGetReturnHistoryQuery();
+  const { data: maintenanceHistory = [], isLoading: maintLoading } = useGetMaintenanceHistoryQuery();
+
+  const loading = reqLoading || resLoading || sumLoading || retLoading || maintLoading;
+
+  const data = {
+    requests,
+    resources,
+    summary: summaryData,
+    returnHistory,
+    maintenanceHistory
   };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const myRequests = data.requests || [];
   const uName = user?.name ? user.name.trim().toLowerCase() : '';

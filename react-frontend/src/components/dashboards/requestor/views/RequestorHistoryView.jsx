@@ -1,42 +1,25 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../../../context/AuthContext';
 import {
-  fetchRequestorReturnHistory,
-  fetchRequestorMaintenanceHistory
-} from '../../../../services/requestor';
+  useGetReturnHistoryQuery,
+  useGetMaintenanceHistoryQuery
+} from '../../../../api/requestorApi';
 
 export default function RequestorHistoryView({ addToast }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('returns'); // 'returns' | 'maintenance'
-  const [returnHistory, setReturnHistory] = useState([]);
-  const [maintenanceHistory, setMaintenanceHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  const { data: rawReturnHistory = [], isLoading: retLoading } = useGetReturnHistoryQuery();
+  const { data: rawMaintenanceHistory = [], isLoading: maintLoading } = useGetMaintenanceHistoryQuery();
+
+  const returnHistory = Array.isArray(rawReturnHistory) ? rawReturnHistory : [];
+  const maintenanceHistory = Array.isArray(rawMaintenanceHistory) ? rawMaintenanceHistory : [];
+  const loading = retLoading || maintLoading;
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [conditionFilter, setConditionFilter] = useState('All');
   const [maintStatusFilter, setMaintStatusFilter] = useState('All');
-
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [returns, maint] = await Promise.all([
-        fetchRequestorReturnHistory().catch(() => []),
-        fetchRequestorMaintenanceHistory().catch(() => [])
-      ]);
-
-      setReturnHistory(Array.isArray(returns) ? returns : []);
-      setMaintenanceHistory(Array.isArray(maint) ? maint : []);
-    } catch (err) {
-      if (addToast) addToast(err.message || 'Failed to load activity history.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   // Filtered returns
   const filteredReturns = useMemo(() => {

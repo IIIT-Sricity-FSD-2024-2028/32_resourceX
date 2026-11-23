@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { editDeptProcurement, cancelDeptProcurement, fetchDeptResourceTypes } from '../../../../services/deptHead';
+import { useEditDeptProcurementMutation, useCancelDeptProcurementMutation } from '../../../../api/deptHeadApi';
+import { fetchDeptResourceTypes } from '../../../../services/deptHead';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -89,6 +90,9 @@ function buildStages(proc) {
 }
 
 export default function ProcurementDetailModal({ procurement, onClose, onChanged, addToast, onOpenFile }) {
+  const [editDeptProcurementMutation] = useEditDeptProcurementMutation();
+  const [cancelDeptProcurementMutation] = useCancelDeptProcurementMutation();
+
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
   const [resourceTypes, setResourceTypes] = useState([]);
@@ -151,7 +155,8 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     }
     setSaving(true);
     try {
-      await editDeptProcurement(proc.id, {
+      await editDeptProcurementMutation({
+        id: proc.id,
         resourceType: form.resourceType,
         quantity,
         priority: form.priority,
@@ -163,12 +168,12 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
           specFileType: newSpec.documentFileType,
           specFileDataUrl: newSpec.documentFileDataUrl,
         }),
-      });
+      }).unwrap();
       addToast('Procurement updated.', 'success');
       setMode('view');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update procurement.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to update procurement.', 'error');
     } finally {
       setSaving(false);
     }
@@ -182,17 +187,18 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
     }
     setSaving(true);
     try {
-      await editDeptProcurement(proc.id, {
+      await editDeptProcurementMutation({
+        id: proc.id,
         specFileName: newSpec.documentFileName,
         specFileType: newSpec.documentFileType,
         specFileDataUrl: newSpec.documentFileDataUrl,
-      });
+      }).unwrap();
       addToast('Specification file updated.', 'success');
       setSpecOpen(false);
       setNewSpec(null);
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update the specification file.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to update the specification file.', 'error');
     } finally {
       setSaving(false);
     }
@@ -201,12 +207,15 @@ export default function ProcurementDetailModal({ procurement, onClose, onChanged
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await cancelDeptProcurement(proc.id, cancelReason.trim() || undefined);
+      await cancelDeptProcurementMutation({
+        id: proc.id,
+        reason: cancelReason.trim() || undefined,
+      }).unwrap();
       addToast('Procurement cancelled.', 'success');
       setCancelReason('');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to cancel procurement.', 'error');
+      addToast(err?.data?.message || err.message || 'Failed to cancel procurement.', 'error');
     } finally {
       setSaving(false);
     }

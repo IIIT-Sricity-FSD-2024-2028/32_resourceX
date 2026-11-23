@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptResources } from '../../../../services/deptHead';
+import { useGetDeptResourcesQuery } from '../../../../api/deptHeadApi';
 import { StatusBadge, EmptyRow, LoadingBlock, ErrorBlock } from '../components/deptHeadUtils';
 
 /**
@@ -11,29 +11,11 @@ export default function DeptHeadResources() {
   const { user } = useAuth();
   const { addToast = () => {} } = useOutletContext() || {};
 
-  const [resources, setResources] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: rawResources = [], isLoading, error: queryError, refetch } = useGetDeptResourcesQuery();
+  const resources = rawResources || [];
+
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const list = await fetchDeptResources();
-      setResources(list || []);
-    } catch (err) {
-      setError(err.message || 'Failed to load department resources.');
-      addToast(err.message || 'Error loading resources', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const statuses = useMemo(() => ['All', ...new Set(resources.map((r) => r.status).filter(Boolean))], [resources]);
 
@@ -84,8 +66,8 @@ export default function DeptHeadResources() {
 
         {isLoading ? (
           <LoadingBlock text="Loading inventory..." />
-        ) : error ? (
-          <ErrorBlock text={error} onRetry={loadData} />
+        ) : queryError ? (
+          <ErrorBlock text={queryError?.data?.message || queryError?.message || 'Failed to load department resources.'} onRetry={refetch} />
         ) : (
           <div className="table-responsive">
             <table className="table">
