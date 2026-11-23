@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { fetchDeptResources, fetchDeptRequests } from '../../../../services/deptHead';
+import { useAppDispatch } from '../../../../store/hooks';
+import { fetchDeptResources, fetchDeptRequests } from '../../../../store/slices/dept-head/deptHeadSlice';
 import { DoughnutChart, LineChart, HBarChart } from '../components/DeptCharts';
 import { LoadingBlock, ErrorBlock, countBuckets, parseDate } from '../components/deptHeadUtils';
 
@@ -12,6 +13,7 @@ const APPROVED_STATES = ['Approved', 'Allocated', 'Completed'];
  * (the original page used hard-coded sample numbers for trends / most used / KPIs).
  */
 export default function DeptHeadAnalytics() {
+  const dispatch = useAppDispatch();
   const { addToast = () => {} } = useOutletContext() || {};
 
   const [resources, setResources] = useState([]);
@@ -23,16 +25,19 @@ export default function DeptHeadAnalytics() {
     setIsLoading(true);
     setError(null);
     try {
-      const [res, reqs] = await Promise.all([fetchDeptResources(), fetchDeptRequests()]);
+      const [res, reqs] = await Promise.all([
+        dispatch(fetchDeptResources()).unwrap(),
+        dispatch(fetchDeptRequests()).unwrap(),
+      ]);
       setResources(res || []);
       setRequests(reqs || []);
     } catch (err) {
-      setError(err.message || 'Failed to load analytics.');
-      addToast(err.message || 'Error loading analytics', 'error');
+      setError(err || 'Failed to load analytics.');
+      addToast(err || 'Error loading analytics', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadData();

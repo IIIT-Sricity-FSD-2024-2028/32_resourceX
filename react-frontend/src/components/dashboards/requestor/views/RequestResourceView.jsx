@@ -5,9 +5,10 @@ import {
   fetchDepartments,
   fetchResourceCatalog,
   fetchResources,
+  fetchStock,
+  fetchResourceAvailability,
   createRequest
 } from '../../../../store/slices/requestor/requestorSlice';
-import { fetchResourceAvailability, fetchStock } from '../../../../services/requestor';
 import DocumentUpload from '../../../common/DocumentUpload';
 
 export default function RequestResourceView({ onNavigateToRequests, addToast }) {
@@ -43,7 +44,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
         const [depts, cat, stk, resList] = await Promise.all([
           dispatch(fetchDepartments()).unwrap().catch(() => []),
           dispatch(fetchResourceCatalog()).unwrap().catch(() => []),
-          fetchStock().catch(() => []),
+          dispatch(fetchStock()).unwrap().catch(() => []),
           dispatch(fetchResources()).unwrap().catch(() => [])
         ]);
         setDepartments(depts || []);
@@ -90,7 +91,7 @@ export default function RequestResourceView({ onNavigateToRequests, addToast }) 
     if (selectedDept && type) {
       setCheckingAvailability(true);
       try {
-        const avail = await fetchResourceAvailability(selectedDept, type);
+        const avail = await dispatch(fetchResourceAvailability({ department: selectedDept, type })).unwrap();
         setAvailableCount(Number(avail?.availableCount || 0));
       } catch (err) {
         console.error('Failed to check resource availability:', err);

@@ -65,6 +65,17 @@ export const fetchDeptResources = createAsyncThunk('deptHead/fetchResources', as
   }
 });
 
+export const fetchDeptResourceTypes = createAsyncThunk(
+  'deptHead/fetchResourceTypes',
+  async (department, { rejectWithValue }) => {
+    try {
+      return await deptHeadService.fetchDeptResourceTypes(department);
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to fetch resource types');
+    }
+  }
+);
+
 export const approveResourceExtension = createAsyncThunk(
   'deptHead/approveExtension',
   async (id, { rejectWithValue }) => {

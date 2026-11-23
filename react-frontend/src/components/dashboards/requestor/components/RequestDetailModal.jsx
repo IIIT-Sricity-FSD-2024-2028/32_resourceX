@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { editRequest, cancelRequest, fetchResourceCatalog } from '../../../../services/requestor';
+import { useAppDispatch } from '../../../../store/hooks';
+import { editRequest, cancelRequest, fetchResourceCatalog } from '../../../../store/slices/requestor/requestorSlice';
 import DocumentUpload from '../../../common/DocumentUpload';
 import StageTracker, { AttachmentButton, ReasonCallout, formatStamp, formatYmd, skipStagesFrom, toYmd } from '../../../common/StageTracker';
 
@@ -77,6 +78,7 @@ function buildStages(req) {
 }
 
 export default function RequestDetailModal({ request, onClose, onChanged, onConfirmReceipt, receiptLoading, addToast, onPreviewFile }) {
+  const dispatch = useAppDispatch();
   const [mode, setMode] = useState('view'); // view | edit | cancel
   const [saving, setSaving] = useState(false);
   const [resourceTypes, setResourceTypes] = useState([]);
@@ -117,7 +119,7 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     setNewLetter(null);
     setMode('edit');
     try {
-      const catalog = await fetchResourceCatalog();
+      const catalog = await dispatch(fetchResourceCatalog()).unwrap();
       const entry = (catalog || []).find((c) => c.department === request.department);
       setResourceTypes(entry?.resourceTypes || []);
     } catch {
@@ -144,30 +146,35 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     }
     setSaving(true);
     try {
-      await editRequest(request.id, {
-        resourceType: form.resourceType,
-        quantity,
-        priority: form.priority,
-        justification: form.justification.trim(),
-        ...(form.requirementDate && {
-          requirementDate: form.requirementDate,
-          requirementDateDisplay: formatYmd(form.requirementDate),
-        }),
-        ...(form.returnDate && {
-          returnDate: form.returnDate,
-          returnDateDisplay: formatYmd(form.returnDate),
-        }),
-        ...(newLetter && {
-          letterFileName: newLetter.documentFileName,
-          letterFileType: newLetter.documentFileType,
-          letterFileDataUrl: newLetter.documentFileDataUrl,
-        }),
-      });
+      await dispatch(
+        editRequest({
+          id: request.id,
+          payload: {
+            resourceType: form.resourceType,
+            quantity,
+            priority: form.priority,
+            justification: form.justification.trim(),
+            ...(form.requirementDate && {
+              requirementDate: form.requirementDate,
+              requirementDateDisplay: formatYmd(form.requirementDate),
+            }),
+            ...(form.returnDate && {
+              returnDate: form.returnDate,
+              returnDateDisplay: formatYmd(form.returnDate),
+            }),
+            ...(newLetter && {
+              letterFileName: newLetter.documentFileName,
+              letterFileType: newLetter.documentFileType,
+              letterFileDataUrl: newLetter.documentFileDataUrl,
+            }),
+          },
+        })
+      ).unwrap();
       addToast('Request updated.', 'success');
       setMode('view');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update request.', 'error');
+      addToast(err || 'Failed to update request.', 'error');
     } finally {
       setSaving(false);
     }
@@ -181,17 +188,22 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
     }
     setSaving(true);
     try {
-      await editRequest(request.id, {
-        letterFileName: newLetter.documentFileName,
-        letterFileType: newLetter.documentFileType,
-        letterFileDataUrl: newLetter.documentFileDataUrl,
-      });
+      await dispatch(
+        editRequest({
+          id: request.id,
+          payload: {
+            letterFileName: newLetter.documentFileName,
+            letterFileType: newLetter.documentFileType,
+            letterFileDataUrl: newLetter.documentFileDataUrl,
+          },
+        })
+      ).unwrap();
       addToast('Request letter updated.', 'success');
       setLetterOpen(false);
       setNewLetter(null);
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to update the request letter.', 'error');
+      addToast(err || 'Failed to update the request letter.', 'error');
     } finally {
       setSaving(false);
     }
@@ -200,12 +212,17 @@ export default function RequestDetailModal({ request, onClose, onChanged, onConf
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await cancelRequest(request.id, cancelReason.trim() || undefined);
+      await dispatch(
+        cancelRequest({
+          id: request.id,
+          reason: cancelReason.trim() || undefined,
+        })
+      ).unwrap();
       addToast('Request cancelled.', 'success');
       setCancelReason('');
       await onChanged();
     } catch (err) {
-      addToast(err.message || 'Failed to cancel request.', 'error');
+      addToast(err || 'Failed to cancel request.', 'error');
     } finally {
       setSaving(false);
     }

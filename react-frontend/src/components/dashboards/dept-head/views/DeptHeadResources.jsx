@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useAuth } from '../../../../context/AuthContext';
-import { fetchDeptResources } from '../../../../services/deptHead';
+import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
+import { fetchDeptResources } from '../../../../store/slices/dept-head/deptHeadSlice';
 import { StatusBadge, EmptyRow, LoadingBlock, ErrorBlock } from '../components/deptHeadUtils';
 
 /**
  * #dept-resources-view from department_head.html
  */
 export default function DeptHeadResources() {
-  const { user } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectCurrentUser);
   const { addToast = () => {} } = useOutletContext() || {};
 
   const [resources, setResources] = useState([]);
@@ -21,15 +23,15 @@ export default function DeptHeadResources() {
     setIsLoading(true);
     setError(null);
     try {
-      const list = await fetchDeptResources();
+      const list = await dispatch(fetchDeptResources()).unwrap();
       setResources(list || []);
     } catch (err) {
-      setError(err.message || 'Failed to load department resources.');
-      addToast(err.message || 'Error loading resources', 'error');
+      setError(err || 'Failed to load department resources.');
+      addToast(err || 'Error loading resources', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadData();

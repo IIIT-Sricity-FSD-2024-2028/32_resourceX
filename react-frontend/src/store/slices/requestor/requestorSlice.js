@@ -120,6 +120,25 @@ export const fetchRequestorMaintenanceHistory = createAsyncThunk(
   }
 );
 
+export const fetchStock = createAsyncThunk('requestor/fetchStock', async (_, { rejectWithValue }) => {
+  try {
+    return await requestorService.fetchStock();
+  } catch (err) {
+    return rejectWithValue(err.message || 'Failed to fetch stock');
+  }
+});
+
+export const fetchResourceAvailability = createAsyncThunk(
+  'requestor/fetchResourceAvailability',
+  async ({ department, type }, { rejectWithValue }) => {
+    try {
+      return await requestorService.fetchResourceAvailability(department, type);
+    } catch (err) {
+      return rejectWithValue(err.message || 'Failed to fetch resource availability');
+    }
+  }
+);
+
 export const fetchDepartments = createAsyncThunk('requestor/fetchDepartments', async (_, { rejectWithValue }) => {
   try {
     return await requestorService.fetchDepartments();
@@ -190,6 +209,7 @@ const initialRequestForm = {
 const initialState = {
   requests: [],
   resources: [],
+  stock: [],
   returnHistory: [],
   maintenanceHistory: [],
   departments: [],
@@ -350,6 +370,10 @@ const requestorSlice = createSlice({
       .addCase(fetchResources.fulfilled, (state, action) => {
         state.resources = Array.isArray(action.payload) ? action.payload : [];
       })
+      // fetchStock
+      .addCase(fetchStock.fulfilled, (state, action) => {
+        state.stock = Array.isArray(action.payload) ? action.payload : [];
+      })
       // return & maintenance history
       .addCase(fetchRequestorReturnHistory.fulfilled, (state, action) => {
         state.returnHistory = Array.isArray(action.payload) ? action.payload : [];
@@ -377,6 +401,7 @@ const requestorSlice = createSlice({
           state.catalog = action.payload.resourceCatalog || [];
           state.requests = action.payload.requests || [];
           state.resources = action.payload.resources || [];
+          state.stock = action.payload.stock || [];
           state.procurements = action.payload.procurements || [];
           state.summary = action.payload.summary || null;
         }
@@ -411,6 +436,7 @@ export const {
 // Selectors
 export const selectRequests = (state) => state.requestor?.requests || [];
 export const selectResources = (state) => state.requestor?.resources || [];
+export const selectStock = (state) => state.requestor?.stock || [];
 export const selectReturnHistory = (state) => state.requestor?.returnHistory || [];
 export const selectMaintenanceHistory = (state) => state.requestor?.maintenanceHistory || [];
 export const selectDepartments = (state) => state.requestor?.departments || [];
