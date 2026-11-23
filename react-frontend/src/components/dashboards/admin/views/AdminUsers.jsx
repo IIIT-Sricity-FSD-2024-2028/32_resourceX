@@ -1,29 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import AdminModal from '../components/AdminModal';
+import AddUserModal from '../components/AddUserModal';
+import EditUserModal from '../components/EditUserModal';
 import { renderRoleBadge } from './AdminOverview';
-import {
-  fetchAdminUsers,
-  fetchAdminDepartments,
-  fetchAdminOrganization,
-  createAdminUser,
-  updateAdminUser,
-  bulkCreateAdminUsers
-} from '../../../../services/admin';
-import DocumentUpload, { DocumentLink } from '../../../common/DocumentUpload';
+import { DocumentLink } from '../../../common/DocumentUpload';
 import BulkImportModal from '../../../common/BulkImportModal';
-
-// Organization-level email format: {name}{roleCode}{organizationName}@gmail.com
-const ROLE_EMAIL_CODES = {
-  Requestor: 're',
-  Registrar: 'rg',
-  'System Admin': 'sa',
-  'Dept Head': 'dh',
-  'Maintenance Officer': 'mo',
-  'Inventory Officer': 'io',
-  'Procurement Officer': 'po'
-};
-const slug = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchUsers,
+  fetchDepartments,
+  fetchOrganization,
+  createUser,
+  updateUser,
+  deactivateUser,
+  suspendUser,
+  reactivateUser,
+  bulkCreateUsers,
+  selectAdminUsers,
+  selectAdminDepartments,
+  selectAdminOrganization,
+  selectAdminUsersLoading,
+  selectUserOperationLoading,
+} from '../../../../store/slices/admin/adminSlice';
 
 const ROLE_OPTIONS = [
   'Requestor',
@@ -31,358 +30,307 @@ const ROLE_OPTIONS = [
   'Registrar',
   'Inventory Officer',
   'Maintenance Officer',
-  'Procurement Officer'
+  'Procurement Officer',
 ];
 
 /**
- * Exact replica of user-manage-view from admin.html
+ * AdminUsers View
+ * Manages institutional accounts, role assignments, department associations,
+ * document verification, and account status transitions.
+ * Fully integrated with Redux Toolkit (adminSlice).
  */
 export default function AdminUsers() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [users, setUsers] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [orgName, setOrgName] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Add User Modal state
-  const [isAddOpen, setIsAddOpen] = useState(false);
-  const [addName, setAddName] = useState('');
-  const [addEmail, setAddEmail] = useState('');
-  const [addRole, setAddRole] = useState('Requestor');
-  const [addDept, setAddDept] = useState('');
-  const [addPassword, setAddPassword] = useState('');
-  const [addDocument, setAddDocument] = useState(null);
-  const [addFormKey, setAddFormKey] = useState(0);
-
-  // Edit User Modal state
-  const [editUser, setEditUser] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editRole, setEditRole] = useState('Requestor');
-  const [editDept, setEditDept] = useState('');
-  const [editStatus, setEditStatus] = useState('Active');
+  // Redux state
+  const users = useAppSelector(selectAdminUsers);
+  const departments = useAppSelector(selectAdminDepartments);
+  const organization = useAppSelector(selectAdminOrganization);
+  const isLoading = useAppSelector(selectAdminUsersLoading);
+  const isOperating = useAppSelector(selectUserOperationLoading);
 
   // Search & filters
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
 
-  // Deactivate User Modal state
+  // Modal states
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editUserTarget, setEditUserTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
 
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const [uList, dList, org] = await Promise.all([
-        fetchAdminUsers(),
-        fetchAdminDepartments().catch(() => []),
-        fetchAdminOrganization().catch(() => null)
-      ]);
-      setOrgName(org?.name || '');
-      setUsers(uList || []);
-      setDepartments(dList || []);
-      if (dList && dList.length > 0 && !addDept) {
-        setAddDept(dList[0].name);
-      }
-    } catch (err) {
-      addToast(err.message || 'Failed to load users', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Fetch initial data
   useEffect(() => {
-    loadData();
-  }, []);
+    dispatch(fetchUsers());
+    dispatch(fetchDepartments());
+    dispatch(fetchOrganization());
+  }, [dispatch]);
 
   const displayUsers = [...users].reverse();
-  const allManagable = displayUsers.filter((u) => u.role !== 'System Admin');
+  const allManageable = displayUsers.filter((u) => u.role !== 'System Admin');
 
   const query = search.trim().toLowerCase();
-  const managableUsers = allManagable.filter((u) => {
+  const manageableUsers = allManageable.filter((u) => {
     if (roleFilter !== 'All' && u.role !== roleFilter) return false;
     if (statusFilter !== 'All' && (u.status || 'Active') !== statusFilter) return false;
-    if (query && !(u.name || '').toLowerCase().includes(query) && !(u.email || '').toLowerCase().includes(query)) {
+    if (
+      query &&
+      !(u.name || '').toLowerCase().includes(query) &&
+      !(u.email || '').toLowerCase().includes(query)
+    ) {
       return false;
     }
     return true;
   });
 
-  // Requestors and Registrars are general actors and are not classified by department
-  const roleHasDepartment = (role) => role !== 'Registrar' && role !== 'Requestor';
-
-  // One department can have only one head: for Dept Head only offer departments without an active head
-  const departmentsForRole = (role, selfId) => {
-    if (role !== 'Dept Head') return departments;
-    const headed = new Set(
-      users
-        .filter((u) => u.role === 'Dept Head' && u.status !== 'Inactive' && u.id !== selfId)
-        .map((u) => u.department)
-    );
-    return departments.filter((d) => !headed.has(d.name));
-  };
-
-  const orgSlug = slug(orgName);
-  const emailSuffix = (role) => `${ROLE_EMAIL_CODES[role] || ''}${orgSlug}@gmail.com`;
-  const emailError = (email, role) => {
-    const value = email.trim().toLowerCase();
-    const suffix = emailSuffix(role);
-    const local = value.slice(0, Math.max(0, value.length - suffix.length));
-    return !value.endsWith(suffix) || !/^[a-z0-9]+$/.test(local) ? `Email must look like {name}${suffix}` : '';
-  };
-
-  const addDeptOptions = departmentsForRole(addRole);
-  const editDeptOptions = departmentsForRole(editRole, editUser?.id);
-
-  const handleAddRoleChange = (role) => {
-    setAddRole(role);
-    const opts = departmentsForRole(role);
-    if (!opts.some((d) => d.name === addDept)) setAddDept(opts[0]?.name || '');
-  };
-
-  const handleEditRoleChange = (role) => {
-    setEditRole(role);
-    const opts = departmentsForRole(role, editUser?.id);
-    if (!opts.some((d) => d.name === editDept)) setEditDept(opts[0]?.name || '');
-  };
-
-  const openAddModal = () => {
-    setAddName('');
-    setAddEmail('');
-    setAddRole('Requestor');
-    setAddDept(departmentsForRole('Requestor')[0]?.name || '');
-    setAddPassword('');
-    setAddDocument(null);
-    setAddFormKey((k) => k + 1);
-    setIsAddOpen(true);
-  };
-
-  const handleSaveAdd = async () => {
-    const nameRegex = /^[a-zA-Z0-9\s.-]+$/;
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
-    if (!addName.trim() || !addEmail.trim() || !addPassword.trim()) {
-      addToast('Please fill out all fields including password.', 'error');
-      return;
-    }
-    if (!nameRegex.test(addName.trim())) {
-      addToast('Name can only contain characters and numbers.', 'error');
-      return;
-    }
-    if (!emailRegex.test(addEmail.trim())) {
-      addToast('Please enter a valid email address.', 'error');
-      return;
-    }
-    if (addPassword.trim().length < 8) {
-      addToast('Password must be at least 8 characters long.', 'error');
-      return;
-    }
-    if (!addDocument) {
-      addToast('Please upload a document for the new user.', 'error');
-      return;
-    }
-    if (orgSlug && emailError(addEmail, addRole)) {
-      addToast(`${emailError(addEmail, addRole)} (e.g. ${slug(addName.split(' ')[0] || 'john')}${emailSuffix(addRole)}).`, 'error');
-      return;
-    }
-    if (users.some((u) => (u.email || '').toLowerCase() === addEmail.trim().toLowerCase())) {
-      addToast('A user with this email already exists.', 'error');
-      return;
-    }
-    if (addRole === 'Dept Head' && !addDept) {
-      addToast('No department without a head is available. Create a department first.', 'error');
-      return;
-    }
-
+  // User CRUD Handlers
+  const handleSaveAdd = async (userData) => {
     try {
-      await createAdminUser({
-        id: `U-9${Math.floor(100 + Math.random() * 900)}`,
-        name: addName.trim(),
-        email: addEmail.trim(),
-        password: addPassword.trim(),
-        role: addRole,
-        ...(roleHasDepartment(addRole) ? { department: addDept || departments[0]?.name } : {}),
-        status: 'Active',
-        ...addDocument
-      });
+      await dispatch(createUser(userData)).unwrap();
       addToast('New user successfully added.', 'success');
       setIsAddOpen(false);
-      loadData();
+      dispatch(fetchUsers());
     } catch (err) {
-      addToast(err.message || 'Failed to add user', 'error');
+      addToast(err || 'Failed to add user', 'error');
+      throw err;
     }
   };
 
-  const openEditModal = (user) => {
-    setEditUser(user);
-    setEditName(user.name || '');
-    setEditRole(user.role || 'Requestor');
-    setEditDept(user.department || (departments[0]?.name || ''));
-    setEditStatus(user.status || 'Active');
-  };
-
-  const handleSaveEdit = async () => {
-    const nameRegex = /^[a-zA-Z0-9\s.-]+$/;
-    if (!editName.trim()) {
-      addToast('Name cannot be empty.', 'error');
-      return;
-    }
-    if (!nameRegex.test(editName.trim())) {
-      addToast('Name can only contain characters and numbers.', 'error');
-      return;
-    }
-    if (editRole === 'Dept Head' && !editDept) {
-      addToast('Select a department without a head for the Department Head role.', 'error');
-      return;
-    }
-
+  const handleSaveEdit = async (updates) => {
+    if (!editUserTarget) return;
     try {
-      const updates = {
-        name: editName.trim(),
-        role: editRole,
-        ...(roleHasDepartment(editRole) ? { department: editDept } : {}),
-        status: editStatus
-      };
-      await updateAdminUser(editUser.id, updates);
+      await dispatch(updateUser({ id: editUserTarget.id, updates })).unwrap();
       addToast('User details updated permanently.', 'success');
-      setEditUser(null);
-      loadData();
+      setEditUserTarget(null);
+      dispatch(fetchUsers());
     } catch (err) {
-      addToast(err.message || 'Failed to update user', 'error');
+      addToast(err || 'Failed to update user', 'error');
+      throw err;
     }
   };
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await updateAdminUser(deleteTarget.id, { status: 'Inactive' });
+      await dispatch(deactivateUser(deleteTarget.id)).unwrap();
       addToast('User deactivated.', 'success');
       setDeleteTarget(null);
-      loadData();
+      dispatch(fetchUsers());
     } catch (err) {
-      addToast(err.message || 'Failed to deactivate user', 'error');
+      addToast(err || 'Failed to deactivate user', 'error');
+    }
+  };
+
+  const handleToggleStatus = async (user) => {
+    try {
+      if (user.status === 'Suspended') {
+        await dispatch(reactivateUser(user.id)).unwrap();
+        addToast('User reactivated.', 'success');
+      } else {
+        await dispatch(suspendUser(user.id)).unwrap();
+        addToast('User suspended.', 'warning');
+      }
+      dispatch(fetchUsers());
+    } catch (err) {
+      addToast(err || 'Failed to change status', 'error');
+    }
+  };
+
+  const handleBulkImport = async (rows) => {
+    try {
+      const result = await dispatch(bulkCreateUsers(rows)).unwrap();
+      dispatch(fetchUsers());
+      return result;
+    } catch (err) {
+      addToast(err || 'Bulk import failed', 'error');
+      throw err;
     }
   };
 
   return (
     <div id="user-manage-view" className="view-section active">
       <h1 className="page-title">User Management</h1>
-      <p className="page-subtitle">Add, edit, and deactivate system user accounts comprehensively.</p>
+      <p className="page-subtitle">Configure system users, assignments, and structural roles.</p>
 
-      <div className="data-section">
-        <div className="data-section-header">
-          <div className="data-section-title">All Users Roster</div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={() => setIsImportOpen(true)}
-            >
-              Import from Excel
-            </button>
-            <button
-              type="button"
-              className="btn-primary"
-              style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-              onClick={openAddModal}
-            >
-              + Add New User
-            </button>
-          </div>
+      {/* Control Bar: Add Button, Bulk Import, Filters, and Search */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            id="open-add-user-btn"
+            onClick={() => setIsAddOpen(true)}
+          >
+            + Add New User
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => setIsImportOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+          >
+            Bulk Import (Excel/CSV)
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
-          <input
-            type="text"
-            className="form-control"
-            style={{ flex: '1 1 260px', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="Search by user name or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+
+        {/* Filter Controls */}
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <select
             className="form-control"
-            style={{ padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            style={{ width: 'auto', minWidth: '150px' }}
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
           >
-            <option value="All">All System Roles</option>
+            <option value="All">All Roles</option>
             {ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>{r}</option>
+              <option key={r} value={r}>
+                {r}
+              </option>
             ))}
           </select>
+
           <select
             className="form-control"
-            style={{ padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            style={{ width: 'auto', minWidth: '130px' }}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
             <option value="Suspended">Suspended</option>
+            <option value="Inactive">Inactive</option>
           </select>
+
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Search by name or email..."
+            style={{ width: '220px' }}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
+      </div>
+
+      {/* Users Table */}
+      <div className="data-section">
         <table className="table">
           <thead>
             <tr>
-              <th>Name</th>
+              <th>Name & Email</th>
               <th>System Role</th>
               <th>Department Access</th>
-              <th>Document</th>
               <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Action</th>
+              <th>Document</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
-          <tbody id="all-users-tbody">
+          <tbody id="users-table-tbody">
             {isLoading ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                   Loading users...
                 </td>
               </tr>
-            ) : managableUsers.length === 0 ? (
+            ) : manageableUsers.length === 0 ? (
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
-                  No users found.
+                  No matching users found.
                 </td>
               </tr>
             ) : (
-              managableUsers.map((u) => (
+              manageableUsers.map((u) => (
                 <tr key={u.id}>
-                  <td style={{ fontWeight: 600 }}>
-                    {u.name}
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 'normal' }}>
-                      {u.email}
-                    </div>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{u.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{u.email}</div>
                   </td>
                   <td>{renderRoleBadge(u.role)}</td>
-                  <td>{u.department || '—'}</td>
-                  <td><DocumentLink record={u} /></td>
+                  <td>{u.department || 'N/A'}</td>
                   <td>
-                    <span className="badge allocated">{u.status || 'Active'}</span>
+                    <span
+                      className={`badge ${
+                        u.status === 'Active'
+                          ? 'active'
+                          : u.status === 'Suspended'
+                          ? 'pending'
+                          : 'rejected'
+                      }`}
+                      style={
+                        u.status === 'Active'
+                          ? { background: '#dcfce7', color: '#15803d' }
+                          : u.status === 'Suspended'
+                          ? { background: '#fef3c7', color: '#b45309' }
+                          : { background: '#fee2e2', color: '#b91c1c' }
+                      }
+                    >
+                      {u.status || 'Active'}
+                    </span>
+                  </td>
+                  <td>
+                    <DocumentLink
+                      fileName={u.documentFileName}
+                      fileType={u.documentFileType}
+                      fileDataUrl={u.documentFileDataUrl}
+                    />
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ fontSize: '0.75rem' }}
-                      onClick={() => openEditModal(u)}
-                    >
-                      Edit Access
-                    </button>
-                    {u.role !== 'System Admin' && (
+                    <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                       <button
                         type="button"
-                        className="btn-danger"
-                        style={{ fontSize: '0.75rem', marginLeft: '0.25rem' }}
-                        onClick={() => setDeleteTarget(u)}
+                        className="btn-secondary"
+                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                        onClick={() => setEditUserTarget(u)}
                       >
-                        Delete
+                        Edit
                       </button>
-                    )}
+
+                      {u.status !== 'Inactive' && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.75rem',
+                            color: u.status === 'Suspended' ? '#15803d' : '#b45309',
+                          }}
+                          onClick={() => handleToggleStatus(u)}
+                        >
+                          {u.status === 'Suspended' ? 'Reactivate' : 'Suspend'}
+                        </button>
+                      )}
+
+                      {u.status !== 'Inactive' && (
+                        <button
+                          type="button"
+                          className="btn-danger"
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            fontSize: '0.75rem',
+                            background: '#fee2e2',
+                            color: '#b91c1c',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
+                          onClick={() => setDeleteTarget(u)}
+                        >
+                          Deactivate
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -391,197 +339,50 @@ export default function AdminUsers() {
         </table>
       </div>
 
-      {/* Add New User Modal */}
-      <AdminModal
+      {/* Add User Modal */}
+      <AddUserModal
         isOpen={isAddOpen}
-        title="Add New User"
         onClose={() => setIsAddOpen(false)}
-        onConfirm={handleSaveAdd}
-        confirmText="Confirm"
-      >
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Full Name</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="e.g. John Doe"
-            value={addName}
-            onChange={(e) => setAddName(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Email Address</label>
-          <input
-            type="email"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder={`e.g. john${emailSuffix(addRole)}`}
-            value={addEmail}
-            onChange={(e) => setAddEmail(e.target.value)}
-          />
-          <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-            Format: {'{name}'}{emailSuffix(addRole)}
-          </div>
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>System Role</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={addRole}
-            onChange={(e) => handleAddRoleChange(e.target.value)}
-          >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        {roleHasDepartment(addRole) && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
-            <select
-              className="form-control"
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-              value={addDept}
-              onChange={(e) => setAddDept(e.target.value)}
-            >
-              {addDeptOptions.length === 0 && <option value="">No department without a head</option>}
-              {addDeptOptions.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            {addRole === 'Dept Head' && (
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                Only departments without a head are listed (one head per department).
-              </div>
-            )}
-          </div>
-        )}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Password</label>
-          <input
-            type="password"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            placeholder="Enter temporary password (min 8 characters)"
-            value={addPassword}
-            onChange={(e) => setAddPassword(e.target.value)}
-          />
-        </div>
-        <DocumentUpload
-          label="User Document"
-          required
-          onChange={setAddDocument}
-          resetKey={addFormKey}
-          hint="ID proof or employment details. PDF, PNG or JPG, up to 5 MB."
-        />
-      </AdminModal>
+        onSubmit={handleSaveAdd}
+        departments={departments}
+        users={users}
+        orgName={organization?.name || ''}
+        isSubmitting={isOperating}
+      />
 
       {/* Edit User Modal */}
-      <AdminModal
-        isOpen={Boolean(editUser)}
-        title="Edit User"
-        onClose={() => setEditUser(null)}
-        onConfirm={handleSaveEdit}
-        confirmText="Confirm"
-      >
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Name</label>
-          <input
-            type="text"
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Role</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editRole}
-            onChange={(e) => handleEditRoleChange(e.target.value)}
-          >
-            {ROLE_OPTIONS.map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        {roleHasDepartment(editRole) && (
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Department</label>
-            <select
-              className="form-control"
-              style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-              value={editDept}
-              onChange={(e) => setEditDept(e.target.value)}
-            >
-              {editDeptOptions.length === 0 && <option value="">No department without a head</option>}
-              {editDeptOptions.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            {editRole === 'Dept Head' && (
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                Only departments without a head are listed (one head per department).
-              </div>
-            )}
-          </div>
-        )}
-        <div style={{ marginBottom: '1rem' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>Account Status</label>
-          <select
-            className="form-control"
-            style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
-            value={editStatus}
-            onChange={(e) => setEditStatus(e.target.value)}
-          >
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-            <option value="Suspended">Suspended</option>
-          </select>
-        </div>
-      </AdminModal>
+      <EditUserModal
+        isOpen={Boolean(editUserTarget)}
+        user={editUserTarget}
+        onClose={() => setEditUserTarget(null)}
+        onSave={handleSaveEdit}
+        departments={departments}
+        users={users}
+        isSubmitting={isOperating}
+      />
 
-      {/* Deactivate User Modal */}
+      {/* Deactivate User Confirmation Modal */}
       <AdminModal
         isOpen={Boolean(deleteTarget)}
-        title="Deactivate User"
+        title="Confirm Deactivation"
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleConfirmDelete}
-        confirmText="Confirm"
+        confirmText="Deactivate"
+        confirmButtonClass="btn-danger"
       >
-        <p style={{ color: '#64748b', margin: 0 }}>
-          Are you absolutely sure you want to deactivate this user? They will lose access immediately.
+        <p style={{ margin: 0, color: '#334155', fontSize: '0.875rem' }}>
+          Are you sure you want to deactivate access for user{' '}
+          <strong>{deleteTarget?.name}</strong>? This user will no longer be able to log in.
         </p>
       </AdminModal>
 
+      {/* Bulk Import Modal */}
       <BulkImportModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
-        title="Import Users from Excel"
-        description="Create many accounts at once. Each row is checked on its own — rows with problems are listed so you can fix and re-import just those."
-        columns={[
-          { key: 'name', label: 'Name', required: true, aliases: ['full name', 'user name'] },
-          { key: 'email', label: 'Email', aliases: ['email address', 'mail'], hint: `leave blank to generate {name}{role code}${slug(orgName)}@gmail.com`, blankText: 'auto' },
-          { key: 'role', label: 'Role', required: true, hint: ROLE_OPTIONS.join(', ') },
-          { key: 'department', label: 'Department', aliases: ['dept'], hint: 'required for Dept Head and officers; ignored for Requestor and Registrar' },
-          { key: 'password', label: 'Password', hint: 'at least 8 characters; leave blank to generate one', blankText: 'auto' },
-          { key: 'document', label: 'Document File', required: true, document: true, aliases: ['document', 'file', 'document name', 'file name'], hint: "file name of the user's ID/details document (PDF, PNG or JPG, max 5 MB), e.g. asha-id.pdf — you select these files in step 2" },
-        ]}
-        templateRows={[
-          ['Asha Nair', '', 'Requestor', '', '', 'asha-id.pdf'],
-          ['Ravi Kumar', '', 'Inventory Officer', departments[0]?.name || 'IT Services', 'Welcome@123', 'ravi-id.jpg'],
-        ]}
-        templateFileName="users-import-template.csv"
-        onImport={bulkCreateAdminUsers}
-        onDone={loadData}
+        onImport={handleBulkImport}
+        actor="admin"
+        departments={departments}
       />
     </div>
   );
