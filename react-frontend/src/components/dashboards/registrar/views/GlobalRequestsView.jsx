@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { fetchRequests, fetchDepartments } from '../../../../services/registrar';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  fetchRequests,
+  fetchDepartments
+} from '../../../../store/slices/registrar/registrarSlice';
 
 /**
  * 2. Global Requests View (replicates sys-overview-view from registrar.html & registrar.js)
  */
 export default function GlobalRequestsView() {
-  const [requests, setRequests] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const dispatch = useDispatch();
+  const requests = useSelector(state => state.registrar.requests);
+  const departments = useSelector(state => state.registrar.departments);
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [searchId, setSearchId] = useState('');
@@ -16,38 +21,34 @@ export default function GlobalRequestsView() {
   useEffect(() => {
     const loadDepartments = async () => {
       try {
-        const data = await fetchDepartments();
-        if (Array.isArray(data)) {
-          setDepartments(data);
-        }
+      await dispatch(fetchDepartments()).unwrap();
       } catch (err) {
-        console.error('Error fetching departments from backend:', err);
+      console.error('Error fetching departments from backend:', err.message || err);
       }
     };
 
     loadDepartments();
-  }, []);
+  }, [dispatch]);
 
   // 2. Fetch requests based on active dropdown filters
-  const renderGlobalRequests = async () => {
+  const renderGlobalRequests = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
       if (filterStatus !== 'All') params.status = filterStatus;
       if (filterDept !== 'All') params.department = filterDept;
 
-      const data = await fetchRequests(params);
-      setRequests(Array.isArray(data) ? data : []);
+    await dispatch(fetchRequests(params)).unwrap();
     } catch (err) {
-      console.error('Error fetching global requests:', err);
+    console.error('Error fetching global requests:', err.message || err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [dispatch, filterDept, filterStatus]);
 
   useEffect(() => {
     renderGlobalRequests();
-  }, [filterStatus, filterDept]);
+  }, [renderGlobalRequests]);
 
   const query = searchId.trim().toLowerCase();
   const visibleRequests = query

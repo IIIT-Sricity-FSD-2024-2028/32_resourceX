@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurements } from '../../../../services/procurementOfficer';
+import { fetchProcurements } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STATUS_COLORS = {
@@ -14,7 +15,15 @@ export default function PurchaseHistoryView({ addToast }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
 
-  const [procurements, setProcurements] = useState([]);
+  const dispatch = useDispatch();
+  const allProcurements = useSelector(state => state.procurementOfficer.procurements);
+  const procurements = useMemo(
+    () => allProcurements.filter(p =>
+      !['Pending Approval', 'Pending', 'Rejected'].includes(p.status) &&
+      (p.vendor || p.poNumber || ['PO Created', 'Fulfilled', 'Registered'].includes(p.status))
+    ),
+    [allProcurements]
+  );
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -23,17 +32,13 @@ export default function PurchaseHistoryView({ addToast }) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetchProcurements({ department });
-      const raw = Array.isArray(res) ? res : [];
-      // Exclude pending and rejected
-      const list = raw.filter(p => !['Pending Approval', 'Pending', 'Rejected'].includes(p.status));
-      setProcurements(list.filter(p => p.vendor || p.poNumber || ['PO Created', 'Fulfilled', 'Registered'].includes(p.status)));
+      await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load history.', 'error');
+      addToast(err.message || err || 'Failed to load history.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

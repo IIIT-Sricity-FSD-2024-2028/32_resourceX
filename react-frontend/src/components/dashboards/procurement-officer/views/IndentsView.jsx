@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurements } from '../../../../services/procurementOfficer';
+import { fetchProcurements } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 
 export default function IndentsView({ addToast, onProcessOrder }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
-  const [indents, setIndents] = useState([]);
+  const dispatch = useDispatch();
+  const procurements = useSelector(state => state.procurementOfficer.procurements);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
@@ -15,17 +17,18 @@ export default function IndentsView({ addToast, onProcessOrder }) {
   const loadIndents = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetchProcurements({ department });
-      const list = (Array.isArray(res) ? res : []).filter(
-        p => p.status !== 'Pending Approval'
-      );
-      setIndents(list);
+      await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
-      if (addToast) addToast(err.message || 'Failed to load department indents.', 'error');
+      if (addToast) addToast(err.message || err || 'Failed to load department indents.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
+
+  const visibleIndents = useMemo(
+    () => procurements.filter(p => p.status !== 'Pending Approval'),
+    [procurements]
+  );
 
   useEffect(() => {
     loadIndents();
@@ -34,15 +37,15 @@ export default function IndentsView({ addToast, onProcessOrder }) {
   // Extract unique departments
   const departments = useMemo(() => {
     const set = new Set();
-    indents.forEach(p => {
+    visibleIndents.forEach(p => {
       if (p.department) set.add(p.department);
     });
     return ['All', ...Array.from(set).sort()];
-  }, [indents]);
+  }, [visibleIndents]);
 
   // Filtered indents
   const filteredIndents = useMemo(() => {
-    return indents.filter(item => {
+    return visibleIndents.filter(item => {
       // Status tab filter
       if (statusFilter === 'Pending' && item.status !== 'Pending') return false;
       if (statusFilter === 'Approved' && item.status !== 'Approved') return false;
@@ -66,18 +69,18 @@ export default function IndentsView({ addToast, onProcessOrder }) {
 
       return true;
     });
-  }, [indents, statusFilter, deptFilter, searchTerm]);
+  }, [visibleIndents, statusFilter, deptFilter, searchTerm]);
 
   // Statistics
   const stats = useMemo(() => {
-    const total = indents.length;
-    const pending = indents.filter(p => p.status === 'Pending').length;
-    const approved = indents.filter(p => p.status === 'Approved').length;
-    const inProc = indents.filter(p => p.status === 'PO Created').length;
-    const fulfilled = indents.filter(p => ['Fulfilled', 'Registered'].includes(p.status)).length;
-    const rejected = indents.filter(p => p.status === 'Rejected').length;
+    const total = visibleIndents.length;
+    const pending = visibleIndents.filter(p => p.status === 'Pending').length;
+    const approved = visibleIndents.filter(p => p.status === 'Approved').length;
+    const inProc = visibleIndents.filter(p => p.status === 'PO Created').length;
+    const fulfilled = visibleIndents.filter(p => ['Fulfilled', 'Registered'].includes(p.status)).length;
+    const rejected = visibleIndents.filter(p => p.status === 'Rejected').length;
     return { total, pending, approved, inProc, fulfilled, rejected };
-  }, [indents]);
+  }, [visibleIndents]);
 
   const STATUS_BADGES = {
     'Pending': { bg: '#fffbeb', text: '#b45309', border: '#fde68a', label: 'Awaiting Registrar Approval', icon: 'hourglass_empty' },
@@ -264,7 +267,7 @@ export default function IndentsView({ addToast, onProcessOrder }) {
           </div>
 
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            Showing <strong>{filteredIndents.length}</strong> of <strong>{indents.length}</strong> indents
+            Showing <strong>{filteredIndents.length}</strong> of <strong>{visibleIndents.length}</strong> indents
           </div>
         </div>
       </div>

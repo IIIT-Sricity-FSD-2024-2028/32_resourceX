@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchProcurements,
   approveRegistrarProcurement,
   rejectRegistrarProcurement
-} from '../../../../services/registrar';
+} from '../../../../store/slices/registrar/registrarSlice';
 import AdminModal from '../../admin/components/AdminModal';
 
 /**
@@ -12,7 +13,12 @@ import AdminModal from '../../admin/components/AdminModal';
  * or reject department indents submitted by Department Heads.
  */
 export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
-  const [indents, setIndents] = useState([]);
+  const dispatch = useDispatch();
+  const procurements = useSelector(state => state.registrar.procurements);
+  const indents = useMemo(
+    () => procurements.filter(p => p.status !== 'Pending Approval'),
+    [procurements]
+  );
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
@@ -26,19 +32,14 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   const loadIndents = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchProcurements();
-      // Exclude requestor unapproved drafts if any
-      const list = (Array.isArray(data) ? data : []).filter(
-        p => p.status !== 'Pending Approval'
-      );
-      setIndents(list);
+      await dispatch(fetchProcurements()).unwrap();
     } catch (err) {
       console.error('Error fetching indents:', err);
       if (addToast) addToast('Error loading department indents.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => {
     loadIndents();
@@ -48,7 +49,7 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   const handleApprove = async (id) => {
     try {
       setProcessingId(id);
-      await approveRegistrarProcurement(id);
+      await dispatch(approveRegistrarProcurement(id)).unwrap();
       await loadIndents();
       if (addToast) {
         addToast('✅ Indent Approved! Passed to Procurement Officer for PO creation.', 'success');
@@ -56,9 +57,9 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
     } catch (err) {
       console.error('Approve failed:', err);
       if (addToast) {
-        addToast('Failed to approve indent: ' + (err.message || 'Error'), 'error');
+        addToast('Failed to approve indent: ' + (err.message || err || 'Error'), 'error');
       } else {
-        alert('Failed to approve indent: ' + (err.message || 'Error'));
+        alert('Failed to approve indent: ' + (err.message || err || 'Error'));
       }
     } finally {
       setProcessingId(null);
@@ -81,15 +82,15 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
     setRejectId(null);
     try {
       setProcessingId(id);
-      await rejectRegistrarProcurement(id, reason);
+      await dispatch(rejectRegistrarProcurement({ id, reason })).unwrap();
       await loadIndents();
       if (addToast) addToast('Indent rejected. The department head will see your reason.', 'warning');
     } catch (err) {
       console.error('Reject failed:', err);
       if (addToast) {
-        addToast('Failed to reject indent: ' + (err.message || 'Error'), 'error');
+        addToast('Failed to reject indent: ' + (err.message || err || 'Error'), 'error');
       } else {
-        alert('Failed to reject indent: ' + (err.message || 'Error'));
+        alert('Failed to reject indent: ' + (err.message || err || 'Error'));
       }
     } finally {
       setProcessingId(null);

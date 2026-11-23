@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../../../../context/AuthContext';
 import {
   fetchProcurements,
@@ -6,14 +7,19 @@ import {
   logPurchase,
   editPurchaseOrder,
   editInvoice
-} from '../../../../services/procurementOfficer';
+} from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function ProcurementOrdersView({ addToast }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
 
-  const [orders, setOrders] = useState([]);
+  const dispatch = useDispatch();
+  const allProcurements = useSelector(state => state.procurementOfficer.procurements);
+  const orders = useMemo(
+    () => allProcurements.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status)),
+    [allProcurements]
+  );
   const [loading, setLoading] = useState(true);
   const [formInputs, setFormInputs] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
@@ -29,12 +35,11 @@ export default function ProcurementOrdersView({ addToast }) {
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetchProcurements({ department });
+      const res = await dispatch(fetchProcurements({ department })).unwrap();
       const raw = Array.isArray(res) ? res : [];
       // Procurement Orders strictly manages active orders: Approved -> PO Created -> Fulfilled -> Registered
       // Indents are managed in the dedicated "Department Indents" view
       const list = raw.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status));
-      setOrders(list);
 
       // Pre-fill sensible default form state
       setFormInputs(prev => {
@@ -51,11 +56,11 @@ export default function ProcurementOrdersView({ addToast }) {
         return next;
       });
     } catch (err) {
-      addToast(err.message || 'Failed to load procurement orders.', 'error');
+      addToast(err.message || err || 'Failed to load procurement orders.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, department, dispatch]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
@@ -132,18 +137,18 @@ export default function ProcurementOrdersView({ addToast }) {
         ? inputs.poFileName.replace(/\.[^/.]+$/, '')
         : `PO-${proc.id.replace(/[^0-9]/g, '')}`;
 
-      await createPurchaseOrder(proc.id, {
+      await dispatch(createPurchaseOrder({ id: proc.id, data: {
         poNumber: poNum,
         vendor: inputs.vendor?.trim() || proc.vendor || 'Authorized Supplier',
         poFileName: inputs.poFileName,
         poFileType: inputs.poFileType,
         poFileDataUrl: inputs.poFileDataUrl,
-      });
+      } })).unwrap();
 
       addToast(`✅ Purchase order file uploaded! Status updated to PO Created.`, 'success');
       await loadOrders();
     } catch (err) {
-      addToast(err.message || 'Failed to upload purchase order.', 'error');
+      addToast(err.message || err || 'Failed to upload purchase order.', 'error');
     } finally {
       setSubmittingId(null);
     }
@@ -176,20 +181,20 @@ export default function ProcurementOrdersView({ addToast }) {
     const inputs = formInputs[proc.id] || {};
     try {
       setSubmittingId(proc.id);
-      await logPurchase(proc.id, {
+      await dispatch(logPurchase({ id: proc.id, data: {
         vendor: inputs.vendor || proc.vendor || 'Vendor',
         invoice: inputs.invoice.trim(),
         invoiceAmount: String(parseAmount(inputs.invoiceAmount)),
         invoiceFileName: inputs.invoiceFileName,
         invoiceFileType: inputs.invoiceFileType,
         invoiceFileDataUrl: inputs.invoiceFileDataUrl,
-      });
+      } })).unwrap();
 
       addToast('📦 Delivery & Invoice recorded! Order is now Fulfilled.', 'success');
       setReviewOrder(null);
       await loadOrders();
     } catch (err) {
-      addToast(err.message || 'Failed to save invoice.', 'error');
+      addToast(err.message || err || 'Failed to save invoice.', 'error');
     } finally {
       setSubmittingId(null);
     }
@@ -217,14 +222,14 @@ export default function ProcurementOrdersView({ addToast }) {
           addToast('Vendor name cannot be empty.', 'error');
           return;
         }
-        await editPurchaseOrder(proc.id, {
+        await dispatch(editPurchaseOrder({ id: proc.id, data: {
           vendor: editing.vendor.trim(),
           ...(editing.fileDataUrl && {
             poFileName: editing.fileName,
             poFileType: editing.fileType,
             poFileDataUrl: editing.fileDataUrl,
           }),
-        });
+        } })).unwrap();
         addToast('Purchase order updated.', 'success');
       } else {
         if (!editing.invoice.trim()) {
@@ -239,7 +244,7 @@ export default function ProcurementOrdersView({ addToast }) {
           addToast('Please enter a valid total bill amount greater than 0.', 'error');
           return;
         }
-        await editInvoice(proc.id, {
+        await dispatch(editInvoice({ id: proc.id, data: {
           invoice: editing.invoice.trim(),
           invoiceAmount: String(parseAmount(editing.invoiceAmount)),
           ...(editing.fileDataUrl && {
@@ -247,13 +252,13 @@ export default function ProcurementOrdersView({ addToast }) {
             invoiceFileType: editing.fileType,
             invoiceFileDataUrl: editing.fileDataUrl,
           }),
-        });
+        } })).unwrap();
         addToast('Invoice updated.', 'success');
       }
       setEditing(null);
       await loadOrders();
     } catch (err) {
-      addToast(err.message || 'Failed to save changes.', 'error');
+      addToast(err.message || err || 'Failed to save changes.', 'error');
     } finally {
       setSavingEdit(false);
     }
