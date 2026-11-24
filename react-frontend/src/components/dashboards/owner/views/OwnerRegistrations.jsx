@@ -1,48 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import AssignEmployeeModal from '../components/AssignEmployeeModal';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchOwnerOrganizations,
   fetchOwnerEmployees,
-  approveOwnerOrganization
-} from '../../../../services/owner';
+  approveOwnerOrganization,
+  selectOwnerOrganizations,
+  selectOwnerEmployees,
+  selectOwnerLoading,
+} from '../../../../store/slices/owner/ownerSlice';
 
 /**
- * Exact replica of registrations-view from owner.html — pending organizations only
+ * Exact replica of registrations-view from owner.html — pending organizations only connected to Redux
  */
 export default function OwnerRegistrations() {
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [organizations, setOrganizations] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const organizations = useSelector(selectOwnerOrganizations);
+  const employees = useSelector(selectOwnerEmployees);
+  const isLoading = useSelector(selectOwnerLoading);
+
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('All');
 
   // Approve & Assign Modal state
   const [assignTarget, setAssignTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations(),
-        fetchOwnerEmployees().catch(() => [])
+      await Promise.all([
+        dispatch(fetchOwnerOrganizations()).unwrap(),
+        dispatch(fetchOwnerEmployees()).unwrap().catch(() => [])
       ]);
-      setOrganizations(orgList || []);
-      setEmployees(empList || []);
     } catch (err) {
-      addToast(err.message || 'Failed to load registrations', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load registrations', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const allPending = organizations.filter((o) => o.status === 'Pending');
   const pending = allPending.filter((o) =>
@@ -52,11 +53,11 @@ export default function OwnerRegistrations() {
 
   const handleApprove = async (orgId, employeeId) => {
     try {
-      await approveOwnerOrganization(orgId, employeeId);
+      await dispatch(approveOwnerOrganization({ id: orgId, employeeId })).unwrap();
       addToast('Organization approved and employee assigned.', 'success');
       loadData();
     } catch (err) {
-      addToast('Failed to approve organization: ' + err.message, 'error');
+      addToast('Failed to approve organization: ' + (err?.message || err), 'error');
       throw err;
     }
   };

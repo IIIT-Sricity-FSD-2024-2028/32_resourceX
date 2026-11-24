@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import OwnerModal from '../components/OwnerModal';
 import AssignEmployeeModal from '../components/AssignEmployeeModal';
 import { renderStatusBadge } from './OwnerOverview';
@@ -10,22 +11,27 @@ import {
   approveOwnerOrganization,
   assignOwnerOrganizationEmployee,
   suspendOwnerOrganization,
-  reactivateOwnerOrganization
-} from '../../../../services/owner';
+  reactivateOwnerOrganization,
+  selectOwnerOrganizations,
+  selectOwnerEmployees,
+  selectOwnerLoading,
+} from '../../../../store/slices/owner/ownerSlice';
 
 const STATUSES = ['Active', 'Suspended', 'Pending'];
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
 /**
- * Exact replica of org-management-view from owner.html
+ * Exact replica of org-management-view from owner.html connected to Redux
  */
 export default function OwnerOrganizations() {
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [organizations, setOrganizations] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const organizations = useSelector(selectOwnerOrganizations);
+  const employees = useSelector(selectOwnerEmployees);
+  const isLoading = useSelector(selectOwnerLoading);
+
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('All');
@@ -38,25 +44,20 @@ export default function OwnerOrganizations() {
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations(),
-        fetchOwnerEmployees().catch(() => [])
+      await Promise.all([
+        dispatch(fetchOwnerOrganizations()).unwrap(),
+        dispatch(fetchOwnerEmployees()).unwrap().catch(() => [])
       ]);
-      setOrganizations(orgList || []);
-      setEmployees(empList || []);
     } catch (err) {
-      addToast(err.message || 'Failed to load organizations', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load organizations', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const employeeName = (org) => employees.find((e) => e.id === org.assignedEmployeeId)?.name || '';
   const filtered = organizations.filter((o) =>
@@ -68,23 +69,23 @@ export default function OwnerOrganizations() {
 
   const handleApprove = async (orgId, employeeId) => {
     try {
-      await approveOwnerOrganization(orgId, employeeId);
+      await dispatch(approveOwnerOrganization({ id: orgId, employeeId })).unwrap();
       addToast('Organization approved and employee assigned.', 'success');
       loadData();
     } catch (err) {
-      addToast('Failed to approve organization: ' + err.message, 'error');
+      addToast('Failed to approve organization: ' + (err?.message || err), 'error');
       throw err;
     }
   };
 
   const handleReassign = async (orgId, employeeId) => {
     try {
-      await assignOwnerOrganizationEmployee(orgId, employeeId);
+      await dispatch(assignOwnerOrganizationEmployee({ orgId, employeeId })).unwrap();
       const emp = employees.find((e) => e.id === employeeId);
       addToast(`Organization assigned to ${emp?.name || employeeId}.`, 'success');
       loadData();
     } catch (err) {
-      addToast('Failed to change employee: ' + err.message, 'error');
+      addToast('Failed to change employee: ' + (err?.message || err), 'error');
       throw err;
     }
   };
@@ -93,13 +94,16 @@ export default function OwnerOrganizations() {
     if (!actionTarget) return;
     const { org, action } = actionTarget;
     try {
-      if (action === 'suspend') await suspendOwnerOrganization(org.id);
-      else await reactivateOwnerOrganization(org.id);
+      if (action === 'suspend') {
+        await dispatch(suspendOwnerOrganization(org.id)).unwrap();
+      } else {
+        await dispatch(reactivateOwnerOrganization(org.id)).unwrap();
+      }
       addToast(`Organization ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
       setActionTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed: ' + err.message, 'error');
+      addToast('Failed: ' + (err?.message || err), 'error');
     }
   };
 
