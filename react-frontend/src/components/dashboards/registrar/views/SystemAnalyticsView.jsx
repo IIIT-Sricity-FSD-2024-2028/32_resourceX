@@ -1,32 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { fetchRequests, fetchResources } from '../../../../services/registrar';
+import React, { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchRequests,
+  fetchResources,
+} from '../../../../store/slices/registrar/registrarSlice';
 
 /**
  * 3. System Analytics View (replicates sys-analytics-view from registrar.html & registrar.js)
  */
 export default function SystemAnalyticsView() {
-  const [requests, setRequests] = useState([]);
-  const [resources, setResources] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const {
+    requests,
+    resources,
+    requestsLoading,
+    resourcesLoading,
+    requestsLoaded,
+    resourcesLoaded,
+    requestsError,
+    resourcesError,
+  } = useAppSelector((state) => state.registrar);
+  const loading = requestsLoading || resourcesLoading || !requestsLoaded || !resourcesLoaded;
+  const error = [requestsError, resourcesError].filter(Boolean).join(' ');
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [reqs, res] = await Promise.all([
-          fetchRequests().catch(() => []),
-          fetchResources().catch(() => [])
-        ]);
-        setRequests(Array.isArray(reqs) ? reqs : []);
-        setResources(Array.isArray(res) ? res : []);
-      } catch (err) {
-        console.error('Error loading analytics data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+    dispatch(fetchRequests());
+    dispatch(fetchResources());
+  }, [dispatch]);
 
   // 1. Requests by Department calculations (exact logic from registrar.html lines 260-264)
   const itCount = requests.filter((r) => r.department === 'IT Services').length || 30;
@@ -74,6 +74,18 @@ export default function SystemAnalyticsView() {
     <div id="sys-analytics-view" className="view-section active">
       <h1 className="page-title">Global Platform Analytics</h1>
       <p className="page-subtitle">Organizational resource distribution and demand tracking.</p>
+      {loading && <p role="status">Loading analytics...</p>}
+      {error && (
+        <div role="alert" style={{ marginBottom: '1rem', padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load analytics data: {error}
+          <button type="button" onClick={() => {
+            dispatch(fetchRequests());
+            dispatch(fetchResources());
+          }} style={{ marginLeft: 12 }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Top Row: Bar + Doughnut (matching exact registrar.html grid layout) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>

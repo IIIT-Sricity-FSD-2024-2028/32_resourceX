@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurements } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
+import {
+  fetchProcurements,
+  selectProcurements,
+  selectProcurementsLoading,
+} from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STATUS_COLORS = {
@@ -15,8 +19,9 @@ export default function PurchaseHistoryView({ addToast }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
 
-  const dispatch = useDispatch();
-  const allProcurements = useSelector(state => state.procurementOfficer.procurements);
+  const dispatch = useAppDispatch();
+  const allProcurements = useAppSelector(selectProcurements);
+  const loading = useAppSelector(selectProcurementsLoading);
   const procurements = useMemo(
     () => allProcurements.filter(p =>
       !['Pending Approval', 'Pending', 'Rejected'].includes(p.status) &&
@@ -24,19 +29,15 @@ export default function PurchaseHistoryView({ addToast }) {
     ),
     [allProcurements]
   );
-  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [previewFile, setPreviewFile] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
       addToast(err.message || err || 'Failed to load history.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [department, addToast, dispatch]);
 

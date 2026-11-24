@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurements } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
+import {
+  fetchProcurements,
+  selectProcurements,
+  selectProcurementsLoading,
+} from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 
 export default function IndentsView({ addToast, onProcessOrder }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
-  const dispatch = useDispatch();
-  const procurements = useSelector(state => state.procurementOfficer.procurements);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const procurements = useAppSelector(selectProcurements);
+  const loading = useAppSelector(selectProcurementsLoading);
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,12 +20,9 @@ export default function IndentsView({ addToast, onProcessOrder }) {
 
   const loadIndents = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
       if (addToast) addToast(err.message || err || 'Failed to load department indents.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [department, addToast, dispatch]);
 
