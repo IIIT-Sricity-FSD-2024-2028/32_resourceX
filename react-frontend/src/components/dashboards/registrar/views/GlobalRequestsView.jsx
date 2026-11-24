@@ -10,20 +10,19 @@ import {
  */
 export default function GlobalRequestsView() {
   const dispatch = useDispatch();
-  const requests = useSelector(state => state.registrar.requests);
-  const departments = useSelector(state => state.registrar.departments);
+  const { requests, departments, requestsLoading, requestsLoaded, error } = useSelector(state => state.registrar);
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [searchId, setSearchId] = useState('');
-  const [loading, setLoading] = useState(true);
+  const loading = requestsLoading || !requestsLoaded;
 
   // 1. Fetch departments dynamically from backend on component mount
   useEffect(() => {
     const loadDepartments = async () => {
       try {
-      await dispatch(fetchDepartments()).unwrap();
+        await dispatch(fetchDepartments()).unwrap();
       } catch (err) {
-      console.error('Error fetching departments from backend:', err.message || err);
+        console.error('Error fetching departments from backend:', err.message || err);
       }
     };
 
@@ -33,16 +32,13 @@ export default function GlobalRequestsView() {
   // 2. Fetch requests based on active dropdown filters
   const renderGlobalRequests = useCallback(async () => {
     try {
-      setLoading(true);
       const params = {};
       if (filterStatus !== 'All') params.status = filterStatus;
       if (filterDept !== 'All') params.department = filterDept;
 
-    await dispatch(fetchRequests(params)).unwrap();
+      await dispatch(fetchRequests(params)).unwrap();
     } catch (err) {
-    console.error('Error fetching global requests:', err.message || err);
-    } finally {
-      setLoading(false);
+      console.error('Error fetching global requests:', err.message || err);
     }
   }, [dispatch, filterDept, filterStatus]);
 
@@ -62,6 +58,11 @@ export default function GlobalRequestsView() {
     <div id="sys-overview-view" className="view-section active">
       <h1 className="page-title">Global Requests Filter</h1>
       <p className="page-subtitle">Unified view of all departmental requests and current statuses.</p>
+      {error && (
+        <div role="alert" style={{ marginBottom: '1rem', padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load registrar data: {error}
+        </div>
+      )}
 
       {/* Filter Row matching exact registrar.html */}
       <div

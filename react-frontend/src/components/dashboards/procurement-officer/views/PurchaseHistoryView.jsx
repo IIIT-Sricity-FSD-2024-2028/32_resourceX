@@ -16,7 +16,7 @@ export default function PurchaseHistoryView({ addToast }) {
   const department = user?.department || 'IT Services';
 
   const dispatch = useDispatch();
-  const allProcurements = useSelector(state => state.procurementOfficer.procurements);
+  const { procurements: allProcurements, loading: isFetching, procurementsLoaded } = useSelector(state => state.procurementOfficer);
   const procurements = useMemo(
     () => allProcurements.filter(p =>
       !['Pending Approval', 'Pending', 'Rejected'].includes(p.status) &&
@@ -24,19 +24,16 @@ export default function PurchaseHistoryView({ addToast }) {
     ),
     [allProcurements]
   );
-  const [loading, setLoading] = useState(true);
+  const loading = isFetching || !procurementsLoaded;
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [previewFile, setPreviewFile] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
       addToast(err.message || err || 'Failed to load history.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [department, addToast, dispatch]);
 

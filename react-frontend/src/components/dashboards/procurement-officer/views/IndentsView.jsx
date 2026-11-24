@@ -7,8 +7,8 @@ export default function IndentsView({ addToast, onProcessOrder }) {
   const { user } = useAuth();
   const department = user?.department || 'IT Services';
   const dispatch = useDispatch();
-  const procurements = useSelector(state => state.procurementOfficer.procurements);
-  const [loading, setLoading] = useState(true);
+  const { procurements, loading: isFetching, procurementsLoaded } = useSelector(state => state.procurementOfficer);
+  const loading = isFetching || !procurementsLoaded;
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,12 +16,9 @@ export default function IndentsView({ addToast, onProcessOrder }) {
 
   const loadIndents = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
       if (addToast) addToast(err.message || err || 'Failed to load department indents.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [department, addToast, dispatch]);
 

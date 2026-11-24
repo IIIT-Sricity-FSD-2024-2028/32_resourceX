@@ -73,6 +73,7 @@ const procurementOfficerSlice = createSlice({
   initialState: {
     procurements: [],
     loading: false,
+    procurementsLoaded: false,
     saving: false,
     error: null,
   },
@@ -89,10 +90,12 @@ const procurementOfficerSlice = createSlice({
       })
       .addCase(fetchProcurements.fulfilled, (state, action) => {
         state.loading = false;
+        state.procurementsLoaded = true;
         state.procurements = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchProcurements.rejected, (state, action) => {
         state.loading = false;
+        state.procurementsLoaded = true;
         state.error = action.payload || action.error.message;
       });
 

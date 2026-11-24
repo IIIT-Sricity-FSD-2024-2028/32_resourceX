@@ -14,12 +14,12 @@ import AdminModal from '../../admin/components/AdminModal';
  */
 export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   const dispatch = useDispatch();
-  const procurements = useSelector(state => state.registrar.procurements);
+  const { procurements, procurementsLoading, procurementsLoaded, error } = useSelector(state => state.registrar);
+  const loading = procurementsLoading || !procurementsLoaded;
   const indents = useMemo(
     () => procurements.filter(p => p.status !== 'Pending Approval'),
     [procurements]
   );
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,13 +31,10 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   // Load indents list
   const loadIndents = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements()).unwrap();
     } catch (err) {
       console.error('Error fetching indents:', err);
       if (addToast) addToast('Error loading department indents.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [addToast, dispatch]);
 
@@ -186,6 +183,11 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
 
   return (
     <div className="view-section active" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', boxSizing: 'border-box' }}>
+      {error && (
+        <div role="alert" style={{ padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load registrar data: {error}
+        </div>
+      )}
       {/* Header Banner */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>

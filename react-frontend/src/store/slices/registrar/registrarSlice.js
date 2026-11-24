@@ -29,6 +29,22 @@ export const fetchDepartments = createAsyncThunk('registrar/fetchDepartments', a
   }
 });
 
+export const fetchRegistrarSummary = createAsyncThunk('registrar/fetchSummary', async (_, { rejectWithValue }) => {
+  try {
+    return await registrarService.fetchRegistrarSummary();
+  } catch (err) {
+    return rejectWithValue(err.message || 'Failed to fetch registrar summary');
+  }
+});
+
+export const fetchResources = createAsyncThunk('registrar/fetchResources', async (params, { rejectWithValue }) => {
+  try {
+    return await registrarService.fetchResources(params);
+  } catch (err) {
+    return rejectWithValue(err.message || 'Failed to fetch resources');
+  }
+});
+
 export const approveRegistrarProcurement = createAsyncThunk(
   'registrar/approveProcurement',
   async (id, { rejectWithValue }) => {
@@ -54,12 +70,21 @@ export const rejectRegistrarProcurement = createAsyncThunk(
 const registrarSlice = createSlice({
   name: 'registrar',
   initialState: {
+    summary: null,
     requests: [],
     procurements: [],
+    resources: [],
     departments: [],
+    summaryLoading: false,
     requestsLoading: false,
     procurementsLoading: false,
+    resourcesLoading: false,
     departmentsLoading: false,
+    summaryLoaded: false,
+    requestsLoaded: false,
+    procurementsLoaded: false,
+    resourcesLoaded: false,
+    departmentsLoaded: false,
     saving: false,
     error: null,
   },
@@ -70,16 +95,32 @@ const registrarSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(fetchRegistrarSummary.pending, (state) => {
+        state.summaryLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchRegistrarSummary.fulfilled, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryLoaded = true;
+        state.summary = action.payload;
+      })
+      .addCase(fetchRegistrarSummary.rejected, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryLoaded = true;
+        state.error = action.payload || action.error.message;
+      })
       .addCase(fetchRequests.pending, (state) => {
         state.requestsLoading = true;
         state.error = null;
       })
       .addCase(fetchRequests.fulfilled, (state, action) => {
         state.requestsLoading = false;
+        state.requestsLoaded = true;
         state.requests = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchRequests.rejected, (state, action) => {
         state.requestsLoading = false;
+        state.requestsLoaded = true;
         state.error = action.payload || action.error.message;
       })
       .addCase(fetchProcurements.pending, (state) => {
@@ -88,10 +129,26 @@ const registrarSlice = createSlice({
       })
       .addCase(fetchProcurements.fulfilled, (state, action) => {
         state.procurementsLoading = false;
+        state.procurementsLoaded = true;
         state.procurements = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchProcurements.rejected, (state, action) => {
         state.procurementsLoading = false;
+        state.procurementsLoaded = true;
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(fetchResources.pending, (state) => {
+        state.resourcesLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchResources.fulfilled, (state, action) => {
+        state.resourcesLoading = false;
+        state.resourcesLoaded = true;
+        state.resources = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchResources.rejected, (state, action) => {
+        state.resourcesLoading = false;
+        state.resourcesLoaded = true;
         state.error = action.payload || action.error.message;
       })
       .addCase(fetchDepartments.pending, (state) => {
@@ -100,10 +157,12 @@ const registrarSlice = createSlice({
       })
       .addCase(fetchDepartments.fulfilled, (state, action) => {
         state.departmentsLoading = false;
+        state.departmentsLoaded = true;
         state.departments = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchDepartments.rejected, (state, action) => {
         state.departmentsLoading = false;
+        state.departmentsLoaded = true;
         state.error = action.payload || action.error.message;
       });
 

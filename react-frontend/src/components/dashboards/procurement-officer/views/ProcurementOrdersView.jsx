@@ -20,7 +20,8 @@ export default function ProcurementOrdersView({ addToast }) {
     () => allProcurements.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status)),
     [allProcurements]
   );
-  const [loading, setLoading] = useState(true);
+  const { loading: isFetching, procurementsLoaded, saving } = useSelector(state => state.procurementOfficer);
+  const loading = isFetching || !procurementsLoaded;
   const [formInputs, setFormInputs] = useState({});
   const [submittingId, setSubmittingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
@@ -30,11 +31,9 @@ export default function ProcurementOrdersView({ addToast }) {
   const [reviewOrder, setReviewOrder] = useState(null);
   // Edit modal for an issued PO or a logged invoice: { proc, mode: 'po' | 'invoice', ...fields }
   const [editing, setEditing] = useState(null);
-  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await dispatch(fetchProcurements({ department })).unwrap();
       const raw = Array.isArray(res) ? res : [];
       // Procurement Orders strictly manages active orders: Approved -> PO Created -> Fulfilled -> Registered
@@ -57,8 +56,6 @@ export default function ProcurementOrdersView({ addToast }) {
       });
     } catch (err) {
       addToast(err.message || err || 'Failed to load procurement orders.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [addToast, department, dispatch]);
 
@@ -216,7 +213,6 @@ export default function ProcurementOrdersView({ addToast }) {
   const saveEdit = async () => {
     const { proc, mode } = editing;
     try {
-      setSavingEdit(true);
       if (mode === 'po') {
         if (!editing.vendor.trim()) {
           addToast('Vendor name cannot be empty.', 'error');
@@ -259,8 +255,6 @@ export default function ProcurementOrdersView({ addToast }) {
       await loadOrders();
     } catch (err) {
       addToast(err.message || err || 'Failed to save changes.', 'error');
-    } finally {
-      setSavingEdit(false);
     }
   };
 
@@ -858,7 +852,7 @@ export default function ProcurementOrdersView({ addToast }) {
 
       {/* Edit PO / Invoice Modal */}
       {editing && (
-        <div onClick={() => !savingEdit && setEditing(null)} style={overlayStyle}>
+        <div onClick={() => !saving && setEditing(null)} style={overlayStyle}>
           <div onClick={e => e.stopPropagation()} style={{ ...modalStyle, maxWidth: 520 }}>
             <div style={modalHeaderStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -867,7 +861,7 @@ export default function ProcurementOrdersView({ addToast }) {
                   {editing.mode === 'po' ? 'Edit Purchase Order' : 'Edit Invoice'} — {editing.proc.id}
                 </h3>
               </div>
-              <button onClick={() => setEditing(null)} disabled={savingEdit} style={closeBtnStyle}>✕</button>
+              <button onClick={() => setEditing(null)} disabled={saving} style={closeBtnStyle}>✕</button>
             </div>
 
             {editing.mode === 'po' ? (
@@ -931,10 +925,10 @@ export default function ProcurementOrdersView({ addToast }) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setEditing(null)} disabled={savingEdit} style={secondaryBtnStyle}>Cancel</button>
-              <button onClick={saveEdit} disabled={savingEdit} style={{ ...primaryBtnStyle, background: savingEdit ? '#94a3b8' : '#2563eb' }}>
+              <button onClick={() => setEditing(null)} disabled={saving} style={secondaryBtnStyle}>Cancel</button>
+              <button onClick={saveEdit} disabled={saving} style={{ ...primaryBtnStyle, background: saving ? '#94a3b8' : '#2563eb' }}>
                 <span className="material-icons" style={{ fontSize: 18 }}>save</span>
-                {savingEdit ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

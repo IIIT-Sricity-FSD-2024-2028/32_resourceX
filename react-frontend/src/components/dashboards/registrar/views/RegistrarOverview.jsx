@@ -1,50 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   fetchRegistrarSummary,
   fetchRequests,
   fetchProcurements,
   fetchResources
-} from '../../../../services/registrar';
+} from '../../../../store/slices/registrar/registrarSlice';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 /**
  * 0. Dashboard View (replicates dashboard-view from registrar.html & registrar.js)
  */
 export default function RegistrarOverview({ onSwitchView }) {
-  // Simple state variables matching previous registrar
-  const [summary, setSummary] = useState(null);
-  const [requests, setRequests] = useState([]);
-  const [procurements, setProcurements] = useState([]);
-  const [resources, setResources] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
+  const {
+    summary,
+    requests,
+    procurements,
+    resources,
+    summaryLoading,
+    requestsLoading,
+    procurementsLoading,
+    resourcesLoading,
+    summaryLoaded,
+    requestsLoaded,
+    procurementsLoaded,
+    resourcesLoaded,
+    error,
+  } = useSelector(state => state.registrar);
+  const loading =
+    summaryLoading || requestsLoading || procurementsLoading || resourcesLoading ||
+    !summaryLoaded || !requestsLoaded || !procurementsLoaded || !resourcesLoaded;
   const [requestSearch, setRequestSearch] = useState('');
   const [indentSearch, setIndentSearch] = useState('');
 
-  // Load all initial data simultaneously (like refreshData() in registrar.js)
-  const refreshData = async () => {
-    try {
-      setLoading(true);
-      const [sumData, reqData, procData, resData] = await Promise.all([
-        fetchRegistrarSummary().catch(() => null),
-        fetchRequests().catch(() => []),
-        fetchProcurements().catch(() => []),
-        fetchResources().catch(() => [])
-      ]);
+  const refreshData = useCallback(() => {
+    dispatch(fetchRegistrarSummary());
+    dispatch(fetchRequests());
+    dispatch(fetchProcurements());
+    dispatch(fetchResources());
+  }, [dispatch]);
 
-      setSummary(sumData || {});
-      setRequests(Array.isArray(reqData) ? reqData : []);
-      setProcurements(Array.isArray(procData) ? procData : []);
-      setResources(Array.isArray(resData) ? resData : []);
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refreshData();
-  }, []);
+  useEffect(() => { refreshData(); }, [refreshData]);
 
   // Compute stat values matching original registrar.js logic
   const totalAssets = summary?.activeAssets ?? summary?.totalAssets ?? resources.length;
@@ -68,6 +65,12 @@ export default function RegistrarOverview({ onSwitchView }) {
     <div id="dashboard-view" className="view-section active">
       <h1 className="page-title">Registrar Dashboard</h1>
       <p className="page-subtitle">Global overview of university assets, requests, and procurements.</p>
+      {error && (
+        <div role="alert" style={{ marginBottom: '1rem', padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load registrar dashboard data: {error}
+          <button type="button" onClick={refreshData} style={{ marginLeft: 12 }}>Retry</button>
+        </div>
+      )}
 
       {/* Stats Grid matching exact registrar.html */}
       <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '2rem' }}>
