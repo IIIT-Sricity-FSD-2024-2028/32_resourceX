@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
-import OwnerModal from '../components/OwnerModal';
-import EditEmployeeModal from '../components/EditEmployeeModal';
-import { DocumentLink } from '../../../common/DocumentUpload';
-import { renderStatusBadge } from './OwnerOverview';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import {
   fetchOwnerOrganizations,
   fetchOwnerEmployees,
   suspendOwnerEmployee,
   reactivateOwnerEmployee,
   updateOwnerEmployee,
-  removeOwnerEmployee
-} from '../../../../services/owner';
+  removeOwnerEmployee,
+  selectOwnerOrganizations,
+  selectOwnerEmployees,
+  selectOwnerLoading
+} from '../../../../store/slices/owner/ownerSlice';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import OwnerModal from '../components/OwnerModal';
+import EditEmployeeModal from '../components/EditEmployeeModal';
+import { DocumentLink } from '../../../common/DocumentUpload';
+import { renderStatusBadge } from './OwnerOverview';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -20,12 +24,14 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
  * Exact replica of employees-view from owner.html
  */
 export default function OwnerEmployees() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [organizations, setOrganizations] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const organizations = useAppSelector(selectOwnerOrganizations);
+  const employees = useAppSelector(selectOwnerEmployees);
+  const isLoading = useAppSelector(selectOwnerLoading);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -33,25 +39,20 @@ export default function OwnerEmployees() {
   const [actionTarget, setActionTarget] = useState(null); // { emp, action }
   const [editTarget, setEditTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations().catch(() => []),
-        fetchOwnerEmployees()
+      await Promise.all([
+        dispatch(fetchOwnerOrganizations()).unwrap().catch(() => []),
+        dispatch(fetchOwnerEmployees()).unwrap()
       ]);
-      setOrganizations(orgList || []);
-      setEmployees(empList || []);
     } catch (err) {
-      addToast(err.message || 'Failed to load employees', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load employees', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const orgNames = (empId) => organizations.filter((o) => o.assignedEmployeeId === empId).map((o) => o.name).join(' ');
   const filtered = employees.filter((e) =>
@@ -64,26 +65,30 @@ export default function OwnerEmployees() {
     const { emp, action } = actionTarget;
     try {
       if (action === 'remove') {
-        const { unassignedOrganizations = [] } = await removeOwnerEmployee(emp.id);
+        const res = await dispatch(removeOwnerEmployee(emp.id)).unwrap();
+        const unassignedOrganizations = res?.unassignedOrganizations || [];
         addToast(
           `${emp.name} removed.` +
             (unassignedOrganizations.length ? ` ${unassignedOrganizations.length} organization(s) are now unassigned.` : ''),
           'success'
         );
       } else {
-        if (action === 'suspend') await suspendOwnerEmployee(emp.id);
-        else await reactivateOwnerEmployee(emp.id);
+        if (action === 'suspend') {
+          await dispatch(suspendOwnerEmployee(emp.id)).unwrap();
+        } else {
+          await dispatch(reactivateOwnerEmployee(emp.id)).unwrap();
+        }
         addToast(`Employee ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
       }
       setActionTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed: ' + err.message, 'error');
+      addToast('Failed: ' + (err?.message || err), 'error');
     }
   };
 
   const handleSaveEmployee = async (id, payload) => {
-    await updateOwnerEmployee(id, payload);
+    await dispatch(updateOwnerEmployee({ id, payload })).unwrap();
     addToast('Employee updated.', 'success');
     loadData();
   };

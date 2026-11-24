@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { fetchOwnerOrganizations, fetchOwnerPlans } from '../../../../services/owner';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchOwnerOrganizations,
+  fetchOwnerPlans,
+  selectOwnerOrganizations,
+  selectOwnerPlans,
+  selectOwnerLoading
+} from '../../../../store/slices/owner/ownerSlice';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
@@ -29,32 +36,32 @@ function renewalBadge(expiry, daysLeft) {
  * Exact replica of revenue-view from owner.html and owner.js#renderRevenue
  */
 export default function OwnerRevenue() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [organizations, setOrganizations] = useState([]);
-  const [plans, setPlans] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const organizations = useAppSelector(selectOwnerOrganizations);
+  const plans = useAppSelector(selectOwnerPlans);
+  const isLoading = useAppSelector(selectOwnerLoading);
+
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('All');
   const [renewalFilter, setRenewalFilter] = useState('All');
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      const [orgList, planList] = await Promise.all([fetchOwnerOrganizations(), fetchOwnerPlans()]);
-      setOrganizations(orgList || []);
-      setPlans(planList || []);
+      await Promise.all([
+        dispatch(fetchOwnerOrganizations()).unwrap(),
+        dispatch(fetchOwnerPlans()).unwrap()
+      ]);
     } catch (err) {
-      addToast(err.message || 'Failed to load revenue data', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load revenue data', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Per-org revenue (only active orgs with a plan)
   const today = new Date();
