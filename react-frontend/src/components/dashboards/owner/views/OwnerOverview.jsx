@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import OwnerStatsCards from '../components/OwnerStatsCards';
-import { fetchOwnerDashboardOverview } from '../../../../services/owner';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import {
+  fetchOwnerDashboardOverview,
+  selectOwnerOrganizations,
+  selectOwnerEmployees,
+  selectOwnerInvoices,
+  selectOwnerStats,
+  selectOwnerOverviewLoading,
+} from '../../../../store/slices/owner/ownerSlice';
 
 export function renderStatusBadge(status) {
   if (status === 'Active' || status === 'Resolved' || status === 'Paid') {
@@ -18,41 +26,36 @@ export function renderStatusBadge(status) {
 }
 
 /**
- * Exact replica of dashboard-view from owner.html
+ * Exact replica of dashboard-view from owner.html connected to Redux
  */
 export default function OwnerOverview() {
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [organizations, setOrganizations] = useState([]);
-  const [employees, setEmployees] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [stats, setStats] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [orgSearch, setOrgSearch] = useState('');
-  const [orgStatusFilter, setOrgStatusFilter] = useState('All');
-  const [orgPlanFilter, setOrgPlanFilter] = useState('All');
-  const [invoiceSearch, setInvoiceSearch] = useState('');
-  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState('All');
+  const organizations = useSelector(selectOwnerOrganizations);
+  const employees = useSelector(selectOwnerEmployees);
+  const invoices = useSelector(selectOwnerInvoices);
+  const stats = useSelector(selectOwnerStats);
+  const isLoading = useSelector(selectOwnerOverviewLoading);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const [orgSearch, setOrgSearch] = React.useState('');
+  const [orgStatusFilter, setOrgStatusFilter] = React.useState('All');
+  const [orgPlanFilter, setOrgPlanFilter] = React.useState('All');
+  const [invoiceSearch, setInvoiceSearch] = React.useState('');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = React.useState('All');
+
+  const loadData = useCallback(async () => {
     try {
-      const data = await fetchOwnerDashboardOverview();
-      setOrganizations(data.organizations);
-      setEmployees(data.employees);
-      setInvoices(data.invoices);
-      setStats(data.stats);
+      await dispatch(fetchOwnerDashboardOverview()).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load dashboard data', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load dashboard data', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const employeeName = (id) => employees.find((e) => e.id === id)?.name || '—';
   const orgName = (id) => organizations.find((o) => o.id === id)?.name || '';
