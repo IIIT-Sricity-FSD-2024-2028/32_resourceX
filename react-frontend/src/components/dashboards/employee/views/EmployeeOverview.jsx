@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import EmployeeStatsCards from '../components/EmployeeStatsCards';
 import ResolveTicketModal from '../components/ResolveTicketModal';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
-import { fetchEmployeeDashboardOverview, resolveEmployeeTicket } from '../../../../services/employee';
+import {
+  fetchEmployeeDashboardOverview,
+  resolveEmployeeTicket,
+  selectEmployeeInstitutions,
+  selectEmployeeTickets,
+  selectEmployeeStats,
+  selectEmployeeOverviewLoading,
+} from '../../../../store/slices/employee/employeeSlice';
 import { useAuth } from '../../../../context/AuthContext';
 
 export function renderStatusBadge(status) {
@@ -20,41 +28,39 @@ export function renderStatusBadge(status) {
 }
 
 /**
- * Exact replica of dashboard-view from employee.html
+ * Exact replica of dashboard-view from employee.html connected to Redux
  */
 export default function EmployeeOverview() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
   const { user: currentUser } = useAuth();
 
-  const [institutions, setInstitutions] = useState([]);
-  const [tickets, setTickets] = useState([]);
-  const [stats, setStats] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
+  const institutions = useSelector(selectEmployeeInstitutions);
+  const tickets = useSelector(selectEmployeeTickets);
+  const stats = useSelector(selectEmployeeStats);
+  const isLoading = useSelector(selectEmployeeOverviewLoading);
+
   const [orgSearch, setOrgSearch] = useState('');
   const [ticketSearch, setTicketSearch] = useState('');
 
   // Resolve Ticket Modal state
   const [resolveTarget, setResolveTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const employeeId = currentUser?.id;
+
+  const loadData = useCallback(async () => {
     try {
-      const data = await fetchEmployeeDashboardOverview(currentUser?.id);
-      setInstitutions(data.institutions);
-      setTickets(data.tickets);
-      setStats(data.stats);
+      await dispatch(fetchEmployeeDashboardOverview(employeeId)).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load dashboard data', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load dashboard data', 'error');
     }
-  };
+  }, [dispatch, employeeId, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const visibleInstitutions = institutions.filter((org) =>
     matchesSearch(orgSearch, org.id, org.name, org.adminEmail, org.status, org.subscriptionPlanId)
@@ -65,12 +71,12 @@ export default function EmployeeOverview() {
 
   const handleResolve = async (id, reply) => {
     try {
-      await resolveEmployeeTicket(id, reply);
+      await dispatch(resolveEmployeeTicket({ id, reply })).unwrap();
       addToast('Ticket resolved and reply sent.', 'success');
       setResolveTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed to resolve ticket: ' + err.message, 'error');
+      addToast('Failed to resolve ticket: ' + (err?.message || err), 'error');
       throw err;
     }
   };

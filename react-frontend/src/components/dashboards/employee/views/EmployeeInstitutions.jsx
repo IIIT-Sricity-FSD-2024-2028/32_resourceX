@@ -1,27 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import EmployeeModal from '../components/EmployeeModal';
 import { renderStatusBadge } from './EmployeeOverview';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchEmployeeInstitutions,
   suspendEmployeeInstitution,
-  reactivateEmployeeInstitution
-} from '../../../../services/employee';
+  reactivateEmployeeInstitution,
+  selectEmployeeInstitutions,
+  selectEmployeeLoading,
+} from '../../../../store/slices/employee/employeeSlice';
 import { useAuth } from '../../../../context/AuthContext';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
 /**
- * Exact replica of institutions-view from employee.html
+ * Exact replica of institutions-view from employee.html connected to Redux
  */
 export default function EmployeeInstitutions() {
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
   const { user: currentUser } = useAuth();
 
-  const [institutions, setInstitutions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const institutions = useSelector(selectEmployeeInstitutions);
+  const isLoading = useSelector(selectEmployeeLoading);
+
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('All');
@@ -29,20 +34,19 @@ export default function EmployeeInstitutions() {
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const employeeId = currentUser?.id;
+
+  const loadData = useCallback(async () => {
     try {
-      setInstitutions(await fetchEmployeeInstitutions(currentUser?.id));
+      await dispatch(fetchEmployeeInstitutions(employeeId)).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load institutions', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load institutions', 'error');
     }
-  };
+  }, [dispatch, employeeId, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const list = institutions.filter((o) =>
     (filter === 'All' || o.status === filter) &&
@@ -54,13 +58,16 @@ export default function EmployeeInstitutions() {
     if (!actionTarget) return;
     const { org, action } = actionTarget;
     try {
-      if (action === 'suspend') await suspendEmployeeInstitution(org.id);
-      else await reactivateEmployeeInstitution(org.id);
+      if (action === 'suspend') {
+        await dispatch(suspendEmployeeInstitution(org.id)).unwrap();
+      } else {
+        await dispatch(reactivateEmployeeInstitution(org.id)).unwrap();
+      }
       addToast(`Institution ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
       setActionTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed: ' + err.message, 'error');
+      addToast('Failed: ' + (err?.message || err), 'error');
     }
   };
 

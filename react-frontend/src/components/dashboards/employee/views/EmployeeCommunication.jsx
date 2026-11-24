@@ -1,26 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import AnnouncementModal from '../components/AnnouncementModal';
 import RepliesModal from '../components/RepliesModal';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
   fetchEmployeeInstitutions,
   fetchEmployeeAnnouncements,
-  createEmployeeAnnouncement
-} from '../../../../services/employee';
+  createEmployeeAnnouncement,
+  selectEmployeeInstitutions,
+  selectEmployeeAnnouncements,
+  selectEmployeeLoading,
+} from '../../../../store/slices/employee/employeeSlice';
 import { useAuth } from '../../../../context/AuthContext';
 
 /**
- * Exact replica of communication-view from employee.html
+ * Exact replica of communication-view from employee.html connected to Redux
  */
 export default function EmployeeCommunication() {
+  const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
   const { user: currentUser } = useAuth();
 
-  const [institutions, setInstitutions] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const institutions = useSelector(selectEmployeeInstitutions);
+  const announcements = useSelector(selectEmployeeAnnouncements);
+  const isLoading = useSelector(selectEmployeeLoading);
+
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [targetFilter, setTargetFilter] = useState('All');
@@ -30,25 +36,22 @@ export default function EmployeeCommunication() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [viewTarget, setViewTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const employeeId = currentUser?.id;
+
+  const loadData = useCallback(async () => {
     try {
-      const [orgList, annList] = await Promise.all([
-        fetchEmployeeInstitutions(currentUser?.id).catch(() => []),
-        fetchEmployeeAnnouncements()
+      await Promise.all([
+        dispatch(fetchEmployeeInstitutions(employeeId)).unwrap().catch(() => []),
+        dispatch(fetchEmployeeAnnouncements()).unwrap()
       ]);
-      setInstitutions(orgList);
-      setAnnouncements(annList);
     } catch (err) {
-      addToast(err.message || 'Failed to load announcements', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load announcements', 'error');
     }
-  };
+  }, [dispatch, employeeId, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const targetLabel = (a) => (a.targetOrgId === 'ALL' ? 'All Institutions (Broadcast)' : a.targetOrgId);
   const visibleAnnouncements = [...announcements].reverse().filter((a) =>
@@ -60,12 +63,12 @@ export default function EmployeeCommunication() {
 
   const handleCreate = async (payload) => {
     try {
-      await createEmployeeAnnouncement(payload);
+      await dispatch(createEmployeeAnnouncement(payload)).unwrap();
       addToast('Announcement posted successfully.', 'success');
       setIsAddOpen(false);
       loadData();
     } catch (err) {
-      addToast('Failed to post announcement: ' + err.message, 'error');
+      addToast('Failed to post announcement: ' + (err?.message || err), 'error');
       throw err;
     }
   };
