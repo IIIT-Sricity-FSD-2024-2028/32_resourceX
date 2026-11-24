@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import { fetchMaintenanceOfficerStats } from '../../../../services/maintenanceOfficer';
 
 export default function MaintOfficerOverview({ onNavigate, addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
   const [data, setData] = useState({ stats: {}, resources: [], maintHistory: [] });
   const [loading, setLoading] = useState(true);

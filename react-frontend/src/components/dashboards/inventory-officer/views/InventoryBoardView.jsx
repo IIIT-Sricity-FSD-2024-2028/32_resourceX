@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchResources,
   fetchResourceCatalog,
@@ -22,7 +22,7 @@ const STATUS_COLORS = {
 const ALL_STATUSES = ['All', 'Available', 'Allocated', 'Maintenance Requested', 'Maintenance', 'Returned', 'Repaired', 'Scrapped'];
 
 export default function InventoryBoardView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [resources, setResources] = useState([]);

@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import CredentialsForm from './CredentialsForm';
 import ForgotPasswordForm from './ForgotPasswordForm';
 import QuickLoginPanel from './QuickLoginPanel';
-import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import {
+  clearAuthError,
+  login,
+  selectAuthError,
+  selectAuthLoading,
+} from '../../store/slices/auth/authSlice';
 import './Login.css';
 
 /**
@@ -17,28 +23,21 @@ import './Login.css';
  */
 export default function Login({ onLoginSuccess, onNavigateHome }) {
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [authError, setAuthError] = useState(null);
+  const dispatch = useAppDispatch();
+  const isSubmitting = useAppSelector(selectAuthLoading);
+  const authError = useAppSelector(selectAuthError);
   const [successMessage, setSuccessMessage] = useState(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   // Step 2: Handle credentials submission
   const handleSubmitCredentials = async ({ email, password }) => {
-    setIsSubmitting(true);
-    setAuthError(null);
-
-    try {
-      const user = await login(email, password);
+    const result = await dispatch(login({ email, password }));
+    if (login.fulfilled.match(result)) {
       if (onLoginSuccess) {
-        onLoginSuccess(user);
+        onLoginSuccess(result.payload);
       } else {
         navigate('/profile');
       }
-    } catch (err) {
-      setAuthError(err.message || 'Login failed. Please verify credentials.');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -75,7 +74,7 @@ export default function Login({ onLoginSuccess, onNavigateHome }) {
             <ForgotPasswordForm
               onBackToLogin={(message) => {
                 setShowForgotPassword(false);
-                setAuthError(null);
+                dispatch(clearAuthError());
                 setSuccessMessage(message || null);
               }}
             />

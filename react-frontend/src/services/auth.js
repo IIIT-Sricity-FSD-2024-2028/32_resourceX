@@ -67,8 +67,6 @@ export const loginUser = async (email, password, selectedOrgId) => {
     throw new Error('User does not belong to the selected organization.');
   }
 
-  // Persist session to sessionStorage
-  persistSession(userObj);
   return userObj;
 };
 

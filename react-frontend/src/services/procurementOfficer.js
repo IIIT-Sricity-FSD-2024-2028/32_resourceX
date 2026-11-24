@@ -24,30 +24,6 @@ export const logPurchase = async (id, data) =>
     body: data
   });
 
-// ── Overview Stats ─────────────────────────────────────────────────────────────
-
-export const fetchProcurementOfficerStats = async (department) => {
-  const [all] = await Promise.all([
-    fetchProcurements({ department }).catch(() => [])
-  ]);
-  // Procurement Officer tracks pending indents, approved, PO created, fulfilled, and registered orders
-  const list = (Array.isArray(all) ? all : []).filter(
-    p => !['Pending Approval', 'Rejected'].includes(p.status)
-  );
-  return {
-    procurements: list,
-    stats: {
-      pending: list.filter(p => p.status === 'Pending').length,
-      approved: list.filter(p => p.status === 'Approved').length,
-      poCreated: list.filter(p => p.status === 'PO Created').length,
-      fulfilled: list.filter(p => p.status === 'Fulfilled').length,
-      registered: list.filter(p => p.status === 'Registered').length,
-      openOrders: list.filter(p => ['Pending', 'Approved', 'PO Created'].includes(p.status)).length,
-      total: list.length,
-    }
-  };
-};
-
 // Correct vendor / PO document after the PO is issued
 export const editPurchaseOrder = async (id, data) =>
   apiRequest(`/procurements/${encodeURIComponent(id)}/edit-po`, {

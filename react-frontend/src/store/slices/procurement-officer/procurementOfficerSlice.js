@@ -68,12 +68,33 @@ export const editInvoice = createAsyncThunk(
   }
 );
 
+const operationId = (action) =>
+  typeof action.meta.arg === 'string' ? action.meta.arg : action.meta.arg?.id;
+
+const startOperation = (state, action) => {
+  state.activeOperations.push({ requestId: action.meta.requestId, id: operationId(action) });
+  state.savingIds = [...new Set(state.activeOperations.map((operation) => operation.id).filter((id) => id != null))];
+  state.saving = true;
+  state.error = null;
+};
+
+const finishOperation = (state, action) => {
+  state.activeOperations = state.activeOperations.filter(
+    (operation) => operation.requestId !== action.meta.requestId
+  );
+  state.savingIds = [...new Set(state.activeOperations.map((operation) => operation.id).filter((id) => id != null))];
+  state.saving = state.activeOperations.length > 0;
+};
+
 const procurementOfficerSlice = createSlice({
   name: 'procurementOfficer',
   initialState: {
     procurements: [],
     loading: false,
+    procurementsLoaded: false,
     saving: false,
+    savingIds: [],
+    activeOperations: [],
     error: null,
   },
   reducers: {
@@ -89,32 +110,21 @@ const procurementOfficerSlice = createSlice({
       })
       .addCase(fetchProcurements.fulfilled, (state, action) => {
         state.loading = false;
+        state.procurementsLoaded = true;
         state.procurements = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(fetchProcurements.rejected, (state, action) => {
         state.loading = false;
+        state.procurementsLoaded = true;
         state.error = action.payload || action.error.message;
       });
 
-    const operationThunks = [
-      createPurchaseOrder,
-      dispatchDelivery,
-      logPurchase,
-      editPurchaseOrder,
-      editInvoice,
-    ];
-
-    operationThunks.forEach((thunk) => {
+    [createPurchaseOrder, dispatchDelivery, logPurchase, editPurchaseOrder, editInvoice].forEach((thunk) => {
       builder
-        .addCase(thunk.pending, (state) => {
-          state.saving = true;
-          state.error = null;
-        })
-        .addCase(thunk.fulfilled, (state) => {
-          state.saving = false;
-        })
+        .addCase(thunk.pending, startOperation)
+        .addCase(thunk.fulfilled, finishOperation)
         .addCase(thunk.rejected, (state, action) => {
-          state.saving = false;
+          finishOperation(state, action);
           state.error = action.payload || action.error.message;
         });
     });
@@ -122,4 +132,10 @@ const procurementOfficerSlice = createSlice({
 });
 
 export const { clearProcurementError } = procurementOfficerSlice.actions;
+export const selectProcurements = (state) => state.procurementOfficer.procurements;
+export const selectProcurementsLoading = (state) =>
+  state.procurementOfficer.loading || !state.procurementOfficer.procurementsLoaded;
+export const selectProcurementSaving = (state) => state.procurementOfficer.saving;
+export const selectProcurementSavingIds = (state) => state.procurementOfficer.savingIds;
+export const selectProcurementError = (state) => state.procurementOfficer.error;
 export default procurementOfficerSlice.reducer;

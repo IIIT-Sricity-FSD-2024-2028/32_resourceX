@@ -1,49 +1,40 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import {
   fetchRequests,
-  fetchDepartments
+  fetchDepartments,
+  selectRegistrarRequests,
+  selectRegistrarDepartments,
+  selectRegistrarRequestsLoading,
 } from '../../../../store/slices/registrar/registrarSlice';
 
 /**
  * 2. Global Requests View (replicates sys-overview-view from registrar.html & registrar.js)
  */
 export default function GlobalRequestsView() {
-  const dispatch = useDispatch();
-  const requests = useSelector(state => state.registrar.requests);
-  const departments = useSelector(state => state.registrar.departments);
+  const dispatch = useAppDispatch();
+  const requests = useAppSelector(selectRegistrarRequests);
+  const departments = useAppSelector(selectRegistrarDepartments);
+  const {
+    requestsError,
+    departmentsLoading,
+    departmentsError,
+  } = useAppSelector((state) => state.registrar);
+  const loading = useAppSelector(selectRegistrarRequestsLoading);
+  const error = requestsError || departmentsError;
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterDept, setFilterDept] = useState('All');
   const [searchId, setSearchId] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  // 1. Fetch departments dynamically from backend on component mount
   useEffect(() => {
-    const loadDepartments = async () => {
-      try {
-      await dispatch(fetchDepartments()).unwrap();
-      } catch (err) {
-      console.error('Error fetching departments from backend:', err.message || err);
-      }
-    };
-
-    loadDepartments();
+    dispatch(fetchDepartments());
   }, [dispatch]);
 
-  // 2. Fetch requests based on active dropdown filters
-  const renderGlobalRequests = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (filterStatus !== 'All') params.status = filterStatus;
-      if (filterDept !== 'All') params.department = filterDept;
-
-    await dispatch(fetchRequests(params)).unwrap();
-    } catch (err) {
-    console.error('Error fetching global requests:', err.message || err);
-    } finally {
-      setLoading(false);
-    }
+  const renderGlobalRequests = useCallback(() => {
+    const params = {};
+    if (filterStatus !== 'All') params.status = filterStatus;
+    if (filterDept !== 'All') params.department = filterDept;
+    dispatch(fetchRequests(params));
   }, [dispatch, filterDept, filterStatus]);
 
   useEffect(() => {
@@ -62,6 +53,17 @@ export default function GlobalRequestsView() {
     <div id="sys-overview-view" className="view-section active">
       <h1 className="page-title">Global Requests Filter</h1>
       <p className="page-subtitle">Unified view of all departmental requests and current statuses.</p>
+      {error && (
+        <div role="alert" style={{ marginBottom: '1rem', padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load registrar data: {error}
+          <button type="button" onClick={() => {
+            dispatch(fetchDepartments());
+            renderGlobalRequests();
+          }} style={{ marginLeft: 12 }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Filter Row matching exact registrar.html */}
       <div
@@ -108,8 +110,9 @@ export default function GlobalRequestsView() {
           style={{ width: '200px' }}
           value={filterDept}
           onChange={(e) => setFilterDept(e.target.value)}
+          disabled={departmentsLoading}
         >
-          <option value="All">Filter Dept: All</option>
+          <option value="All">{departmentsLoading ? 'Loading departments...' : 'Filter Dept: All'}</option>
           {departments.map((dept) => (
             <option key={dept.id || dept.name} value={dept.name}>
               {dept.name}

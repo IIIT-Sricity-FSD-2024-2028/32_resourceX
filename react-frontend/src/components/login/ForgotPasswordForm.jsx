@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { requestPasswordReset, verifyPasswordResetOtp, resetPassword } from '../../services/auth';
+import { useAppDispatch } from '../../store/hooks';
+import {
+  requestPasswordReset,
+  resetPassword,
+  verifyPasswordResetOtp,
+} from '../../store/slices/auth/authSlice';
 
 const PASSWORD_PATTERN = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9\s]).{8,}$/;
 const RESEND_SECONDS = 60;
@@ -14,6 +19,7 @@ const RESEND_SECONDS = 60;
  *   - onBackToLogin(message?): return to the sign-in form, optionally with a success message
  */
 export default function ForgotPasswordForm({ onBackToLogin }) {
+  const dispatch = useAppDispatch();
   const [step, setStep] = useState('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -38,14 +44,14 @@ export default function ForgotPasswordForm({ onBackToLogin }) {
     try {
       await action();
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err.message || err || 'Something went wrong. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const sendCode = () => run(async () => {
-    const result = await requestPasswordReset(email);
+    const result = await dispatch(requestPasswordReset(email)).unwrap();
     setInfo(result.message);
     setOtp('');
     setResendIn(RESEND_SECONDS);
@@ -68,7 +74,7 @@ export default function ForgotPasswordForm({ onBackToLogin }) {
       return;
     }
     run(async () => {
-      const result = await verifyPasswordResetOtp(email, otp);
+      const result = await dispatch(verifyPasswordResetOtp({ email, otp })).unwrap();
       setResetToken(result.resetToken);
       setInfo(result.message);
       setStep('password');
@@ -86,7 +92,7 @@ export default function ForgotPasswordForm({ onBackToLogin }) {
       return;
     }
     run(async () => {
-      const result = await resetPassword(resetToken, newPassword);
+      const result = await dispatch(resetPassword({ resetToken, newPassword })).unwrap();
       onBackToLogin(result.message);
     });
   };

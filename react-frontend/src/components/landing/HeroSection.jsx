@@ -1,14 +1,14 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import heroDashboard from "../../assets/images/hero_dashboard_v2.png";
-import { useAuth } from "../../context/AuthContext";
+import { useCurrentUser } from "../../store/hooks";
 
 /**
  * HeroSection Component
  * Props: tag, title, titleHighlight, subtitle, onExploreClick
  */
 export default function HeroSection({ tag, title, titleHighlight, subtitle, onExploreClick }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
 
   return (
     <section id="dashboard" className="hero-section">

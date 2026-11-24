@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import { fetchMaintenanceHistory } from '../../../../services/maintenanceOfficer';
 
 export default function HistoryLogView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const [maintHistory, setMaintHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

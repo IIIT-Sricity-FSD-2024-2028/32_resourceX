@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import {
   fetchProcurements,
   approveRegistrarProcurement,
-  rejectRegistrarProcurement
+  rejectRegistrarProcurement,
+  selectRegistrarProcurements,
+  selectRegistrarProcurementsLoading,
+  selectRegistrarProcessingIds,
 } from '../../../../store/slices/registrar/registrarSlice';
 import AdminModal from '../../admin/components/AdminModal';
 
@@ -13,17 +16,18 @@ import AdminModal from '../../admin/components/AdminModal';
  * or reject department indents submitted by Department Heads.
  */
 export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
-  const dispatch = useDispatch();
-  const procurements = useSelector(state => state.registrar.procurements);
+  const dispatch = useAppDispatch();
+  const procurements = useAppSelector(selectRegistrarProcurements);
+  const loading = useAppSelector(selectRegistrarProcurementsLoading);
+  const processingIds = useAppSelector(selectRegistrarProcessingIds);
+  const error = useAppSelector((state) => state.registrar.procurementsError);
   const indents = useMemo(
     () => procurements.filter(p => p.status !== 'Pending Approval'),
     [procurements]
   );
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('All');
   const [deptFilter, setDeptFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [processingId, setProcessingId] = useState(null);
   const [localPreviewFile, setLocalPreviewFile] = useState(null);
   const [rejectId, setRejectId] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -31,13 +35,10 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   // Load indents list
   const loadIndents = useCallback(async () => {
     try {
-      setLoading(true);
       await dispatch(fetchProcurements()).unwrap();
     } catch (err) {
       console.error('Error fetching indents:', err);
       if (addToast) addToast('Error loading department indents.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [addToast, dispatch]);
 
@@ -48,7 +49,6 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
   // Accept procurement / indent
   const handleApprove = async (id) => {
     try {
-      setProcessingId(id);
       await dispatch(approveRegistrarProcurement(id)).unwrap();
       await loadIndents();
       if (addToast) {
@@ -61,8 +61,6 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
       } else {
         alert('Failed to approve indent: ' + (err.message || err || 'Error'));
       }
-    } finally {
-      setProcessingId(null);
     }
   };
 
@@ -81,7 +79,6 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
     }
     setRejectId(null);
     try {
-      setProcessingId(id);
       await dispatch(rejectRegistrarProcurement({ id, reason })).unwrap();
       await loadIndents();
       if (addToast) addToast('Indent rejected. The department head will see your reason.', 'warning');
@@ -92,8 +89,6 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
       } else {
         alert('Failed to reject indent: ' + (err.message || err || 'Error'));
       }
-    } finally {
-      setProcessingId(null);
     }
   };
 
@@ -186,6 +181,12 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
 
   return (
     <div className="view-section active" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', boxSizing: 'border-box' }}>
+      {error && (
+        <div role="alert" style={{ padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          {error}
+          <button type="button" onClick={loadIndents} style={{ marginLeft: 12 }}>Retry</button>
+        </div>
+      )}
       {/* Header Banner */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -390,7 +391,7 @@ export default function ProcurementApprovalsView({ addToast, onPreviewFile }) {
                 filteredIndents.map((p) => {
                   const isPending = p.status === 'Pending';
                   const isApproved = ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status);
-                  const isProcessing = processingId === p.id;
+                  const isProcessing = processingIds.includes(p.id);
                   const hasSpec = p.specFileName || p.specFileDataUrl || p.specFile;
 
                   return (

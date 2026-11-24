@@ -36,7 +36,7 @@ export default function ProcurementOfficerDashboard() {
         <AppHeader />
         <main style={{ flex: 1, overflowY: 'auto', padding: '2rem', backgroundColor: 'var(--bg-color, #f8fafc)' }}>
           <div style={{ maxWidth: 1240, margin: '0 auto', width: '100%' }}>
-            {activeTab === 'overview' && <ProcOfficerOverview onNavigate={setActiveTab} addToast={addToast} />}
+            {activeTab === 'overview' && <ProcOfficerOverview onNavigate={setActiveTab} />}
             {activeTab === 'indents' && (
               <IndentsView
                 addToast={addToast}

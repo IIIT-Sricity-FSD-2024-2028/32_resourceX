@@ -8,7 +8,7 @@ import {
   suspendEmployeeInstitution,
   reactivateEmployeeInstitution
 } from '../../../../services/employee';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -18,7 +18,7 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 export default function EmployeeInstitutions() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useCurrentUser();
 
   const [institutions, setInstitutions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

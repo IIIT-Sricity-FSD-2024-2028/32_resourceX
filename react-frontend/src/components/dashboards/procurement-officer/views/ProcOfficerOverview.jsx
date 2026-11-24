@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
-import { fetchProcurementOfficerStats } from '../../../../services/procurementOfficer';
+import React, { useEffect, useMemo } from 'react';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { useCurrentUser } from '../../../../store/hooks';
+import {
+  fetchProcurements,
+  selectProcurements,
+  selectProcurementsLoading,
+  selectProcurementError,
+} from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 
 const STATUS_COLORS = {
   Approved: { bg: '#eff6ff', text: '#2563eb' },
@@ -10,28 +16,30 @@ const STATUS_COLORS = {
   Rejected: { bg: '#fef2f2', text: '#dc2626' },
 };
 
-export default function ProcOfficerOverview({ onNavigate, addToast }) {
-  const { user } = useAuth();
+export default function ProcOfficerOverview({ onNavigate }) {
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
-  const [data, setData] = useState({ stats: {}, procurements: [] });
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+  const procurements = useAppSelector(selectProcurements);
+  const loading = useAppSelector(selectProcurementsLoading);
+  const error = useAppSelector(selectProcurementError);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const result = await fetchProcurementOfficerStats(department);
-      setData(result);
-    } catch (err) {
-      addToast(err.message || 'Failed to load overview.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [department, addToast]);
+  useEffect(() => {
+    dispatch(fetchProcurements({ department }));
+  }, [department, dispatch]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const { stats } = data;
-  const activeOrders = data.procurements
+  const activeProcurements = useMemo(
+    () => procurements.filter(p => !['Pending Approval', 'Rejected'].includes(p.status)),
+    [procurements]
+  );
+  const stats = useMemo(() => ({
+    pending: activeProcurements.filter(p => p.status === 'Pending').length,
+    approved: activeProcurements.filter(p => p.status === 'Approved').length,
+    poCreated: activeProcurements.filter(p => p.status === 'PO Created').length,
+    fulfilled: activeProcurements.filter(p => p.status === 'Fulfilled').length,
+    registered: activeProcurements.filter(p => p.status === 'Registered').length,
+  }), [activeProcurements]);
+  const activeOrders = activeProcurements
     .filter(p => ['Approved', 'PO Created', 'Fulfilled'].includes(p.status))
     .slice(0, 6);
 
@@ -49,6 +57,14 @@ export default function ProcOfficerOverview({ onNavigate, addToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
+      {error && (
+        <div role="alert" style={{ padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          Failed to load procurement overview: {error}
+          <button type="button" onClick={() => dispatch(fetchProcurements({ department }))} style={{ marginLeft: 12 }}>
+            Retry
+          </button>
+        </div>
+      )}
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
         {statCards.map(card => (

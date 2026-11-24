@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useCurrentUser } from '../store/hooks';
 
 /**
  * Universal Navigation Map
@@ -78,12 +78,12 @@ function loadSidebarPrefs() {
 
 /**
  * Universal, Reusable Sidebar Navigation Component
- * Treats all 7 roles equally, dynamically loading their menu from AuthContext.
+ * Treats all 7 roles equally, dynamically loading their menu from Redux auth state.
  */
 export default function Sidebar({ customNavItems, activeTab, onTabChange } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const user = useCurrentUser();
 
   const name = user?.name || 'User';
   const role = user?.role || 'Member';

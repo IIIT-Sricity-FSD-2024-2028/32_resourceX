@@ -1,28 +1,35 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useAuth } from '../../../../context/AuthContext';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchProcurements,
   createPurchaseOrder,
   logPurchase,
   editPurchaseOrder,
-  editInvoice
+  editInvoice,
+  selectProcurements,
+  selectProcurementsLoading,
+  selectProcurementSaving,
+  selectProcurementSavingIds,
+  selectProcurementError,
 } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 
 export default function ProcurementOrdersView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const dispatch = useDispatch();
-  const allProcurements = useSelector(state => state.procurementOfficer.procurements);
+  const dispatch = useAppDispatch();
+  const allProcurements = useAppSelector(selectProcurements);
+  const loading = useAppSelector(selectProcurementsLoading);
+  const saving = useAppSelector(selectProcurementSaving);
+  const savingIds = useAppSelector(selectProcurementSavingIds);
+  const error = useAppSelector(selectProcurementError);
   const orders = useMemo(
     () => allProcurements.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status)),
     [allProcurements]
   );
-  const [loading, setLoading] = useState(true);
   const [formInputs, setFormInputs] = useState({});
-  const [submittingId, setSubmittingId] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [previewFile, setPreviewFile] = useState(null);
@@ -30,39 +37,23 @@ export default function ProcurementOrdersView({ addToast }) {
   const [reviewOrder, setReviewOrder] = useState(null);
   // Edit modal for an issued PO or a logged invoice: { proc, mode: 'po' | 'invoice', ...fields }
   const [editing, setEditing] = useState(null);
-  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadOrders = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await dispatch(fetchProcurements({ department })).unwrap();
-      const raw = Array.isArray(res) ? res : [];
-      // Procurement Orders strictly manages active orders: Approved -> PO Created -> Fulfilled -> Registered
-      // Indents are managed in the dedicated "Department Indents" view
-      const list = raw.filter(p => ['Approved', 'PO Created', 'Fulfilled', 'Registered'].includes(p.status));
-
-      // Pre-fill sensible default form state
-      setFormInputs(prev => {
-        const next = { ...prev };
-        list.forEach(p => {
-          if (!next[p.id]) {
-            next[p.id] = {
-              vendor: p.vendor || '',
-              invoice: p.invoice || '',
-              invoiceAmount: p.invoiceAmount || '',
-            };
-          }
-        });
-        return next;
-      });
+      await dispatch(fetchProcurements({ department })).unwrap();
     } catch (err) {
       addToast(err.message || err || 'Failed to load procurement orders.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [addToast, department, dispatch]);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  const getInputs = (proc) => ({
+    vendor: proc.vendor || '',
+    invoice: proc.invoice || '',
+    invoiceAmount: proc.invoiceAmount || '',
+    ...formInputs[proc.id],
+  });
 
   const handleInputChange = (procId, field, value) => {
     setFormInputs(prev => ({
@@ -110,7 +101,7 @@ export default function ProcurementOrdersView({ addToast }) {
   };
 
   // Must match the backend rule: at least one digit, so plain words aren't accepted
-  const isValidInvoiceNumber = (value) => /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9 \-\/_.]{2,29}$/.test(value.trim());
+  const isValidInvoiceNumber = (value) => /^(?=.*\d)[A-Za-z0-9][A-Za-z0-9 ./_-]{2,29}$/.test(value.trim());
   const INVOICE_NUMBER_HINT = 'Invoice number must be 3–30 characters, contain at least one digit, and use only letters, digits, spaces and - / _ . (e.g. INV-2026-1001).';
 
   const parseAmount = (value) => {
@@ -125,14 +116,13 @@ export default function ProcurementOrdersView({ addToast }) {
 
   // Stage 1: Upload Purchase Order File -> PO Created
   const handleUploadPO = async (proc) => {
-    const inputs = formInputs[proc.id] || {};
+    const inputs = getInputs(proc);
     if (!inputs.poFileDataUrl && !inputs.poFileName) {
       addToast('Please choose or upload a Purchase Order file.', 'error');
       return;
     }
 
     try {
-      setSubmittingId(proc.id);
       const poNum = inputs.poFileName
         ? inputs.poFileName.replace(/\.[^/.]+$/, '')
         : `PO-${proc.id.replace(/[^0-9]/g, '')}`;
@@ -149,14 +139,12 @@ export default function ProcurementOrdersView({ addToast }) {
       await loadOrders();
     } catch (err) {
       addToast(err.message || err || 'Failed to upload purchase order.', 'error');
-    } finally {
-      setSubmittingId(null);
     }
   };
 
   // Stage 2: validate the invoice, then let the officer review it before submitting
   const handleUploadInvoiceAndFulfill = (proc) => {
-    const inputs = formInputs[proc.id] || {};
+    const inputs = getInputs(proc);
     if (!inputs.invoiceFileDataUrl) {
       addToast('Please upload the invoice document.', 'error');
       return;
@@ -178,9 +166,8 @@ export default function ProcurementOrdersView({ addToast }) {
 
   const confirmInvoiceSubmission = async () => {
     const proc = reviewOrder;
-    const inputs = formInputs[proc.id] || {};
+    const inputs = getInputs(proc);
     try {
-      setSubmittingId(proc.id);
       await dispatch(logPurchase({ id: proc.id, data: {
         vendor: inputs.vendor || proc.vendor || 'Vendor',
         invoice: inputs.invoice.trim(),
@@ -195,8 +182,6 @@ export default function ProcurementOrdersView({ addToast }) {
       await loadOrders();
     } catch (err) {
       addToast(err.message || err || 'Failed to save invoice.', 'error');
-    } finally {
-      setSubmittingId(null);
     }
   };
 
@@ -216,7 +201,6 @@ export default function ProcurementOrdersView({ addToast }) {
   const saveEdit = async () => {
     const { proc, mode } = editing;
     try {
-      setSavingEdit(true);
       if (mode === 'po') {
         if (!editing.vendor.trim()) {
           addToast('Vendor name cannot be empty.', 'error');
@@ -259,8 +243,6 @@ export default function ProcurementOrdersView({ addToast }) {
       await loadOrders();
     } catch (err) {
       addToast(err.message || err || 'Failed to save changes.', 'error');
-    } finally {
-      setSavingEdit(false);
     }
   };
 
@@ -316,6 +298,12 @@ export default function ProcurementOrdersView({ addToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {error && (
+        <div role="alert" style={{ padding: '1rem', color: '#b91c1c', background: '#fef2f2', borderRadius: 10 }}>
+          {error}
+          <button type="button" onClick={loadOrders} style={{ marginLeft: 12 }}>Retry</button>
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -362,8 +350,8 @@ export default function ProcurementOrdersView({ addToast }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           {displayed.map(proc => {
             const sc = STATUS_CONFIG[proc.status] || { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0', label: proc.status };
-            const inputs = formInputs[proc.id] || {};
-            const isSubmitting = submittingId === proc.id;
+            const inputs = getInputs(proc);
+            const isSubmitting = savingIds.includes(proc.id);
             const currentStep = getStepNumber(proc.status);
 
             return (
@@ -805,9 +793,9 @@ export default function ProcurementOrdersView({ addToast }) {
 
       {/* Invoice Review Modal — the officer rechecks everything before it is submitted */}
       {reviewOrder && (() => {
-        const inputs = formInputs[reviewOrder.id] || {};
+        const inputs = getInputs(reviewOrder);
         const isImage = inputs.invoiceFileType?.startsWith('image/');
-        const busy = submittingId === reviewOrder.id;
+        const busy = savingIds.includes(reviewOrder.id);
         return (
           <div onClick={() => !busy && setReviewOrder(null)} style={overlayStyle}>
             <div onClick={e => e.stopPropagation()} style={{ ...modalStyle, maxWidth: 820 }}>
@@ -858,7 +846,7 @@ export default function ProcurementOrdersView({ addToast }) {
 
       {/* Edit PO / Invoice Modal */}
       {editing && (
-        <div onClick={() => !savingEdit && setEditing(null)} style={overlayStyle}>
+        <div onClick={() => !saving && setEditing(null)} style={overlayStyle}>
           <div onClick={e => e.stopPropagation()} style={{ ...modalStyle, maxWidth: 520 }}>
             <div style={modalHeaderStyle}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -867,7 +855,7 @@ export default function ProcurementOrdersView({ addToast }) {
                   {editing.mode === 'po' ? 'Edit Purchase Order' : 'Edit Invoice'} — {editing.proc.id}
                 </h3>
               </div>
-              <button onClick={() => setEditing(null)} disabled={savingEdit} style={closeBtnStyle}>✕</button>
+              <button onClick={() => setEditing(null)} disabled={saving} style={closeBtnStyle}>✕</button>
             </div>
 
             {editing.mode === 'po' ? (
@@ -931,10 +919,10 @@ export default function ProcurementOrdersView({ addToast }) {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button onClick={() => setEditing(null)} disabled={savingEdit} style={secondaryBtnStyle}>Cancel</button>
-              <button onClick={saveEdit} disabled={savingEdit} style={{ ...primaryBtnStyle, background: savingEdit ? '#94a3b8' : '#2563eb' }}>
+              <button onClick={() => setEditing(null)} disabled={saving} style={secondaryBtnStyle}>Cancel</button>
+              <button onClick={saveEdit} disabled={saving} style={{ ...primaryBtnStyle, background: saving ? '#94a3b8' : '#2563eb' }}>
                 <span className="material-icons" style={{ fontSize: 18 }}>save</span>
-                {savingEdit ? 'Saving...' : 'Save Changes'}
+                {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

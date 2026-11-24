@@ -29,7 +29,6 @@ export const updateProfile = async (user) => {
     body: payload
   });
 
-  syncLocalProfile(updatedUser);
   return {
     ...updatedUser,
     preferences: {
@@ -47,18 +46,4 @@ export const updatePassword = async (currentPassword, newPassword) => {
     body: { currentPassword, newPassword }
   });
   return true;
-};
-
-/**
- * Helper to keep sessionStorage in sync after backend update
- */
-const syncLocalProfile = (data) => {
-  try {
-    const rxData = JSON.parse(sessionStorage.getItem('rx_data')) || {};
-    if (rxData.currentUser) {
-      if (data.name) rxData.currentUser.name = data.name;
-      if (data.preferences) rxData.currentUser.notifications = data.preferences.notifications;
-      sessionStorage.setItem('rx_data', JSON.stringify(rxData));
-    }
-  } catch {}
 };

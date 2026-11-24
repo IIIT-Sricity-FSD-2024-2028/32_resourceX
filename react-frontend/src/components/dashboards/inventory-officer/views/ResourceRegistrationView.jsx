@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchProcurements,
   registerProcurement
@@ -21,7 +21,7 @@ const SHEET_COLUMNS = [
 ];
 
 export default function ResourceRegistrationView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [procurements, setProcurements] = useState([]);
