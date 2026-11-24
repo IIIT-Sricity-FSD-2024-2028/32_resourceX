@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as employeeService from '../../../services/employee';
+import { logout } from '../auth/authSlice';
 
 /**
  * Platform Employee Async Thunks
@@ -274,7 +275,10 @@ const employeeSlice = createSlice({
       .addCase(createEmployeeAnnouncement.rejected, (state, action) => {
         state.operationLoading = false;
         state.error = action.payload;
-      });
+      })
+
+      // Reset state on auth logout
+      .addCase(logout, () => initialState);
   },
 });
 

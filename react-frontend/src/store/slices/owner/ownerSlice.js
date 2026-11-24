@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import * as ownerService from '../../../services/owner';
+import { logout } from '../auth/authSlice';
 
 /**
  * Platform Owner Async Thunks
@@ -484,7 +485,10 @@ const ownerSlice = createSlice({
 
       .addCase(fetchOwnerPlatformAnalytics.fulfilled, (state, action) => {
         state.analytics = action.payload || null;
-      });
+      })
+
+      // Reset state on auth logout
+      .addCase(logout, () => initialState);
   },
 });
 

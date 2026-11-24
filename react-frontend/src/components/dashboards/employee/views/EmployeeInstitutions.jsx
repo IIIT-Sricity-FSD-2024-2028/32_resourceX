@@ -11,7 +11,7 @@ import {
   selectEmployeeInstitutions,
   selectEmployeeLoading,
 } from '../../../../store/slices/employee/employeeSlice';
-import { useAuth } from '../../../../context/AuthContext';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -22,7 +22,7 @@ export default function EmployeeInstitutions() {
   const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useSelector(selectCurrentUser);
 
   const institutions = useSelector(selectEmployeeInstitutions);
   const isLoading = useSelector(selectEmployeeLoading);

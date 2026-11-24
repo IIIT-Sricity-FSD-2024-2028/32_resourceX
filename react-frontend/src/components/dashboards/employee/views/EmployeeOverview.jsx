@@ -12,7 +12,13 @@ import {
   selectEmployeeStats,
   selectEmployeeOverviewLoading,
 } from '../../../../store/slices/employee/employeeSlice';
-import { useAuth } from '../../../../context/AuthContext';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
+import {
+  fetchNotifications,
+  markNotificationRead,
+  selectNotifications,
+  selectUnreadCount,
+} from '../../../../store/slices/notifications/notificationsSlice';
 
 export function renderStatusBadge(status) {
   if (status === 'Active' || status === 'Resolved') {
@@ -35,12 +41,14 @@ export default function EmployeeOverview() {
   const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useSelector(selectCurrentUser);
 
   const institutions = useSelector(selectEmployeeInstitutions);
   const tickets = useSelector(selectEmployeeTickets);
   const stats = useSelector(selectEmployeeStats);
   const isLoading = useSelector(selectEmployeeOverviewLoading);
+  const notifications = useSelector(selectNotifications) || [];
+  const unreadCount = useSelector(selectUnreadCount);
 
   const [orgSearch, setOrgSearch] = useState('');
   const [ticketSearch, setTicketSearch] = useState('');
@@ -52,7 +60,10 @@ export default function EmployeeOverview() {
 
   const loadData = useCallback(async () => {
     try {
-      await dispatch(fetchEmployeeDashboardOverview(employeeId)).unwrap();
+      await Promise.all([
+        dispatch(fetchEmployeeDashboardOverview(employeeId)).unwrap(),
+        dispatch(fetchNotifications()).unwrap().catch(() => []),
+      ]);
     } catch (err) {
       addToast(err?.message || err || 'Failed to load dashboard data', 'error');
     }
@@ -204,6 +215,65 @@ export default function EmployeeOverview() {
                     >
                       Resolve
                     </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="data-section">
+        <div className="data-section-header">
+          <div className="data-section-title">
+            Platform Notifications
+            {unreadCount > 0 && (
+              <span className="badge pending" style={{ marginLeft: '0.5rem', fontSize: '0.75rem' }}>
+                {unreadCount} unread
+              </span>
+            )}
+          </div>
+        </div>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Message</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {notifications.length === 0 ? (
+              <tr>
+                <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  No notifications.
+                </td>
+              </tr>
+            ) : (
+              notifications.slice(0, 5).map((n) => (
+                <tr key={n.id}>
+                  <td>{n.id}</td>
+                  <td>
+                    <strong>{n.title || n.message || 'Notification'}</strong>
+                    {n.title && n.message && (
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{n.message}</div>
+                    )}
+                  </td>
+                  <td><span className="badge">{n.type || 'System'}</span></td>
+                  <td>{n.read ? <span className="badge allocated">Read</span> : <span className="badge pending">Unread</span>}</td>
+                  <td>
+                    {!n.read && (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                        onClick={() => dispatch(markNotificationRead(n.id))}
+                      >
+                        Mark Read
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

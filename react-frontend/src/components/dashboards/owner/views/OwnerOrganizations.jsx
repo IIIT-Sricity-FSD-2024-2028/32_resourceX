@@ -16,6 +16,7 @@ import {
   selectOwnerEmployees,
   selectOwnerLoading,
 } from '../../../../store/slices/owner/ownerSlice';
+import { fetchNotifications } from '../../../../store/slices/notifications/notificationsSlice';
 
 const STATUSES = ['Active', 'Suspended', 'Pending'];
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
@@ -99,6 +100,7 @@ export default function OwnerOrganizations() {
       } else {
         await dispatch(reactivateOwnerOrganization(org.id)).unwrap();
       }
+      dispatch(fetchNotifications());
       addToast(`Organization ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
       setActionTarget(null);
       loadData();

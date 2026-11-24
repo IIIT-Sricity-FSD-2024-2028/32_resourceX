@@ -11,6 +11,7 @@ import {
   selectOwnerEmployees,
   selectOwnerLoading,
 } from '../../../../store/slices/owner/ownerSlice';
+import { fetchNotifications } from '../../../../store/slices/notifications/notificationsSlice';
 
 /**
  * Exact replica of registrations-view from owner.html — pending organizations only connected to Redux
@@ -54,6 +55,7 @@ export default function OwnerRegistrations() {
   const handleApprove = async (orgId, employeeId) => {
     try {
       await dispatch(approveOwnerOrganization({ id: orgId, employeeId })).unwrap();
+      dispatch(fetchNotifications());
       addToast('Organization approved and employee assigned.', 'success');
       loadData();
     } catch (err) {

@@ -10,6 +10,7 @@ import {
   selectEmployeeTickets,
   selectEmployeeLoading,
 } from '../../../../store/slices/employee/employeeSlice';
+import { fetchNotifications } from '../../../../store/slices/notifications/notificationsSlice';
 
 const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
@@ -52,6 +53,7 @@ export default function EmployeeSupport() {
   const handleResolve = async (id, reply) => {
     try {
       await dispatch(resolveEmployeeTicket({ id, reply })).unwrap();
+      dispatch(fetchNotifications());
       addToast('Ticket resolved and reply sent.', 'success');
       setResolveTarget(null);
       loadData();

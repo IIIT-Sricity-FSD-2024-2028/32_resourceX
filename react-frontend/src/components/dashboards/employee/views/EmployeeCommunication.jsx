@@ -12,7 +12,8 @@ import {
   selectEmployeeAnnouncements,
   selectEmployeeLoading,
 } from '../../../../store/slices/employee/employeeSlice';
-import { useAuth } from '../../../../context/AuthContext';
+import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
+import { fetchNotifications } from '../../../../store/slices/notifications/notificationsSlice';
 
 /**
  * Exact replica of communication-view from employee.html connected to Redux
@@ -21,7 +22,7 @@ export default function EmployeeCommunication() {
   const dispatch = useDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useSelector(selectCurrentUser);
 
   const institutions = useSelector(selectEmployeeInstitutions);
   const announcements = useSelector(selectEmployeeAnnouncements);
@@ -64,6 +65,7 @@ export default function EmployeeCommunication() {
   const handleCreate = async (payload) => {
     try {
       await dispatch(createEmployeeAnnouncement(payload)).unwrap();
+      dispatch(fetchNotifications());
       addToast('Announcement posted successfully.', 'success');
       setIsAddOpen(false);
       loadData();
