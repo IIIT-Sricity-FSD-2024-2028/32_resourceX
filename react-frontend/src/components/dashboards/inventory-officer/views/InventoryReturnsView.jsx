@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import { fetchResources, fetchReturnHistory, processReturn } from '../../../../services/inventoryOfficer';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
 export default function InventoryReturnsView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'history'

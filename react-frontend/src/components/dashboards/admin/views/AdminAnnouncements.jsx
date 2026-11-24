@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ReplyAnnModal from '../components/ReplyAnnModal';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import {
   fetchAnnouncements,
@@ -21,7 +21,7 @@ export default function AdminAnnouncements() {
   const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useCurrentUser();
 
   // Redux state
   const announcements = useAppSelector(selectAdminAnnouncements);

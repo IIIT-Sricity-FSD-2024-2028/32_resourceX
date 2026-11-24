@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useCurrentUser } from "../../store/hooks";
 
 /**
  * Landing Page Navbar Component
@@ -10,7 +10,7 @@ import { useAuth } from "../../context/AuthContext";
  *  - onNavClick: callback when section link is clicked
  */
 export default function Navbar({ navLinks, activeSection, onNavClick }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
 
   return (
     <nav className="landing-nav">

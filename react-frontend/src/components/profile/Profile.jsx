@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../Sidebar';
 import AppHeader from '../AppHeader';
 import AvatarHeader from './AvatarHeader';
 import AccountInfo from './AccountInfo';
 import Preferences from './Preferences';
 import SecuritySettings from './SecuritySettings';
-import { fetchProfile, updateProfile, updatePassword } from '../../services/profile';
-import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch } from '../../store/hooks';
+import {
+  fetchAuthProfile,
+  logout,
+  updateAuthPassword,
+  updateAuthProfile,
+} from '../../store/slices/auth/authSlice';
 
 /**
  * Self-contained Profile Component
- * Manages user settings, profile editing, and password updates via services/profile.js
+ * Manages user settings, profile editing, and password updates through auth Redux thunks.
  */
 export default function Profile({ onLogout, onNavigate }) {
   const navigate = useNavigate();
-  const { updateUser, logout } = useAuth();
+  const dispatch = useAppDispatch();
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,7 +36,8 @@ export default function Profile({ onLogout, onNavigate }) {
 
   useEffect(() => {
     let isMounted = true;
-    fetchProfile()
+    dispatch(fetchAuthProfile())
+      .unwrap()
       .then((profileData) => {
         if (isMounted) {
           setUser(profileData);
@@ -42,37 +47,38 @@ export default function Profile({ onLogout, onNavigate }) {
       .catch((err) => {
         if (isMounted) {
           setIsLoading(false);
-          if (err.message === 'UNAUTHORIZED') {
+          if (err === 'UNAUTHORIZED' || err.message === 'UNAUTHORIZED') {
             if (onLogout) {
               onLogout();
             } else {
-              logout();
+              dispatch(logout());
               navigate('/login');
             }
             return;
           }
-          setError(err.message || "Failed to load profile from backend server.");
-          addToast(err.message || "Backend unreachable.", "error");
+          setError(err.message || err || "Failed to load profile from backend server.");
+          addToast(err.message || err || "Backend unreachable.", "error");
         }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [onLogout, navigate]);
+  }, [dispatch, onLogout, navigate]);
 
   const handleRetry = () => {
     setIsLoading(true);
     setError(null);
-    fetchProfile()
+    dispatch(fetchAuthProfile())
+      .unwrap()
       .then((profileData) => {
         setUser(profileData);
         setIsLoading(false);
       })
       .catch((err) => {
         setIsLoading(false);
-        setError(err.message || "Failed to load profile from backend server.");
-        addToast(err.message || "Backend unreachable.", "error");
+        setError(err.message || err || "Failed to load profile from backend server.");
+        addToast(err.message || err || "Backend unreachable.", "error");
       });
   };
 
@@ -92,23 +98,22 @@ export default function Profile({ onLogout, onNavigate }) {
   // Save profile changes to backend via profile service
   const handleSaveChanges = async () => {
     try {
-      const updatedUser = await updateProfile(user);
+      const updatedUser = await dispatch(updateAuthProfile(user)).unwrap();
       setUser(updatedUser);
-      updateUser(updatedUser);
       addToast("Profile changes saved successfully! ✅", "success");
     } catch (e) {
-      addToast(`Save failed: ${e.message} ❌`, "error");
+      addToast(`Save failed: ${e.message || e} ❌`, "error");
     }
   };
 
   // Update password via profile service
   const handleUpdatePassword = async (currentPassword, newPassword, onSuccess) => {
     try {
-      await updatePassword(currentPassword, newPassword);
+      await dispatch(updateAuthPassword({ currentPassword, newPassword })).unwrap();
       addToast("Password updated successfully! ✅", "success");
       if (onSuccess) onSuccess();
     } catch (e) {
-      addToast(`Password update failed: ${e.message} ❌`, "error");
+      addToast(`Password update failed: ${e.message || e} ❌`, "error");
     }
   };
 
@@ -129,7 +134,7 @@ export default function Profile({ onLogout, onNavigate }) {
                 if (onLogout) {
                   onLogout();
                 } else {
-                  logout();
+                  dispatch(logout());
                   navigate('/login');
                 }
               }}

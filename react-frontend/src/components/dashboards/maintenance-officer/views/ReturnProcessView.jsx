@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import { fetchResources, processReturn } from '../../../../services/maintenanceOfficer';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
 export default function ReturnProcessView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [returnItems, setReturnItems] = useState([]);

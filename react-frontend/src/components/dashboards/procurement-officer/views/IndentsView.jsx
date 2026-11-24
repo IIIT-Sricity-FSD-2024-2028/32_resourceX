@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchProcurements,
   selectProcurements,
@@ -8,7 +8,7 @@ import {
 } from '../../../../store/slices/procurement-officer/procurementOfficerSlice';
 
 export default function IndentsView({ addToast, onProcessOrder }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
   const dispatch = useAppDispatch();
   const procurements = useAppSelector(selectProcurements);

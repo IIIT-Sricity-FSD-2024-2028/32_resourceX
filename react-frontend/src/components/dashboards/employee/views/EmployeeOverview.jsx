@@ -4,7 +4,7 @@ import EmployeeStatsCards from '../components/EmployeeStatsCards';
 import ResolveTicketModal from '../components/ResolveTicketModal';
 import TableToolbar, { matchesSearch } from '../../../common/TableToolbar';
 import { fetchEmployeeDashboardOverview, resolveEmployeeTicket } from '../../../../services/employee';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 
 export function renderStatusBadge(status) {
   if (status === 'Active' || status === 'Resolved') {
@@ -26,7 +26,7 @@ export default function EmployeeOverview() {
   const navigate = useNavigate();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useCurrentUser();
 
   const [institutions, setInstitutions] = useState([]);
   const [tickets, setTickets] = useState([]);

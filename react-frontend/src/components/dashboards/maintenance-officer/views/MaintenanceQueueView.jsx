@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchResources,
   fetchMaintenanceHistory,
@@ -23,7 +23,7 @@ const PRIORITY_COLORS = {
 };
 
 export default function MaintenanceQueueView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [queue, setQueue] = useState([]);

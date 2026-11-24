@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchApprovedRequests,
   fetchAvailableResources,
@@ -20,7 +20,7 @@ function matchesType(resource, requestedType) {
 }
 
 export default function AllocationQueueView({ addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
   const [requests, setRequests] = useState([]);

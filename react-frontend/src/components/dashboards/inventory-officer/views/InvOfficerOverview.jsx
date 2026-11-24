@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 import {
   fetchInventoryOfficerStats,
   fetchApprovedRequests,
@@ -21,7 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function InvOfficerOverview({ onNavigate, addToast }) {
-  const { user } = useAuth();
+  const user = useCurrentUser();
   const department = user?.department || 'IT Services';
   const [data, setData] = useState({ stats: {}, requests: [], resources: [] });
   const [notifications, setNotifications] = useState([]);

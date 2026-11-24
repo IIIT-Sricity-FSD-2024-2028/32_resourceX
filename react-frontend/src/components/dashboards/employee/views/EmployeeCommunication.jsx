@@ -8,7 +8,7 @@ import {
   fetchEmployeeAnnouncements,
   createEmployeeAnnouncement
 } from '../../../../services/employee';
-import { useAuth } from '../../../../context/AuthContext';
+import { useCurrentUser } from '../../../../store/hooks';
 
 /**
  * Exact replica of communication-view from employee.html
@@ -16,7 +16,7 @@ import { useAuth } from '../../../../context/AuthContext';
 export default function EmployeeCommunication() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
-  const { user: currentUser } = useAuth();
+  const currentUser = useCurrentUser();
 
   const [institutions, setInstitutions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);

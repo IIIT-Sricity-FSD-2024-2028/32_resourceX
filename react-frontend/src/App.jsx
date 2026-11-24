@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import LandingPage from './components/landing/LandingPage';
 import Login from './components/login';
@@ -18,9 +18,9 @@ import RegistrarDashboard from './components/dashboards/registrar/RegistrarDashb
 import OwnerDashboard from './components/dashboards/owner/OwnerDashboard';
 import EmployeeDashboard from './components/dashboards/employee/EmployeeDashboard';
 
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { useAppSelector } from './store/hooks';
-import { selectCurrentUser } from './store/slices/auth/authSlice';
+import { useAppDispatch, useAppSelector } from './store/hooks';
+import { getCurrentUser } from './services/auth';
+import { logout, selectCurrentUser, syncAuthSession } from './store/slices/auth/authSlice';
 
 /**
  * Maps a user's system role to their designated dashboard route.
@@ -59,6 +59,23 @@ function PublicOnlyRoute({ children }) {
     return <Navigate to={getRoleDashboardPath(user.role)} replace />;
   }
   return children;
+}
+
+function AuthSessionSync() {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    const handleStorageChange = (event) => {
+      if (event.key === 'rx_data' || event.key === 'rx_token') {
+        dispatch(syncAuthSession(getCurrentUser()));
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [dispatch]);
+
+  return null;
 }
 
 /**
@@ -126,10 +143,10 @@ function RegisterPage() {
  */
 function ProfilePage() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const dispatch = useAppDispatch();
 
   const handleLogout = () => {
-    logout();
+    dispatch(logout());
     navigate('/login');
   };
 
@@ -150,9 +167,9 @@ function ProfilePage() {
  */
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <div className="app-root" style={{ minHeight: '100vh', width: '100%' }}>
+    <BrowserRouter>
+      <AuthSessionSync />
+      <div className="app-root" style={{ minHeight: '100vh', width: '100%' }}>
           <Routes>
             {/* Public Landing Page */}
             <Route path="/" element={<LandingPage />} />
@@ -293,8 +310,7 @@ export default function App() {
           {/* Fallback for unknown routes */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
-    </BrowserRouter>
-  </AuthProvider>
+    </div>
+  </BrowserRouter>
 );
 }

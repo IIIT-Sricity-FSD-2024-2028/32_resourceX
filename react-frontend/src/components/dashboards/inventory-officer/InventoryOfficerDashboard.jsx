@@ -1,5 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { useAuth } from '../../../context/AuthContext';
 import Sidebar from '../../Sidebar';
 import AppHeader from '../../AppHeader';
 import { useNotificationTab } from '../../common/notificationFocus';
