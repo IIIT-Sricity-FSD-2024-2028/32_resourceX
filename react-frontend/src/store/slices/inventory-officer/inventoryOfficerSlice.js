@@ -291,7 +291,7 @@ const inventoryOfficerSlice = createSlice({
     addCollectionCases(builder, fetchProcurements, 'procurements', asArray, []);
     addCollectionCases(builder, fetchReturnHistory, 'returnHistory', asArray, []);
 
-    [
+    const writeThunks = [
       allocateRequest,
       createResource,
       updateResource,
@@ -299,16 +299,113 @@ const inventoryOfficerSlice = createSlice({
       requestResourceMaintenance,
       registerProcurement,
       processReturn,
-    ].forEach((thunk) => {
+    ];
+
+    writeThunks.forEach((thunk) => {
       builder
         .addCase(thunk.pending, startOperation)
-        .addCase(thunk.fulfilled, finishOperation)
         .addCase(thunk.rejected, (state, action) => {
           finishOperation(state, action);
           state.operationError = action.payload || action.error.message;
           state.error = state.operationError;
         });
     });
+
+    builder
+      .addCase(allocateRequest.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const reqId = action.meta.arg?.id || action.payload?.id;
+        if (reqId) {
+          state.approvedRequests = state.approvedRequests.filter((r) => r.id !== reqId);
+        }
+        const resourceIds = action.meta.arg?.resourceIds || [];
+        if (resourceIds.length > 0) {
+          state.resources = state.resources.map((r) =>
+            resourceIds.includes(r.id) ? { ...r, status: 'Allocated' } : r
+          );
+          state.availableResources = state.availableResources.filter(
+            (r) => !resourceIds.includes(r.id)
+          );
+        }
+      })
+      .addCase(createResource.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        if (action.payload && action.payload.id) {
+          state.resources.push(action.payload);
+          if (action.payload.status === 'Available') {
+            state.availableResources.push(action.payload);
+          }
+        }
+      })
+      .addCase(updateResource.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const idx = state.resources.findIndex((r) => r.id === updated.id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...updated };
+          }
+          const availIdx = state.availableResources.findIndex((r) => r.id === updated.id);
+          if (updated.status === 'Available') {
+            if (availIdx !== -1) state.availableResources[availIdx] = { ...state.availableResources[availIdx], ...updated };
+            else state.availableResources.push(updated);
+          } else if (availIdx !== -1) {
+            state.availableResources.splice(availIdx, 1);
+          }
+        }
+      })
+      .addCase(scrapResource.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}), status: 'Scrapped' };
+          }
+          state.availableResources = state.availableResources.filter((r) => r.id !== id);
+        }
+      })
+      .addCase(requestResourceMaintenance.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.id;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}), status: 'Maintenance Requested' };
+          }
+          state.availableResources = state.availableResources.filter((r) => r.id !== id);
+        }
+      })
+      .addCase(registerProcurement.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.id;
+        if (id) {
+          const idx = state.procurements.findIndex((p) => p.id === id);
+          if (idx !== -1) {
+            state.procurements[idx] = { ...state.procurements[idx], ...(updated || {}), status: 'Registered' };
+          }
+        }
+      })
+      .addCase(processReturn.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const idx = state.resources.findIndex((r) => r.id === updated.id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...updated };
+          }
+          const availIdx = state.availableResources.findIndex((r) => r.id === updated.id);
+          if (updated.status === 'Available') {
+            if (availIdx !== -1) state.availableResources[availIdx] = { ...state.availableResources[availIdx], ...updated };
+            else state.availableResources.push(updated);
+          } else if (availIdx !== -1) {
+            state.availableResources.splice(availIdx, 1);
+          }
+        }
+      });
   },
 });
 

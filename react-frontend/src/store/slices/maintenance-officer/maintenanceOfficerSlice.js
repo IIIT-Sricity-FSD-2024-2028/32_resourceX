@@ -184,18 +184,68 @@ const maintenanceOfficerSlice = createSlice({
     addCollectionCases(builder, fetchMaintenanceResources, 'resources', asArray, []);
     addCollectionCases(builder, fetchMaintenanceHistory, 'history', asArray, []);
 
-    [acceptMaintenance, repairMaintenance, scrapMaintenance, processMaintenanceReturn].forEach(
-      (thunk) => {
-        builder
-          .addCase(thunk.pending, startOperation)
-          .addCase(thunk.fulfilled, finishOperation)
-          .addCase(thunk.rejected, (state, action) => {
-            finishOperation(state, action);
-            state.operationError = action.payload || action.error.message;
-            state.error = state.operationError;
-          });
-      }
-    );
+    const writeThunks = [
+      acceptMaintenance,
+      repairMaintenance,
+      scrapMaintenance,
+      processMaintenanceReturn,
+    ];
+
+    writeThunks.forEach((thunk) => {
+      builder
+        .addCase(thunk.pending, startOperation)
+        .addCase(thunk.rejected, (state, action) => {
+          finishOperation(state, action);
+          state.operationError = action.payload || action.error.message;
+          state.error = state.operationError;
+        });
+    });
+
+    builder
+      .addCase(acceptMaintenance.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.resourceId || action.meta.arg;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}), status: updated?.status || 'Maintenance' };
+          }
+        }
+      })
+      .addCase(repairMaintenance.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.resourceId || action.meta.arg;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}), status: updated?.status || 'Available' };
+          }
+        }
+      })
+      .addCase(scrapMaintenance.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.resourceId || action.meta.arg;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}), status: updated?.status || 'Scrapped' };
+          }
+        }
+      })
+      .addCase(processMaintenanceReturn.fulfilled, (state, action) => {
+        finishOperation(state, action);
+        const updated = action.payload;
+        const id = updated?.id || action.meta.arg?.resourceId || action.meta.arg?.id;
+        if (id) {
+          const idx = state.resources.findIndex((r) => r.id === id);
+          if (idx !== -1) {
+            state.resources[idx] = { ...state.resources[idx], ...(updated || {}) };
+          }
+        }
+      });
   },
 });
 

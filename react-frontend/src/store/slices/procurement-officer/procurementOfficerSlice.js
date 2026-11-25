@@ -86,6 +86,17 @@ const finishOperation = (state, action) => {
   state.saving = state.activeOperations.length > 0;
 };
 
+const updateProcurementInState = (state, updated) => {
+  if (updated?.id) {
+    const index = state.procurements.findIndex((p) => p.id === updated.id);
+    if (index !== -1) {
+      state.procurements[index] = { ...state.procurements[index], ...updated };
+    } else {
+      state.procurements.unshift(updated);
+    }
+  }
+};
+
 const procurementOfficerSlice = createSlice({
   name: 'procurementOfficer',
   initialState: {
@@ -122,7 +133,10 @@ const procurementOfficerSlice = createSlice({
     [createPurchaseOrder, dispatchDelivery, logPurchase, editPurchaseOrder, editInvoice].forEach((thunk) => {
       builder
         .addCase(thunk.pending, startOperation)
-        .addCase(thunk.fulfilled, finishOperation)
+        .addCase(thunk.fulfilled, (state, action) => {
+          finishOperation(state, action);
+          updateProcurementInState(state, action.payload);
+        })
         .addCase(thunk.rejected, (state, action) => {
           finishOperation(state, action);
           state.error = action.payload || action.error.message;

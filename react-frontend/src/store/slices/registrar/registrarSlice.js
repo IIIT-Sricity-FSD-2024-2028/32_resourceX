@@ -212,7 +212,16 @@ const registrarSlice = createSlice({
     [approveRegistrarProcurement, rejectRegistrarProcurement].forEach((thunk) => {
       builder
         .addCase(thunk.pending, startOperation)
-        .addCase(thunk.fulfilled, finishOperation)
+        .addCase(thunk.fulfilled, (state, action) => {
+          finishOperation(state, action);
+          const updated = action.payload;
+          if (updated && updated.id) {
+            const index = state.procurements.findIndex((p) => p.id === updated.id);
+            if (index !== -1) {
+              state.procurements[index] = { ...state.procurements[index], ...updated };
+            }
+          }
+        })
         .addCase(thunk.rejected, (state, action) => {
           finishOperation(state, action);
           state.operationError = action.payload || action.error.message;

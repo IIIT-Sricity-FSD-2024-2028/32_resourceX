@@ -370,6 +370,46 @@ const requestorSlice = createSlice({
       .addCase(fetchResources.fulfilled, (state, action) => {
         state.resources = Array.isArray(action.payload) ? action.payload : [];
       })
+      // requestResourceMaintenance
+      .addCase(requestResourceMaintenance.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
+      // initiateResourceReturn
+      .addCase(initiateResourceReturn.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
+      // confirmRepairedAllocation
+      .addCase(confirmRepairedAllocation.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
+      // requestResourceExtension
+      .addCase(requestResourceExtension.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
       // fetchStock
       .addCase(fetchStock.fulfilled, (state, action) => {
         state.stock = Array.isArray(action.payload) ? action.payload : [];
@@ -391,8 +431,15 @@ const requestorSlice = createSlice({
       .addCase(fetchRequestorSummary.fulfilled, (state, action) => {
         state.summary = action.payload || null;
       })
+      // fetchProcurements
       .addCase(fetchProcurements.fulfilled, (state, action) => {
         state.procurements = Array.isArray(action.payload) ? action.payload : [];
+      })
+      // createProcurement
+      .addCase(createProcurement.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.procurements.unshift(action.payload);
+        }
       })
       // overview
       .addCase(fetchRequestorDashboardOverview.fulfilled, (state, action) => {

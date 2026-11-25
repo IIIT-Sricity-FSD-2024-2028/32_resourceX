@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
-import { selectCurrentUser } from '../../../../store/slices/auth/authSlice';
 import {
   fetchRequestorReturnHistory,
   fetchRequestorMaintenanceHistory,
@@ -11,15 +10,11 @@ import {
 
 export default function RequestorHistoryView({ addToast }) {
   const dispatch = useAppDispatch();
-  const user = useAppSelector(selectCurrentUser);
-  const storeReturns = useAppSelector(selectReturnHistory);
-  const storeMaint = useAppSelector(selectMaintenanceHistory);
-  const storeLoading = useAppSelector(selectRequestorLoading);
+  const returnHistory = useAppSelector(selectReturnHistory);
+  const maintenanceHistory = useAppSelector(selectMaintenanceHistory);
+  const loading = useAppSelector(selectRequestorLoading);
 
   const [activeTab, setActiveTab] = useState('returns'); // 'returns' | 'maintenance'
-  const [returnHistory, setReturnHistory] = useState([]);
-  const [maintenanceHistory, setMaintenanceHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
@@ -28,18 +23,12 @@ export default function RequestorHistoryView({ addToast }) {
 
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      const [returns, maint] = await Promise.all([
+      await Promise.all([
         dispatch(fetchRequestorReturnHistory()).unwrap().catch(() => []),
         dispatch(fetchRequestorMaintenanceHistory()).unwrap().catch(() => [])
       ]);
-
-      setReturnHistory(Array.isArray(returns) ? returns : []);
-      setMaintenanceHistory(Array.isArray(maint) ? maint : []);
     } catch (err) {
       if (addToast) addToast(err || 'Failed to load activity history.', 'error');
-    } finally {
-      setLoading(false);
     }
   }, [addToast, dispatch]);
 

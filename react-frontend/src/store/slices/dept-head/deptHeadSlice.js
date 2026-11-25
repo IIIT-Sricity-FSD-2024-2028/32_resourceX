@@ -182,6 +182,7 @@ const initialState = {
   requests: [],
   stock: [],
   resources: [],
+  resourceTypes: [],
   procurements: [],
   summary: null,
   loading: false,
@@ -345,6 +346,30 @@ const deptHeadSlice = createSlice({
       .addCase(fetchDeptResources.fulfilled, (state, action) => {
         state.resources = Array.isArray(action.payload) ? action.payload : [];
       })
+      // fetchDeptResourceTypes
+      .addCase(fetchDeptResourceTypes.fulfilled, (state, action) => {
+        state.resourceTypes = Array.isArray(action.payload) ? action.payload : [];
+      })
+      // approveResourceExtension
+      .addCase(approveResourceExtension.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
+      // rejectResourceExtension
+      .addCase(rejectResourceExtension.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.resources.findIndex((r) => r.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
       // fetchDeptSummary
       .addCase(fetchDeptSummary.fulfilled, (state, action) => {
         state.summary = action.payload || null;
@@ -357,6 +382,46 @@ const deptHeadSlice = createSlice({
       .addCase(createDeptProcurement.fulfilled, (state, action) => {
         if (action.payload) {
           state.procurements.unshift(action.payload);
+        }
+      })
+      // approveDeptProcurement
+      .addCase(approveDeptProcurement.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.procurements.findIndex((p) => p.id === updated.id);
+          if (index !== -1) {
+            state.procurements[index] = { ...state.procurements[index], ...updated };
+          }
+        }
+      })
+      // rejectDeptProcurement
+      .addCase(rejectDeptProcurement.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.procurements.findIndex((p) => p.id === updated.id);
+          if (index !== -1) {
+            state.procurements[index] = { ...state.procurements[index], ...updated };
+          }
+        }
+      })
+      // editDeptProcurement
+      .addCase(editDeptProcurement.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.procurements.findIndex((p) => p.id === updated.id);
+          if (index !== -1) {
+            state.procurements[index] = { ...state.procurements[index], ...updated };
+          }
+        }
+      })
+      // cancelDeptProcurement
+      .addCase(cancelDeptProcurement.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated && updated.id) {
+          const index = state.procurements.findIndex((p) => p.id === updated.id);
+          if (index !== -1) {
+            state.procurements[index] = { ...state.procurements[index], ...updated };
+          }
         }
       })
       // overview
@@ -399,6 +464,9 @@ export const {
 export const selectDeptRequests = (state) => state.deptHead?.requests || [];
 export const selectDeptStock = (state) => state.deptHead?.stock || [];
 export const selectDeptResources = (state) => state.deptHead?.resources || [];
+export const selectDeptResourceTypes = (state) => state.deptHead?.resourceTypes || [];
+export const selectDeptExtensionRequests = (state) =>
+  (state.deptHead?.resources || []).filter((r) => r.extensionStatus === 'Pending');
 export const selectDeptProcurements = (state) => state.deptHead?.procurements || [];
 export const selectDeptSummary = (state) => state.deptHead?.summary || null;
 export const selectDeptHeadLoading = (state) => state.deptHead?.loading || false;

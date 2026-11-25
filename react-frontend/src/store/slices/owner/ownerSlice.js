@@ -370,6 +370,19 @@ const ownerSlice = createSlice({
         }
       })
 
+      // bulkCreateOwnerEmployees
+      .addCase(bulkCreateOwnerEmployees.fulfilled, (state, action) => {
+        const payload = action.payload;
+        const newEmployees = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.created)
+          ? payload.created
+          : [];
+        if (newEmployees.length > 0) {
+          state.employees.push(...newEmployees);
+        }
+      })
+
       // fetchOwnerPlatformAnalytics
       .addCase(fetchOwnerPlatformAnalytics.fulfilled, (state, action) => {
         state.analytics = action.payload || null;
