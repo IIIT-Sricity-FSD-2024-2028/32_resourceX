@@ -28,10 +28,13 @@ const inventoryOfficerSlice = createSlice({
     resources: [],
     loading: false,
     error: null,
+    resourcesLoading: false,
+    resourcesError: null,
   },
   reducers: {
     clearInventoryError: (state) => {
       state.error = null;
+      state.resourcesError = null;
     },
   },
   extraReducers: (builder) => {
@@ -48,7 +51,17 @@ const inventoryOfficerSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(fetchResources.fulfilled, (state, action) => {
+        state.resourcesLoading = false;
         state.resources = action.payload || [];
+        state.resourcesError = null;
+      })
+      .addCase(fetchResources.pending, (state) => {
+        state.resourcesLoading = true;
+        state.resourcesError = null;
+      })
+      .addCase(fetchResources.rejected, (state, action) => {
+        state.resourcesLoading = false;
+        state.resourcesError = action.payload || action.error.message;
       });
   },
 });

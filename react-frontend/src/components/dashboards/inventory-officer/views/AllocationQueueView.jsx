@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
 import {
-  fetchApprovedRequests,
   fetchAvailableResources,
   allocateRequest
 } from '../../../../services/inventoryOfficer';
+import { fetchApprovedRequests } from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 function normalizeToken(v) {
@@ -20,6 +20,7 @@ function matchesType(resource, requestedType) {
 }
 
 export default function AllocationQueueView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
@@ -36,7 +37,7 @@ export default function AllocationQueueView({ addToast }) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const reqList = await fetchApprovedRequests(department ? { department } : {});
+      const reqList = await dispatch(fetchApprovedRequests(department ? { department } : {})).unwrap();
       const isExpired = (req) => {
         if (!req.requirementDate) return false;
         const parsed = Date.parse(req.requirementDate);
@@ -62,7 +63,7 @@ export default function AllocationQueueView({ addToast }) {
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

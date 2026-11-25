@@ -345,6 +345,24 @@ const deptHeadSlice = createSlice({
       .addCase(fetchDeptResources.fulfilled, (state, action) => {
         state.resources = Array.isArray(action.payload) ? action.payload : [];
       })
+      .addCase(approveResourceExtension.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated?.id) {
+          const index = state.resources.findIndex((resource) => resource.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
+      .addCase(rejectResourceExtension.fulfilled, (state, action) => {
+        const updated = action.payload;
+        if (updated?.id) {
+          const index = state.resources.findIndex((resource) => resource.id === updated.id);
+          if (index !== -1) {
+            state.resources[index] = { ...state.resources[index], ...updated };
+          }
+        }
+      })
       // fetchDeptSummary
       .addCase(fetchDeptSummary.fulfilled, (state, action) => {
         state.summary = action.payload || null;

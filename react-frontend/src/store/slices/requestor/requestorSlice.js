@@ -394,6 +394,17 @@ const requestorSlice = createSlice({
       .addCase(fetchProcurements.fulfilled, (state, action) => {
         state.procurements = Array.isArray(action.payload) ? action.payload : [];
       })
+      .addCase(createProcurement.fulfilled, (state, action) => {
+        const created = action.payload;
+        if (created?.id) {
+          const index = state.procurements.findIndex((procurement) => procurement.id === created.id);
+          if (index === -1) {
+            state.procurements.unshift(created);
+          } else {
+            state.procurements[index] = { ...state.procurements[index], ...created };
+          }
+        }
+      })
       // overview
       .addCase(fetchRequestorDashboardOverview.fulfilled, (state, action) => {
         if (action.payload) {

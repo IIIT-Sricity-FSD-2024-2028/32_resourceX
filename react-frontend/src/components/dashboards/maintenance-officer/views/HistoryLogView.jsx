@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchMaintenanceHistory } from '../../../../services/maintenanceOfficer';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
+import { fetchMaintenanceHistory } from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 
 export default function HistoryLogView({ addToast }) {
   const user = useCurrentUser();
+  const dispatch = useAppDispatch();
   const [maintHistory, setMaintHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -12,14 +13,14 @@ export default function HistoryLogView({ addToast }) {
   const loadHistory = useCallback(async () => {
     try {
       setLoading(true);
-      const mh = await fetchMaintenanceHistory().catch(() => []);
+      const mh = await dispatch(fetchMaintenanceHistory()).unwrap().catch(() => []);
       setMaintHistory(Array.isArray(mh) ? mh : []);
     } catch (err) {
       addToast(err.message || 'Failed to load maintenance history.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, dispatch]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 

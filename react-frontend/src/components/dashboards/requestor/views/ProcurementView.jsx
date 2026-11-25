@@ -190,7 +190,7 @@ export default function ProcurementView({ addToast, onPreviewFile }) {
       setFileWarning(false);
 
       // Reload procurement history
-      const updated = await fetchProcurements();
+      const updated = await dispatch(fetchProcurements()).unwrap();
       setProcurements(updated || []);
     } catch (err) {
       console.error('Procurement submit error:', err);

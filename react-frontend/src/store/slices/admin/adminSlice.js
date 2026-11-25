@@ -294,6 +294,7 @@ const initialState = {
   departmentsLoading: false,
   departmentsError: null,
   catalogLoading: false,
+  catalogError: null,
   deptOperationLoading: false,
   deptOperationError: null,
 
@@ -353,6 +354,7 @@ export const adminSlice = createSlice({
       state.usersError = null;
       state.userOperationError = null;
       state.departmentsError = null;
+      state.catalogError = null;
       state.deptOperationError = null;
       state.ticketsError = null;
       state.ticketOperationError = null;
@@ -552,13 +554,16 @@ export const adminSlice = createSlice({
       })
       .addCase(fetchCatalog.pending, (state) => {
         state.catalogLoading = true;
+        state.catalogError = null;
       })
       .addCase(fetchCatalog.fulfilled, (state, action) => {
         state.catalogLoading = false;
         state.catalog = action.payload || [];
+        state.catalogError = null;
       })
-      .addCase(fetchCatalog.rejected, (state) => {
+      .addCase(fetchCatalog.rejected, (state, action) => {
         state.catalogLoading = false;
+        state.catalogError = action.payload || action.error.message || 'Failed to fetch resource catalog';
       })
       .addCase(updateCatalog.pending, (state) => {
         state.deptOperationLoading = true;
@@ -715,6 +720,7 @@ export const selectUserOperationError = (state) => selectAdminState(state)?.user
 
 export const selectAdminDepartments = (state) => selectAdminState(state)?.departments || [];
 export const selectAdminCatalog = (state) => selectAdminState(state)?.catalog || [];
+export const selectAdminCatalogError = (state) => selectAdminState(state)?.catalogError || null;
 export const selectAdminDeptsLoading = (state) => selectAdminState(state)?.departmentsLoading || false;
 export const selectAdminDeptsError = (state) => selectAdminState(state)?.departmentsError || null;
 export const selectDeptOperationLoading = (state) => selectAdminState(state)?.deptOperationLoading || false;

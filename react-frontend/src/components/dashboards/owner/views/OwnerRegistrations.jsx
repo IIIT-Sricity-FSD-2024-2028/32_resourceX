@@ -3,15 +3,16 @@ import { useOutletContext } from 'react-router-dom';
 import AssignEmployeeModal from '../components/AssignEmployeeModal';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
-  fetchOwnerOrganizations,
-  fetchOwnerEmployees,
   approveOwnerOrganization
 } from '../../../../services/owner';
+import { useAppDispatch } from '../../../../store/hooks';
+import { fetchOwnerOrganizations, fetchOwnerEmployees } from '../../../../store/slices/owner/ownerSlice';
 
 /**
  * Exact replica of registrations-view from owner.html — pending organizations only
  */
 export default function OwnerRegistrations() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
@@ -28,8 +29,8 @@ export default function OwnerRegistrations() {
     setIsLoading(true);
     try {
       const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations(),
-        fetchOwnerEmployees().catch(() => [])
+        dispatch(fetchOwnerOrganizations()).unwrap(),
+        dispatch(fetchOwnerEmployees()).unwrap().catch(() => [])
       ]);
       setOrganizations(orgList || []);
       setEmployees(empList || []);

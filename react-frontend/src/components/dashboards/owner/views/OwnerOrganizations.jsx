@@ -5,13 +5,13 @@ import AssignEmployeeModal from '../components/AssignEmployeeModal';
 import { renderStatusBadge } from './OwnerOverview';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
-  fetchOwnerOrganizations,
-  fetchOwnerEmployees,
   approveOwnerOrganization,
   assignOwnerOrganizationEmployee,
   suspendOwnerOrganization,
   reactivateOwnerOrganization
 } from '../../../../services/owner';
+import { useAppDispatch } from '../../../../store/hooks';
+import { fetchOwnerOrganizations, fetchOwnerEmployees } from '../../../../store/slices/owner/ownerSlice';
 
 const STATUSES = ['Active', 'Suspended', 'Pending'];
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
@@ -20,6 +20,7 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
  * Exact replica of org-management-view from owner.html
  */
 export default function OwnerOrganizations() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
@@ -42,8 +43,8 @@ export default function OwnerOrganizations() {
     setIsLoading(true);
     try {
       const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations(),
-        fetchOwnerEmployees().catch(() => [])
+        dispatch(fetchOwnerOrganizations()).unwrap(),
+        dispatch(fetchOwnerEmployees()).unwrap().catch(() => [])
       ]);
       setOrganizations(orgList || []);
       setEmployees(empList || []);

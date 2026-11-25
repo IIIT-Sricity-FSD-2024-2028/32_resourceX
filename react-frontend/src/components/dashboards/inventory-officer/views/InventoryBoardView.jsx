@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
 import {
-  fetchResources,
   fetchResourceCatalog,
   createResource,
   scrapResource,
   updateResource,
   requestResourceMaintenance
 } from '../../../../services/inventoryOfficer';
+import { fetchResources } from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 
 const STATUS_COLORS = {
   Available: { bg: '#f0fdf4', text: '#16a34a' },
@@ -22,6 +22,7 @@ const STATUS_COLORS = {
 const ALL_STATUSES = ['All', 'Available', 'Allocated', 'Maintenance Requested', 'Maintenance', 'Returned', 'Repaired', 'Scrapped'];
 
 export default function InventoryBoardView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
@@ -61,7 +62,7 @@ export default function InventoryBoardView({ addToast }) {
     try {
       setLoading(true);
       const [res, cat] = await Promise.all([
-        fetchResources({ department }),
+        dispatch(fetchResources({ department })).unwrap(),
         fetchResourceCatalog({ department }).catch(() => [])
       ]);
       setResources(Array.isArray(res) ? res : []);
@@ -78,7 +79,7 @@ export default function InventoryBoardView({ addToast }) {
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => {
     loadResources();

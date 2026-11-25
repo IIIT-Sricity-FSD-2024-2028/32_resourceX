@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchResources, fetchReturnHistory, processReturn } from '../../../../services/inventoryOfficer';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
+import { fetchReturnHistory, processReturn } from '../../../../services/inventoryOfficer';
+import { fetchResources } from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
 export default function InventoryReturnsView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
@@ -28,7 +30,7 @@ export default function InventoryReturnsView({ addToast }) {
     try {
       setLoading(true);
       const [res, hist] = await Promise.all([
-        fetchResources({ department }),
+        dispatch(fetchResources({ department })).unwrap(),
         fetchReturnHistory().catch(() => [])
       ]);
 
@@ -58,7 +60,7 @@ export default function InventoryReturnsView({ addToast }) {
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => {
     loadData();

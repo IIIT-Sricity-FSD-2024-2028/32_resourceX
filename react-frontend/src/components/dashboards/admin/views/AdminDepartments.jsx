@@ -13,6 +13,7 @@ import {
   updateCatalog,
   selectAdminDepartments,
   selectAdminCatalog,
+  selectAdminCatalogError,
   selectAdminDeptsLoading,
   selectDeptOperationLoading,
 } from '../../../../store/slices/admin/adminSlice';
@@ -30,6 +31,7 @@ export default function AdminDepartments() {
   // Redux state
   const departments = useAppSelector(selectAdminDepartments);
   const catalog = useAppSelector(selectAdminCatalog);
+  const catalogError = useAppSelector(selectAdminCatalogError);
   const isLoading = useAppSelector(selectAdminDeptsLoading);
   const isOperating = useAppSelector(selectDeptOperationLoading);
 
@@ -227,6 +229,11 @@ export default function AdminDepartments() {
         <p className="page-subtitle">
           Define organizational structures. Department heads are assigned from User Management.
         </p>
+        {catalogError && (
+          <p role="alert" style={{ color: '#b91c1c' }}>
+            Failed to load resource catalog: {catalogError}
+          </p>
+        )}
 
         <div
           style={{
@@ -428,6 +435,11 @@ export default function AdminDepartments() {
       <p className="page-subtitle">
         Define organizational structures. Department heads are assigned from User Management.
       </p>
+      {catalogError && (
+        <p role="alert" style={{ color: '#b91c1c' }}>
+          Failed to load resource catalog: {catalogError}
+        </p>
+      )}
 
       {/* Control Bar: Add Button, Head Filter, and Search */}
       <div

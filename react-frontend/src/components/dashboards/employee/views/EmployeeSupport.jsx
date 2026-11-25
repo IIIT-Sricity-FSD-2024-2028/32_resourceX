@@ -3,7 +3,9 @@ import { useOutletContext } from 'react-router-dom';
 import ResolveTicketModal from '../components/ResolveTicketModal';
 import { renderStatusBadge } from './EmployeeOverview';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
-import { fetchEmployeeTickets, resolveEmployeeTicket } from '../../../../services/employee';
+import { resolveEmployeeTicket } from '../../../../services/employee';
+import { useAppDispatch } from '../../../../store/hooks';
+import { fetchEmployeeTickets } from '../../../../store/slices/employee/employeeSlice';
 
 const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
@@ -13,6 +15,7 @@ const STATUSES = ['Open', 'In Progress', 'Resolved'];
 export default function EmployeeSupport() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
+  const dispatch = useAppDispatch();
 
   const [tickets, setTickets] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,7 +29,7 @@ export default function EmployeeSupport() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      setTickets(await fetchEmployeeTickets());
+      setTickets(await dispatch(fetchEmployeeTickets()).unwrap());
     } catch (err) {
       addToast(err.message || 'Failed to load support tickets', 'error');
     } finally {
@@ -36,7 +39,7 @@ export default function EmployeeSupport() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dispatch]);
 
   const list = tickets.filter((t) =>
     (filter === 'All' || t.status === filter) &&

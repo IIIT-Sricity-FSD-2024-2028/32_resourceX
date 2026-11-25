@@ -4,11 +4,11 @@ import EmployeeModal from '../components/EmployeeModal';
 import { renderStatusBadge } from './EmployeeOverview';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
-  fetchEmployeeInstitutions,
   suspendEmployeeInstitution,
   reactivateEmployeeInstitution
 } from '../../../../services/employee';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
+import { fetchEmployeeInstitutions } from '../../../../store/slices/employee/employeeSlice';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -18,6 +18,7 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 export default function EmployeeInstitutions() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
+  const dispatch = useAppDispatch();
   const currentUser = useCurrentUser();
 
   const [institutions, setInstitutions] = useState([]);
@@ -32,7 +33,7 @@ export default function EmployeeInstitutions() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      setInstitutions(await fetchEmployeeInstitutions(currentUser?.id));
+      setInstitutions(await dispatch(fetchEmployeeInstitutions(currentUser?.id)).unwrap());
     } catch (err) {
       addToast(err.message || 'Failed to load institutions', 'error');
     } finally {
@@ -42,7 +43,7 @@ export default function EmployeeInstitutions() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dispatch, currentUser?.id]);
 
   const list = institutions.filter((o) =>
     (filter === 'All' || o.status === filter) &&

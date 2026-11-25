@@ -28,10 +28,13 @@ const employeeSlice = createSlice({
     tickets: [],
     loading: false,
     error: null,
+    ticketsLoading: false,
+    ticketsError: null,
   },
   reducers: {
     clearEmployeeError: (state) => {
       state.error = null;
+      state.ticketsError = null;
     },
   },
   extraReducers: (builder) => {
@@ -48,7 +51,17 @@ const employeeSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(fetchEmployeeTickets.fulfilled, (state, action) => {
+        state.ticketsLoading = false;
         state.tickets = action.payload || [];
+        state.ticketsError = null;
+      })
+      .addCase(fetchEmployeeTickets.pending, (state) => {
+        state.ticketsLoading = true;
+        state.ticketsError = null;
+      })
+      .addCase(fetchEmployeeTickets.rejected, (state, action) => {
+        state.ticketsLoading = false;
+        state.ticketsError = action.payload || action.error.message;
       });
   },
 });

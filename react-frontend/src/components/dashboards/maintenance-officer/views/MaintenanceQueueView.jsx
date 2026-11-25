@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
 import {
-  fetchResources,
-  fetchMaintenanceHistory,
   acceptMaintenance,
   repairMaintenance,
   scrapMaintenance
 } from '../../../../services/maintenanceOfficer';
+import {
+  fetchMaintenanceResources,
+  fetchMaintenanceHistory
+} from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STEP_MAP = {
@@ -23,6 +25,7 @@ const PRIORITY_COLORS = {
 };
 
 export default function MaintenanceQueueView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
@@ -52,8 +55,8 @@ export default function MaintenanceQueueView({ addToast }) {
     try {
       setLoading(true);
       const [resList, hist] = await Promise.all([
-        fetchResources({ department }),
-        fetchMaintenanceHistory().catch(() => [])
+        dispatch(fetchMaintenanceResources({ department })).unwrap(),
+        dispatch(fetchMaintenanceHistory()).unwrap().catch(() => [])
       ]);
       const list = Array.isArray(resList) ? resList : [];
       setQueue(list.filter(r => r.status === 'Maintenance Requested' || r.status === 'Maintenance'));
@@ -63,7 +66,7 @@ export default function MaintenanceQueueView({ addToast }) {
     } finally {
       setLoading(false);
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

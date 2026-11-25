@@ -28,10 +28,13 @@ const maintenanceOfficerSlice = createSlice({
     history: [],
     loading: false,
     error: null,
+    historyLoading: false,
+    historyError: null,
   },
   reducers: {
     clearMaintenanceError: (state) => {
       state.error = null;
+      state.historyError = null;
     },
   },
   extraReducers: (builder) => {
@@ -48,7 +51,17 @@ const maintenanceOfficerSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(fetchMaintenanceHistory.fulfilled, (state, action) => {
+        state.historyLoading = false;
         state.history = action.payload || [];
+        state.historyError = null;
+      })
+      .addCase(fetchMaintenanceHistory.pending, (state) => {
+        state.historyLoading = true;
+        state.historyError = null;
+      })
+      .addCase(fetchMaintenanceHistory.rejected, (state, action) => {
+        state.historyLoading = false;
+        state.historyError = action.payload || action.error.message;
       });
   },
 });

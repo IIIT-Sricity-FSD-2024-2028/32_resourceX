@@ -6,13 +6,13 @@ import EditEmployeeModal from '../components/EditEmployeeModal';
 import { DocumentLink } from '../../../common/DocumentUpload';
 import { renderStatusBadge } from './OwnerOverview';
 import {
-  fetchOwnerOrganizations,
-  fetchOwnerEmployees,
   suspendOwnerEmployee,
   reactivateOwnerEmployee,
   updateOwnerEmployee,
   removeOwnerEmployee
 } from '../../../../services/owner';
+import { useAppDispatch } from '../../../../store/hooks';
+import { fetchOwnerOrganizations, fetchOwnerEmployees } from '../../../../store/slices/owner/ownerSlice';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -20,6 +20,7 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
  * Exact replica of employees-view from owner.html
  */
 export default function OwnerEmployees() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
@@ -37,8 +38,8 @@ export default function OwnerEmployees() {
     setIsLoading(true);
     try {
       const [orgList, empList] = await Promise.all([
-        fetchOwnerOrganizations().catch(() => []),
-        fetchOwnerEmployees()
+        dispatch(fetchOwnerOrganizations()).unwrap().catch(() => []),
+        dispatch(fetchOwnerEmployees()).unwrap()
       ]);
       setOrganizations(orgList || []);
       setEmployees(empList || []);

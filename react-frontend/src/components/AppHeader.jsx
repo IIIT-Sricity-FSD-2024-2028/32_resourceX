@@ -5,8 +5,8 @@ import { selectCurrentUser, logout } from '../store/slices/auth/authSlice';
 import {
   fetchNotifications,
   markNotificationRead,
-  markAllLocallyRead,
   selectNotifications,
+  selectNotificationError,
   selectUnreadCount,
 } from '../store/slices/notifications/notificationsSlice';
 import { highlightRecord, resolveNotificationDestination } from './common/notificationFocus';
@@ -27,6 +27,7 @@ export default function AppHeader() {
 
   // Redux-connected notifications state
   const notifications = useAppSelector(selectNotifications) || [];
+  const notificationError = useAppSelector(selectNotificationError);
   const unreadCount = useAppSelector(selectUnreadCount);
 
   const loadNotifications = useCallback(() => {
@@ -43,9 +44,10 @@ export default function AppHeader() {
 
   const handleMarkAllRead = async () => {
     const unread = notifications.filter((n) => !n.read);
-    dispatch(markAllLocallyRead());
-    setShowNotifMenu(false);
-    await Promise.all(unread.map((n) => dispatch(markNotificationRead(n.id)).unwrap().catch(() => null)));
+    const results = await Promise.all(unread.map((n) => dispatch(markNotificationRead(n.id))));
+    if (!results.some(markNotificationRead.rejected.match)) {
+      setShowNotifMenu(false);
+    }
   };
 
   const handleMarkRead = (n) => {
@@ -96,6 +98,11 @@ export default function AppHeader() {
           {showNotifMenu && (
             <div className="dropdown-menu notifications-dropdown" style={{ display: 'block', opacity: 1, visibility: 'visible', transform: 'none' }}>
               <div className="dropdown-header">Notifications</div>
+              {notificationError && (
+                <div role="alert" style={{ padding: '0.75rem 1rem', color: '#b91c1c', fontSize: '0.8rem' }}>
+                  {notificationError}
+                </div>
+              )}
               <div className="notification-list" style={{ maxHeight: '320px', overflowY: 'auto' }}>
                 {notifications.length === 0 ? (
                   <div style={{ padding: '1rem', fontSize: '0.85rem', color: '#64748b' }}>No notifications.</div>

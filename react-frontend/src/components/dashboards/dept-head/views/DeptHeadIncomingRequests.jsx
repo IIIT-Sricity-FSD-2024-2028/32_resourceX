@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { useAppDispatch } from '../../../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
 import AdminModal from '../../admin/components/AdminModal';
 import {
   fetchDeptRequests,
@@ -8,7 +8,8 @@ import {
   rejectDeptRequest,
   fetchDeptResources,
   approveResourceExtension,
-  rejectResourceExtension
+  rejectResourceExtension,
+  selectDeptResources
 } from '../../../../store/slices/dept-head/deptHeadSlice';
 import { EmptyRow, LoadingBlock, ErrorBlock, FileLink, padQty } from '../components/deptHeadUtils';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
@@ -20,10 +21,10 @@ import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/Tabl
  */
 export default function DeptHeadIncomingRequests() {
   const dispatch = useAppDispatch();
+  const resources = useAppSelector(selectDeptResources);
   const { addToast = () => {}, openProcurementFile = () => {} } = useOutletContext() || {};
 
   const [requests, setRequests] = useState([]);
-  const [extensionRequests, setExtensionRequests] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -34,11 +35,13 @@ export default function DeptHeadIncomingRequests() {
   const [extSearch, setExtSearch] = useState('');
   const [extTypeFilter, setExtTypeFilter] = useState('All');
 
+  const extensionRequests = resources.filter((resource) => resource.extensionStatus === 'Pending');
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [reqs, resList] = await Promise.all([
+      const [reqs] = await Promise.all([
         dispatch(fetchDeptRequests({ status: 'Pending' })).unwrap().catch(() => []),
         dispatch(fetchDeptResources()).unwrap().catch(() => [])
       ]);
@@ -51,10 +54,6 @@ export default function DeptHeadIncomingRequests() {
         return Date.now() > deadline.getTime();
       };
       setRequests((reqs || []).filter(r => !isExpired(r)));
-
-      // Pending resource extension requests
-      const extPending = (resList || []).filter(r => r.extensionStatus === 'Pending');
-      setExtensionRequests(extPending);
     } catch (err) {
       setError(err || 'Failed to load incoming requests.');
       addToast(err || 'Error loading incoming requests', 'error');
@@ -111,7 +110,6 @@ export default function DeptHeadIncomingRequests() {
     setBusyId(id);
     try {
       await dispatch(approveResourceExtension(id)).unwrap();
-      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
       addToast('Deadline extension approved. Return deadline has been updated.', 'success');
     } catch (err) {
       addToast(`Extension approval failed: ${err}`, 'error');
@@ -124,7 +122,6 @@ export default function DeptHeadIncomingRequests() {
     setBusyId(id);
     try {
       await dispatch(rejectResourceExtension({ id, payload: { reason: 'Department scheduling constraints' } })).unwrap();
-      setExtensionRequests((prev) => prev.filter((r) => r.id !== id));
       addToast('Deadline extension rejected.', 'info');
     } catch (err) {
       addToast(`Extension rejection failed: ${err}`, 'error');

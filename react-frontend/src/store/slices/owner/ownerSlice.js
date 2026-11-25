@@ -30,10 +30,13 @@ const ownerSlice = createSlice({
     revenue: null,
     loading: false,
     error: null,
+    employeesLoading: false,
+    employeesError: null,
   },
   reducers: {
     clearOwnerError: (state) => {
       state.error = null;
+      state.employeesError = null;
     },
   },
   extraReducers: (builder) => {
@@ -49,8 +52,18 @@ const ownerSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      .addCase(fetchOwnerEmployees.pending, (state) => {
+        state.employeesLoading = true;
+        state.employeesError = null;
+      })
       .addCase(fetchOwnerEmployees.fulfilled, (state, action) => {
+        state.employeesLoading = false;
         state.employees = action.payload || [];
+        state.employeesError = null;
+      })
+      .addCase(fetchOwnerEmployees.rejected, (state, action) => {
+        state.employeesLoading = false;
+        state.employeesError = action.payload || action.error.message;
       });
   },
 });

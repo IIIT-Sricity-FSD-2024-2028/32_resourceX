@@ -4,11 +4,11 @@ import AnnouncementModal from '../components/AnnouncementModal';
 import RepliesModal from '../components/RepliesModal';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 import {
-  fetchEmployeeInstitutions,
   fetchEmployeeAnnouncements,
   createEmployeeAnnouncement
 } from '../../../../services/employee';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useCurrentUser } from '../../../../store/hooks';
+import { fetchEmployeeInstitutions } from '../../../../store/slices/employee/employeeSlice';
 
 /**
  * Exact replica of communication-view from employee.html
@@ -16,6 +16,7 @@ import { useCurrentUser } from '../../../../store/hooks';
 export default function EmployeeCommunication() {
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
+  const dispatch = useAppDispatch();
   const currentUser = useCurrentUser();
 
   const [institutions, setInstitutions] = useState([]);
@@ -34,7 +35,7 @@ export default function EmployeeCommunication() {
     setIsLoading(true);
     try {
       const [orgList, annList] = await Promise.all([
-        fetchEmployeeInstitutions(currentUser?.id).catch(() => []),
+        dispatch(fetchEmployeeInstitutions(currentUser?.id)).unwrap().catch(() => []),
         fetchEmployeeAnnouncements()
       ]);
       setInstitutions(orgList);
@@ -48,7 +49,7 @@ export default function EmployeeCommunication() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [dispatch, currentUser?.id]);
 
   const targetLabel = (a) => (a.targetOrgId === 'ALL' ? 'All Institutions (Broadcast)' : a.targetOrgId);
   const visibleAnnouncements = [...announcements].reverse().filter((a) =>

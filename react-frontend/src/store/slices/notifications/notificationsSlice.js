@@ -35,11 +35,6 @@ const notificationsSlice = createSlice({
     error: null,
   },
   reducers: {
-    markAllLocallyRead: (state) => {
-      state.items.forEach((item) => {
-        item.read = true;
-      });
-    },
     clearNotifications: (state) => {
       state.items = [];
       state.error = null;
@@ -59,17 +54,24 @@ const notificationsSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+      .addCase(markNotificationRead.pending, (state) => {
+        state.error = null;
+      })
       .addCase(markNotificationRead.fulfilled, (state, action) => {
         const item = state.items.find((n) => n.id === action.payload);
         if (item) {
           item.read = true;
         }
+      })
+      .addCase(markNotificationRead.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
       });
   },
 });
 
-export const { markAllLocallyRead, clearNotifications } = notificationsSlice.actions;
+export const { clearNotifications } = notificationsSlice.actions;
 export const selectNotifications = (state) => state.notifications.items;
+export const selectNotificationError = (state) => state.notifications.error;
 export const selectUnreadCount = (state) =>
   state.notifications.items.filter((n) => !n.read).length;
 
