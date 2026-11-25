@@ -1,19 +1,29 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchResources, fetchReturnHistory, processReturn } from '../../../../services/inventoryOfficer';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
+import {
+  fetchResources,
+  fetchReturnHistory,
+  processReturn,
+  selectReturnedResources,
+  selectInventoryResourcesLoading,
+  selectReturnHistory,
+  selectInventoryProcessingIds,
+} from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
 export default function InventoryReturnsView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
+  const returnItems = useAppSelector(selectReturnedResources);
+  const returnHistory = useAppSelector(selectReturnHistory);
+  const loading = useAppSelector(selectInventoryResourcesLoading);
+  const processingIds = useAppSelector(selectInventoryProcessingIds);
+
   const [activeSubTab, setActiveSubTab] = useState('queue'); // 'queue' | 'history'
-  const [returnItems, setReturnItems] = useState([]);
-  const [returnHistory, setReturnHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
 
   // Inspector form inputs per pending return item
   const [itemForms, setItemForms] = useState({});
@@ -25,16 +35,13 @@ export default function InventoryReturnsView({ addToast }) {
   const [historyFilter, setHistoryFilter] = useState('All');
 
   const loadData = useCallback(async () => {
+    // Return history is supplementary; when it fails the history tab just shows no entries
+    dispatch(fetchReturnHistory());
     try {
-      setLoading(true);
-      const [res, hist] = await Promise.all([
-        fetchResources({ department }),
-        fetchReturnHistory().catch(() => [])
-      ]);
+      const res = await dispatch(fetchResources({ department })).unwrap();
 
       const list = Array.isArray(res) ? res : [];
       const returned = list.filter(r => r.status === 'Returned');
-      setReturnItems(returned);
 
       const forms = {};
       returned.forEach(r => {
@@ -51,14 +58,10 @@ export default function InventoryReturnsView({ addToast }) {
         };
       });
       setItemForms(forms);
-
-      setReturnHistory(Array.isArray(hist) ? hist : []);
     } catch (err) {
-      if (addToast) addToast(err.message || 'Failed to load return management data.', 'error');
-    } finally {
-      setLoading(false);
+      if (addToast) addToast(err?.message || err || 'Failed to load return management data.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => {
     loadData();
@@ -85,14 +88,16 @@ export default function InventoryReturnsView({ addToast }) {
     }
 
     try {
-      setProcessingId(resourceId);
-      await processReturn(resourceId, {
-        condition,
-        destination,
-        returnReason: form.returnReason,
-        maintenanceIssue: form.maintenanceIssue?.trim() || form.officerNotes?.trim() || 'Maintenance required post-return',
-        notes: form.officerNotes?.trim() || '',
-      });
+      await dispatch(processReturn({
+        id: resourceId,
+        payload: {
+          condition,
+          destination,
+          returnReason: form.returnReason,
+          maintenanceIssue: form.maintenanceIssue?.trim() || form.officerNotes?.trim() || 'Maintenance required post-return',
+          notes: form.officerNotes?.trim() || '',
+        },
+      })).unwrap();
 
       if (addToast) {
         if (destination === 'Maintenance Requested') {
@@ -106,9 +111,7 @@ export default function InventoryReturnsView({ addToast }) {
 
       await loadData();
     } catch (err) {
-      if (addToast) addToast(err.message || 'Return processing failed.', 'error');
-    } finally {
-      setProcessingId(null);
+      if (addToast) addToast(err?.message || err || 'Return processing failed.', 'error');
     }
   };
 
@@ -278,7 +281,7 @@ export default function InventoryReturnsView({ addToast }) {
               )}
               {visibleReturnItems.map(item => {
                 const form = itemForms[item.id] || {};
-                const isProcessing = processingId === item.id;
+                const isProcessing = processingIds.includes(item.id);
                 const destination = form.destination || 'Available';
 
                 return (

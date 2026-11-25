@@ -1,27 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchResources, processReturn } from '../../../../services/maintenanceOfficer';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
+import {
+  fetchMaintenanceResources,
+  processMaintenanceReturn,
+  selectMaintenanceReturnedResources,
+  selectMaintenanceResourcesLoading,
+  selectMaintenanceProcessingIds,
+} from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 
 const CONDITIONS = ['Good', 'Average', 'Fair', 'Damaged', 'Bad'];
 
 export default function ReturnProcessView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const [returnItems, setReturnItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
+  const returnItems = useAppSelector(selectMaintenanceReturnedResources);
+  const loading = useAppSelector(selectMaintenanceResourcesLoading);
+  const processingIds = useAppSelector(selectMaintenanceProcessingIds);
 
   // Per-item inspector states
   const [itemForms, setItemForms] = useState({});
 
   const loadReturns = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await fetchResources({ department });
+      const res = await dispatch(fetchMaintenanceResources({ department })).unwrap();
       const list = Array.isArray(res) ? res : [];
       const returned = list.filter(r => r.status === 'Returned');
-      setReturnItems(returned);
 
       const forms = {};
       returned.forEach(r => {
@@ -37,11 +42,9 @@ export default function ReturnProcessView({ addToast }) {
       });
       setItemForms(forms);
     } catch (err) {
-      addToast(err.message || 'Failed to load return queue.', 'error');
-    } finally {
-      setLoading(false);
+      addToast(err?.message || err || 'Failed to load return queue.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadReturns(); }, [loadReturns]);
 
@@ -66,14 +69,16 @@ export default function ReturnProcessView({ addToast }) {
     }
 
     try {
-      setProcessingId(resourceId);
-      await processReturn(resourceId, {
-        condition,
-        destination,
-        returnReason: form.returnReason,
-        maintenanceIssue: form.maintenanceIssue?.trim() || form.officerNotes?.trim() || 'Maintenance required post-return',
-        notes: form.officerNotes?.trim() || '',
-      });
+      await dispatch(processMaintenanceReturn({
+        id: resourceId,
+        payload: {
+          condition,
+          destination,
+          returnReason: form.returnReason,
+          maintenanceIssue: form.maintenanceIssue?.trim() || form.officerNotes?.trim() || 'Maintenance required post-return',
+          notes: form.officerNotes?.trim() || '',
+        },
+      })).unwrap();
 
       if (destination === 'Maintenance Requested') {
         addToast(`🛠 Item routed to Maintenance Queue for repair with issue logged.`, 'success');
@@ -85,9 +90,7 @@ export default function ReturnProcessView({ addToast }) {
 
       await loadReturns();
     } catch (err) {
-      addToast(err.message || 'Return processing failed.', 'error');
-    } finally {
-      setProcessingId(null);
+      addToast(err?.message || err || 'Return processing failed.', 'error');
     }
   };
 
@@ -125,7 +128,7 @@ export default function ReturnProcessView({ addToast }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
           {returnItems.map(res => {
-            const isProcessing = processingId === res.id;
+            const isProcessing = processingIds.includes(res.id);
             const form = itemForms[res.id] || {
               condition: 'Good',
               destination: 'Available',

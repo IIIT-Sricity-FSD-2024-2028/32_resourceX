@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
   fetchResources,
   fetchResourceCatalog,
   createResource,
   scrapResource,
   updateResource,
-  requestResourceMaintenance
-} from '../../../../services/inventoryOfficer';
+  requestResourceMaintenance,
+  selectInventoryResources,
+  selectInventoryResourcesLoading,
+  selectCatalogTypes,
+  selectInventoryProcessingIds,
+} from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 
 const STATUS_COLORS = {
   Available: { bg: '#f0fdf4', text: '#16a34a' },
@@ -22,18 +26,19 @@ const STATUS_COLORS = {
 const ALL_STATUSES = ['All', 'Available', 'Allocated', 'Maintenance Requested', 'Maintenance', 'Returned', 'Repaired', 'Scrapped'];
 
 export default function InventoryBoardView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const [resources, setResources] = useState([]);
-  const [catalogTypes, setCatalogTypes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const resources = useAppSelector(selectInventoryResources);
+  const catalogTypes = useAppSelector(selectCatalogTypes);
+  const loading = useAppSelector(selectInventoryResourcesLoading);
+  const processingIds = useAppSelector(selectInventoryProcessingIds);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [typeFilter, setTypeFilter] = useState('All');
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
-  const [savingId, setSavingId] = useState(null);
   const [scrapConfirmId, setScrapConfirmId] = useState(null);
 
   // Needs Maintenance Modal State
@@ -42,11 +47,13 @@ export default function InventoryBoardView({ addToast }) {
   const [maintPriority, setMaintPriority] = useState('Medium');
   const [maintCondition, setMaintCondition] = useState('Fair');
   const [maintNotes, setMaintNotes] = useState('');
-  const [isSubmittingMaint, setIsSubmittingMaint] = useState(false);
+  const isSubmittingMaint = !!maintModalItem && processingIds.includes(maintModalItem.id);
 
   // Add Resource Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  // Id of the resource being created, so the Add modal can follow its request in the store
+  const [addingId, setAddingId] = useState(null);
+  const isSubmittingAdd = addingId !== null && processingIds.includes(addingId);
   const [addForm, setAddForm] = useState({
     type: '',
     name: '',
@@ -58,27 +65,14 @@ export default function InventoryBoardView({ addToast }) {
   });
 
   const loadResources = useCallback(async () => {
+    // The catalog only supplies type suggestions, so a catalog failure is not reported
+    dispatch(fetchResourceCatalog({ department }));
     try {
-      setLoading(true);
-      const [res, cat] = await Promise.all([
-        fetchResources({ department }),
-        fetchResourceCatalog({ department }).catch(() => [])
-      ]);
-      setResources(Array.isArray(res) ? res : []);
-
-      let types = [];
-      if (Array.isArray(cat) && cat.length > 0) {
-        types = cat[0]?.resourceTypes || [];
-      } else if (cat?.resourceTypes) {
-        types = cat.resourceTypes;
-      }
-      setCatalogTypes(types);
+      await dispatch(fetchResources({ department })).unwrap();
     } catch (err) {
-      addToast?.(err.message || 'Failed to load inventory.', 'error');
-    } finally {
-      setLoading(false);
+      addToast?.(err?.message || err || 'Failed to load inventory.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => {
     loadResources();
@@ -145,8 +139,8 @@ export default function InventoryBoardView({ addToast }) {
     const id = `RES-${Date.now()}`;
 
     try {
-      setIsSubmittingAdd(true);
-      await createResource({
+      setAddingId(id);
+      await dispatch(createResource({
         id,
         code: id,
         type: addForm.type.trim(),
@@ -159,15 +153,15 @@ export default function InventoryBoardView({ addToast }) {
         department,
         status: 'Available', // Always Available, not requested from user
         assignedTo: 'None'
-      });
+      })).unwrap();
 
       addToast?.(`✅ Resource "${addForm.name.trim()}" added to inventory with status Available.`, 'success');
       setIsAddModalOpen(false);
       await loadResources();
     } catch (err) {
-      addToast?.(err.message || 'Failed to add resource.', 'error');
+      addToast?.(err?.message || err || 'Failed to add resource.', 'error');
     } finally {
-      setIsSubmittingAdd(false);
+      setAddingId(null);
     }
   };
 
@@ -186,7 +180,6 @@ export default function InventoryBoardView({ addToast }) {
 
   const handleSaveEdit = async (id) => {
     try {
-      setSavingId(id);
       const payload = { ...editForm };
       if (payload.returnDate) {
         const d = new Date(payload.returnDate);
@@ -194,25 +187,23 @@ export default function InventoryBoardView({ addToast }) {
           payload.returnDateDisplay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         }
       }
-      await updateResource(id, payload);
+      await dispatch(updateResource({ id, data: payload })).unwrap();
       addToast?.('Resource updated successfully.', 'success');
       setEditingId(null);
       await loadResources();
     } catch (err) {
-      addToast?.(err.message || 'Update failed.', 'error');
-    } finally {
-      setSavingId(null);
+      addToast?.(err?.message || err || 'Update failed.', 'error');
     }
   };
 
   const handleScrap = async (id) => {
     try {
-      await scrapResource(id);
+      await dispatch(scrapResource(id)).unwrap();
       addToast?.('Resource marked as scrapped.', 'success');
       setScrapConfirmId(null);
       await loadResources();
     } catch (err) {
-      addToast?.(err.message || 'Scrap failed.', 'error');
+      addToast?.(err?.message || err || 'Scrap failed.', 'error');
     }
   };
 
@@ -228,31 +219,31 @@ export default function InventoryBoardView({ addToast }) {
     e?.preventDefault?.();
     if (!maintModalItem) return;
     try {
-      setIsSubmittingMaint(true);
-      await requestResourceMaintenance(maintModalItem.id, {
-        issue: maintIssue.trim() || 'Flagged for maintenance by Inventory Officer',
-        priority: maintPriority,
-        condition: maintCondition,
-        notes: maintNotes.trim(),
-        routedFrom: 'Inventory Board',
-      });
+      await dispatch(requestResourceMaintenance({
+        id: maintModalItem.id,
+        data: {
+          issue: maintIssue.trim() || 'Flagged for maintenance by Inventory Officer',
+          priority: maintPriority,
+          condition: maintCondition,
+          notes: maintNotes.trim(),
+          routedFrom: 'Inventory Board',
+        },
+      })).unwrap();
       addToast?.(`🛠 "${maintModalItem.name || maintModalItem.type}" sent to Maintenance Queue.`, 'success');
       setMaintModalItem(null);
       await loadResources();
     } catch (err) {
-      addToast?.(err.message || 'Failed to send to maintenance.', 'error');
-    } finally {
-      setIsSubmittingMaint(false);
+      addToast?.(err?.message || err || 'Failed to send to maintenance.', 'error');
     }
   };
 
   const handleRestockAvailable = async (id) => {
     try {
-      await updateResource(id, { status: 'Available' });
+      await dispatch(updateResource({ id, data: { status: 'Available' } })).unwrap();
       addToast?.('Resource restocked to Available Inventory.', 'success');
       await loadResources();
     } catch (err) {
-      addToast?.(err.message || 'Failed to restock resource.', 'error');
+      addToast?.(err?.message || err || 'Failed to restock resource.', 'error');
     }
   };
 
@@ -489,10 +480,10 @@ export default function InventoryBoardView({ addToast }) {
                           <>
                             <button
                               onClick={() => handleSaveEdit(res.id)}
-                              disabled={savingId === res.id}
+                              disabled={processingIds.includes(res.id)}
                               style={{ padding: '5px 12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                             >
-                              {savingId === res.id ? '...' : 'Save'}
+                              {processingIds.includes(res.id) ? '...' : 'Save'}
                             </button>
                             <button
                               onClick={() => setEditingId(null)}

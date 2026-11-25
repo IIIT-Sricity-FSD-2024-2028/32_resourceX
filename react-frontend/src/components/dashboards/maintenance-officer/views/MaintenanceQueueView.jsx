@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
-  fetchResources,
+  fetchMaintenanceResources,
   fetchMaintenanceHistory,
   acceptMaintenance,
   repairMaintenance,
-  scrapMaintenance
-} from '../../../../services/maintenanceOfficer';
+  scrapMaintenance,
+  selectMaintenanceQueue,
+  selectMaintenanceResourcesLoading,
+  selectMaintenanceHistory,
+  selectMaintenanceProcessingIds,
+} from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const STEP_MAP = {
@@ -23,13 +27,15 @@ const PRIORITY_COLORS = {
 };
 
 export default function MaintenanceQueueView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const [queue, setQueue] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [processingId, setProcessingId] = useState(null);
+  const queue = useAppSelector(selectMaintenanceQueue);
+  const history = useAppSelector(selectMaintenanceHistory);
+  const loading = useAppSelector(selectMaintenanceResourcesLoading);
+  const processingIds = useAppSelector(selectMaintenanceProcessingIds);
+  const isProcessingId = (id) => id != null && processingIds.includes(id);
 
   // Modals
   const [repairModalItem, setRepairModalItem] = useState(null);
@@ -49,34 +55,24 @@ export default function MaintenanceQueueView({ addToast }) {
   const [outcomeFilter, setOutcomeFilter] = useState('All');
 
   const loadData = useCallback(async () => {
+    // History is supplementary; when it fails the history panel just shows no entries
+    dispatch(fetchMaintenanceHistory());
     try {
-      setLoading(true);
-      const [resList, hist] = await Promise.all([
-        fetchResources({ department }),
-        fetchMaintenanceHistory().catch(() => [])
-      ]);
-      const list = Array.isArray(resList) ? resList : [];
-      setQueue(list.filter(r => r.status === 'Maintenance Requested' || r.status === 'Maintenance'));
-      setHistory(Array.isArray(hist) ? hist : []);
+      await dispatch(fetchMaintenanceResources({ department })).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load maintenance queue.', 'error');
-    } finally {
-      setLoading(false);
+      addToast(err?.message || err || 'Failed to load maintenance queue.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const handleAccept = async (resourceId) => {
     try {
-      setProcessingId(resourceId);
-      await acceptMaintenance(resourceId);
+      await dispatch(acceptMaintenance({ id: resourceId })).unwrap();
       addToast('Maintenance accepted. Resource moved to Active Repair.', 'success');
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Failed to accept maintenance.', 'error');
-    } finally {
-      setProcessingId(null);
+      addToast(err?.message || err || 'Failed to accept maintenance.', 'error');
     }
   };
 
@@ -91,20 +87,20 @@ export default function MaintenanceQueueView({ addToast }) {
     e.preventDefault();
     if (!repairModalItem) return;
     try {
-      setProcessingId(repairModalItem.id);
-      await repairMaintenance(repairModalItem.id, {
-        resolutionNotes: repairNotes.trim() || 'Serviced and verified functional',
-        cost: repairCost ? Number(repairCost) : 0,
-        condition: repairCondition,
-        issue: repairModalItem.maintenanceIssue || 'Routine Maintenance',
-      });
+      await dispatch(repairMaintenance({
+        id: repairModalItem.id,
+        payload: {
+          resolutionNotes: repairNotes.trim() || 'Serviced and verified functional',
+          cost: repairCost ? Number(repairCost) : 0,
+          condition: repairCondition,
+          issue: repairModalItem.maintenanceIssue || 'Routine Maintenance',
+        },
+      })).unwrap();
       addToast('Resource marked as Repaired and returned to inventory.', 'success');
       setRepairModalItem(null);
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Failed to complete repair.', 'error');
-    } finally {
-      setProcessingId(null);
+      addToast(err?.message || err || 'Failed to complete repair.', 'error');
     }
   };
 
@@ -117,18 +113,18 @@ export default function MaintenanceQueueView({ addToast }) {
     e.preventDefault();
     if (!scrapConfirmItem) return;
     try {
-      setProcessingId(scrapConfirmItem.id);
-      await scrapMaintenance(scrapConfirmItem.id, {
-        resolutionNotes: scrapReason.trim() || 'Decommissioned from maintenance',
-        issue: scrapConfirmItem.maintenanceIssue || 'Severe Malfunction',
-      });
+      await dispatch(scrapMaintenance({
+        id: scrapConfirmItem.id,
+        payload: {
+          resolutionNotes: scrapReason.trim() || 'Decommissioned from maintenance',
+          issue: scrapConfirmItem.maintenanceIssue || 'Severe Malfunction',
+        },
+      })).unwrap();
       addToast('Resource marked as Scrapped.', 'success');
       setScrapConfirmItem(null);
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Scrap action failed.', 'error');
-    } finally {
-      setProcessingId(null);
+      addToast(err?.message || err || 'Scrap action failed.', 'error');
     }
   };
 
@@ -207,7 +203,7 @@ export default function MaintenanceQueueView({ addToast }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '1.25rem' }}>
           {visibleQueue.map(res => {
             const step = STEP_MAP[res.status] || {};
-            const isProcessing = processingId === res.id;
+            const isProcessing = isProcessingId(res.id);
             const priorityStyle = PRIORITY_COLORS[res.maintenancePriority] || PRIORITY_COLORS.Medium;
 
             return (
@@ -576,11 +572,11 @@ export default function MaintenanceQueueView({ addToast }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={processingId === repairModalItem.id}
+                  disabled={isProcessingId(repairModalItem.id)}
                   style={{ padding: '9px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
-                  {processingId === repairModalItem.id ? 'Saving...' : 'Mark as Repaired'}
+                  {isProcessingId(repairModalItem.id) ? 'Saving...' : 'Mark as Repaired'}
                 </button>
               </div>
             </form>
@@ -630,11 +626,11 @@ export default function MaintenanceQueueView({ addToast }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={processingId === scrapConfirmItem.id}
+                  disabled={isProcessingId(scrapConfirmItem.id)}
                   style={{ padding: '9px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
                 >
                   <span className="material-symbols-outlined" style={{ fontSize: 18 }}>delete_forever</span>
-                  {processingId === scrapConfirmItem.id ? 'Scrapping...' : 'Confirm Scrap'}
+                  {isProcessingId(scrapConfirmItem.id) ? 'Scrapping...' : 'Confirm Scrap'}
                 </button>
               </div>
             </form>
