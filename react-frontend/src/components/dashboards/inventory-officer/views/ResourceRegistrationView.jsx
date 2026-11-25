@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
   fetchProcurements,
-  registerProcurement
-} from '../../../../services/inventoryOfficer';
+  registerProcurement,
+  selectFulfilledProcurements,
+  selectProcurementsLoading,
+  selectInventoryProcessingIds,
+} from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 import { readSpreadsheetRows } from '../../../common/spreadsheet';
 
 const CONDITIONS = ['New', 'Good', 'Average', 'Fair'];
@@ -21,13 +24,14 @@ const SHEET_COLUMNS = [
 ];
 
 export default function ResourceRegistrationView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const [procurements, setProcurements] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const procurements = useAppSelector(selectFulfilledProcurements);
+  const loading = useAppSelector(selectProcurementsLoading);
+  const processingIds = useAppSelector(selectInventoryProcessingIds);
   const [formData, setFormData] = useState({});
-  const [submittingId, setSubmittingId] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [collapsedOrders, setCollapsedOrders] = useState({});
   const [filterTexts, setFilterTexts] = useState({});
@@ -35,11 +39,9 @@ export default function ResourceRegistrationView({ addToast }) {
 
   const loadProcurements = useCallback(async () => {
     try {
-      setLoading(true);
-      const res = await fetchProcurements({ department });
+      const res = await dispatch(fetchProcurements({ department })).unwrap();
       const list = Array.isArray(res) ? res : [];
       const fulfilled = list.filter(p => p.status === 'Fulfilled');
-      setProcurements(fulfilled);
 
       const initData = {};
       fulfilled.forEach(p => {
@@ -64,11 +66,9 @@ export default function ResourceRegistrationView({ addToast }) {
       });
       setFormData(initData);
     } catch (err) {
-      addToast?.(err.message || 'Failed to load fulfilled procurements.', 'error');
-    } finally {
-      setLoading(false);
+      addToast?.(err?.message || err || 'Failed to load fulfilled procurements.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => {
     loadProcurements();
@@ -193,14 +193,11 @@ export default function ResourceRegistrationView({ addToast }) {
     }
 
     try {
-      setSubmittingId(procId);
-      await registerProcurement(procId, rows);
+      await dispatch(registerProcurement({ id: procId, resources: rows })).unwrap();
       addToast?.(`✅ Successfully registered ${rows.length} asset(s) into inventory!`, 'success');
       await loadProcurements();
     } catch (err) {
-      addToast?.(err.message || 'Registration failed.', 'error');
-    } finally {
-      setSubmittingId(null);
+      addToast?.(err?.message || err || 'Registration failed.', 'error');
     }
   };
 
@@ -291,7 +288,7 @@ export default function ResourceRegistrationView({ addToast }) {
       ) : (
         procurements.map(proc => {
           const rows = formData[proc.id] || [];
-          const isSubmitting = submittingId === proc.id;
+          const isSubmitting = processingIds.includes(proc.id);
           const isCollapsed = !!collapsedOrders[proc.id];
           const filterText = filterTexts[proc.id] || '';
 

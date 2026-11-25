@@ -1,24 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchMaintenanceOfficerStats } from '../../../../services/maintenanceOfficer';
+import React, { useEffect, useCallback } from 'react';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
+import {
+  fetchMaintenanceOverview,
+  selectMaintenanceOverview,
+  selectMaintenanceOverviewLoading,
+} from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 
 export default function MaintOfficerOverview({ onNavigate, addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
-  const [data, setData] = useState({ stats: {}, resources: [], maintHistory: [] });
-  const [loading, setLoading] = useState(true);
+  const data = useAppSelector(selectMaintenanceOverview);
+  const loading = useAppSelector(selectMaintenanceOverviewLoading);
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
-      const result = await fetchMaintenanceOfficerStats(department);
-      setData(result);
+      await dispatch(fetchMaintenanceOverview(department)).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load overview.', 'error');
-    } finally {
-      setLoading(false);
+      addToast(err?.message || err || 'Failed to load overview.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { load(); }, [load]);
 

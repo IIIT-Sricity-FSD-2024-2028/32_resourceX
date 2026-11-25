@@ -1,25 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
-import { fetchMaintenanceHistory } from '../../../../services/maintenanceOfficer';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchMaintenanceHistory,
+  selectMaintenanceHistory,
+  selectMaintenanceHistoryLoading,
+} from '../../../../store/slices/maintenance-officer/maintenanceOfficerSlice';
 
-export default function HistoryLogView({ addToast }) {
-  const user = useCurrentUser();
-  const [maintHistory, setMaintHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+export default function HistoryLogView() {
+  const dispatch = useAppDispatch();
+  const maintHistory = useAppSelector(selectMaintenanceHistory);
+  const loading = useAppSelector(selectMaintenanceHistoryLoading);
   const [searchQuery, setSearchQuery] = useState('');
   const [outcomeFilter, setOutcomeFilter] = useState('ALL');
 
-  const loadHistory = useCallback(async () => {
-    try {
-      setLoading(true);
-      const mh = await fetchMaintenanceHistory().catch(() => []);
-      setMaintHistory(Array.isArray(mh) ? mh : []);
-    } catch (err) {
-      addToast(err.message || 'Failed to load maintenance history.', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
+  // A failed load leaves the log empty, as before; the slice records the error
+  const loadHistory = useCallback(() => {
+    dispatch(fetchMaintenanceHistory());
+  }, [dispatch]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 

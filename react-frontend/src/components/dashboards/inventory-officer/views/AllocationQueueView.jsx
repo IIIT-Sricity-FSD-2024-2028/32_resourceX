@@ -1,10 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
   fetchApprovedRequests,
   fetchAvailableResources,
-  allocateRequest
-} from '../../../../services/inventoryOfficer';
+  allocateRequest,
+  selectApprovedRequests,
+  selectApprovedRequestsLoading,
+  selectAvailableResources,
+  selectAvailableResourcesLoading,
+  selectInventoryProcessingIds,
+} from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 function normalizeToken(v) {
@@ -19,50 +24,57 @@ function matchesType(resource, requestedType) {
   return strip(t) === strip(rt) || t.replace(/s/g, '') === rt.replace(/s/g, '');
 }
 
+function isExpired(req) {
+  if (!req.requirementDate) return false;
+  const parsed = Date.parse(req.requirementDate);
+  if (isNaN(parsed)) return false;
+  const deadline = new Date(parsed);
+  deadline.setHours(23, 59, 59, 999);
+  return Date.now() > deadline.getTime();
+}
+
 export default function AllocationQueueView({ addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
 
-  const [requests, setRequests] = useState([]);
-  const [availableByType, setAvailableByType] = useState({});
+  const approvedRequests = useAppSelector(selectApprovedRequests);
+  const availableResources = useAppSelector(selectAvailableResources);
+  const requestsLoading = useAppSelector(selectApprovedRequestsLoading);
+  const stockLoading = useAppSelector(selectAvailableResourcesLoading);
+  const loading = requestsLoading || stockLoading;
+  const processingIds = useAppSelector(selectInventoryProcessingIds);
+
   const [selectedResources, setSelectedResources] = useState({});
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [allocatingId, setAllocatingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
 
+  const requests = useMemo(
+    () => approvedRequests.filter(r => !isExpired(r)),
+    [approvedRequests]
+  );
+
+  const availableByType = useMemo(() => {
+    const availList = availableResources.filter(r => r.status === 'Available');
+    const map = {};
+    requests.forEach(req => {
+      map[req.id] = availList.filter(r => matchesType(r, req.resourceType));
+    });
+    return map;
+  }, [requests, availableResources]);
+
   const loadData = useCallback(async () => {
     try {
-      setLoading(true);
-      const reqList = await fetchApprovedRequests(department ? { department } : {});
-      const isExpired = (req) => {
-        if (!req.requirementDate) return false;
-        const parsed = Date.parse(req.requirementDate);
-        if (isNaN(parsed)) return false;
-        const deadline = new Date(parsed);
-        deadline.setHours(23, 59, 59, 999);
-        return Date.now() > deadline.getTime();
-      };
-      const list = (Array.isArray(reqList) ? reqList : []).filter(r => !isExpired(r));
-      setRequests(list);
-
-      const allAvail = await fetchAvailableResources({ department });
-      const availList = Array.isArray(allAvail) ? allAvail.filter(r => r.status === 'Available') : [];
-
-      const map = {};
-      list.forEach(req => {
-        const matching = availList.filter(r => matchesType(r, req.resourceType));
-        map[req.id] = matching;
-      });
-      setAvailableByType(map);
+      await Promise.all([
+        dispatch(fetchApprovedRequests(department ? { department } : {})).unwrap(),
+        dispatch(fetchAvailableResources({ department })).unwrap(),
+      ]);
     } catch (err) {
-      addToast(err.message || 'Failed to load allocation queue.', 'error');
-    } finally {
-      setLoading(false);
+      addToast(err?.message || err || 'Failed to load allocation queue.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -80,16 +92,13 @@ export default function AllocationQueueView({ addToast }) {
       return;
     }
     try {
-      setAllocatingId(req.id);
-      await allocateRequest(req.id, selected);
+      await dispatch(allocateRequest({ id: req.id, resourceIds: selected })).unwrap();
       addToast(`✅ Successfully allocated ${req.quantity}x ${req.resourceType} to ${req.requestor}`, 'success');
       setSelectedResources(prev => { const n = { ...prev }; delete n[req.id]; return n; });
       setOpenDropdown(null);
       await loadData();
     } catch (err) {
-      addToast(err.message || 'Allocation failed.', 'error');
-    } finally {
-      setAllocatingId(null);
+      addToast(err?.message || err || 'Allocation failed.', 'error');
     }
   };
 
@@ -142,7 +151,7 @@ export default function AllocationQueueView({ addToast }) {
             const avail = availableByType[req.id] || [];
             const selected = selectedResources[req.id] || [];
             const hasEnough = avail.length >= req.quantity;
-            const isAllocating = allocatingId === req.id;
+            const isAllocating = processingIds.includes(req.id);
             const isOpen = openDropdown === req.id;
 
             return (

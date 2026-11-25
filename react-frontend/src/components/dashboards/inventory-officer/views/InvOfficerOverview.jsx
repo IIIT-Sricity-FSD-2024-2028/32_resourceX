@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useCurrentUser } from '../../../../store/hooks';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
-  fetchInventoryOfficerStats,
-  fetchApprovedRequests,
-  fetchResources,
+  fetchInventoryOverview,
   fetchAvailableResources,
   allocateRequest,
-  updateResource
-} from '../../../../services/inventoryOfficer';
-import { fetchNotifications } from '../../../../services/notifications';
+  updateResource,
+  selectInventoryOverview,
+  selectInventoryOverviewLoading,
+  selectInventoryProcessingIds,
+} from '../../../../store/slices/inventory-officer/inventoryOfficerSlice';
+import { fetchNotifications, selectNotifications } from '../../../../store/slices/notifications/notificationsSlice';
 
 const STATUS_COLORS = {
   Available: '#22c55e',
@@ -21,36 +22,32 @@ const STATUS_COLORS = {
 };
 
 export default function InvOfficerOverview({ onNavigate, addToast }) {
+  const dispatch = useAppDispatch();
   const user = useCurrentUser();
   const department = user?.department || 'IT Services';
-  const [data, setData] = useState({ stats: {}, requests: [], resources: [] });
-  const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [allocatingId, setAllocatingId] = useState(null);
-  const [restockingId, setRestockingId] = useState(null);
+  const data = useAppSelector(selectInventoryOverview);
+  const loading = useAppSelector(selectInventoryOverviewLoading);
+  const notifications = useAppSelector(selectNotifications) || [];
+  const processingIds = useAppSelector(selectInventoryProcessingIds);
+  // Set while Quick Allocate is checking stock, before the allocation itself starts
+  const [checkingId, setCheckingId] = useState(null);
+  const isBusy = (id) => checkingId === id || processingIds.includes(id);
 
   const load = useCallback(async () => {
+    dispatch(fetchNotifications());
     try {
-      setLoading(true);
-      const [result, notifs] = await Promise.all([
-        fetchInventoryOfficerStats(department),
-        fetchNotifications().catch(() => [])
-      ]);
-      setData(result);
-      setNotifications(Array.isArray(notifs) ? notifs : []);
+      await dispatch(fetchInventoryOverview(department)).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load overview.', 'error');
-    } finally {
-      setLoading(false);
+      addToast(err?.message || err || 'Failed to load overview.', 'error');
     }
-  }, [department, addToast]);
+  }, [department, addToast, dispatch]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleQuickAllocate = async (req) => {
     try {
-      setAllocatingId(req.id);
-      const avail = await fetchAvailableResources({ department, type: req.resourceType });
+      setCheckingId(req.id);
+      const avail = await dispatch(fetchAvailableResources({ department, type: req.resourceType })).unwrap();
       const availList = Array.isArray(avail) ? avail.filter(r => r.status === 'Available') : [];
       if (availList.length < req.quantity) {
         addToast(`Insufficient stock for ${req.resourceType}. Go to Allocation Queue.`, 'warning');
@@ -58,26 +55,24 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
         return;
       }
       const ids = availList.slice(0, req.quantity).map(r => r.id);
-      await allocateRequest(req.id, ids);
+      setCheckingId(null);
+      await dispatch(allocateRequest({ id: req.id, resourceIds: ids })).unwrap();
       addToast(`✅ Allocated ${req.quantity}x ${req.resourceType} to ${req.requestor}`, 'success');
       await load();
     } catch (err) {
-      addToast(err.message || 'Allocation failed.', 'error');
+      addToast(err?.message || err || 'Allocation failed.', 'error');
     } finally {
-      setAllocatingId(null);
+      setCheckingId(null);
     }
   };
 
   const handleRestockAvailable = async (id) => {
     try {
-      setRestockingId(id);
-      await updateResource(id, { status: 'Available' });
+      await dispatch(updateResource({ id, data: { status: 'Available' } })).unwrap();
       addToast?.('Resource restocked to Available Inventory.', 'success');
       await load();
     } catch (err) {
-      addToast?.(err.message || 'Restock failed.', 'error');
-    } finally {
-      setRestockingId(null);
+      addToast?.(err?.message || err || 'Restock failed.', 'error');
     }
   };
 
@@ -230,12 +225,12 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
                   </div>
                   <button
                     onClick={() => handleQuickAllocate(req)}
-                    disabled={allocatingId === req.id}
+                    disabled={isBusy(req.id)}
                     style={{
-                      background: allocatingId === req.id ? '#e2e8f0' : '#3b82f6', color: allocatingId === req.id ? '#64748b' : '#fff',
+                      background: isBusy(req.id) ? '#e2e8f0' : '#3b82f6', color: isBusy(req.id) ? '#64748b' : '#fff',
                       border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer'
                     }}>
-                    {allocatingId === req.id ? '...' : 'Allocate'}
+                    {isBusy(req.id) ? '...' : 'Allocate'}
                   </button>
                 </div>
               ))}
@@ -348,7 +343,7 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
                         <button
                           type="button"
                           onClick={() => handleRestockAvailable(res.id)}
-                          disabled={restockingId === res.id}
+                          disabled={isBusy(res.id)}
                           title="Restock to Available stock"
                           style={{
                             background: '#22c55e',
@@ -365,7 +360,7 @@ export default function InvOfficerOverview({ onNavigate, addToast }) {
                           }}
                         >
                           <span className="material-icons" style={{ fontSize: 13 }}>check</span>
-                          {restockingId === res.id ? '...' : 'Available'}
+                          {isBusy(res.id) ? '...' : 'Available'}
                         </button>
                       )}
                     </div>
