@@ -1,9 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '../../../../store/hooks';
+import {
+  fetchEmployeeTickets,
+  resolveEmployeeTicket,
+  selectEmployeeTickets,
+  selectEmployeeLoading
+} from '../../../../store/slices/employee/employeeSlice';
 import ResolveTicketModal from '../components/ResolveTicketModal';
 import { renderStatusBadge } from './EmployeeOverview';
 import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
-import { fetchEmployeeTickets, resolveEmployeeTicket } from '../../../../services/employee';
 
 const STATUSES = ['Open', 'In Progress', 'Resolved'];
 
@@ -11,11 +17,13 @@ const STATUSES = ['Open', 'In Progress', 'Resolved'];
  * Exact replica of support-view from employee.html
  */
 export default function EmployeeSupport() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
-  const [tickets, setTickets] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const tickets = useAppSelector(selectEmployeeTickets);
+  const isLoading = useAppSelector(selectEmployeeLoading);
+
   const [filter, setFilter] = useState('Open');
   const [search, setSearch] = useState('');
   const [orgFilter, setOrgFilter] = useState('All');
@@ -23,20 +31,17 @@ export default function EmployeeSupport() {
   // Resolve Ticket Modal state
   const [resolveTarget, setResolveTarget] = useState(null);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      setTickets(await fetchEmployeeTickets());
+      await dispatch(fetchEmployeeTickets()).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load support tickets', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load support tickets', 'error');
     }
-  };
+  }, [dispatch, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const list = tickets.filter((t) =>
     (filter === 'All' || t.status === filter) &&
@@ -46,12 +51,12 @@ export default function EmployeeSupport() {
 
   const handleResolve = async (id, reply) => {
     try {
-      await resolveEmployeeTicket(id, reply);
+      await dispatch(resolveEmployeeTicket({ id, reply })).unwrap();
       addToast('Ticket resolved and reply sent.', 'success');
       setResolveTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed to resolve ticket: ' + err.message, 'error');
+      addToast('Failed to resolve ticket: ' + (err?.message || err), 'error');
       throw err;
     }
   };

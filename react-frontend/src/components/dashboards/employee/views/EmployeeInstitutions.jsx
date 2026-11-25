@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import EmployeeModal from '../components/EmployeeModal';
-import { renderStatusBadge } from './EmployeeOverview';
-import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
+import { useAppDispatch, useAppSelector, useCurrentUser } from '../../../../store/hooks';
 import {
   fetchEmployeeInstitutions,
   suspendEmployeeInstitution,
-  reactivateEmployeeInstitution
-} from '../../../../services/employee';
-import { useCurrentUser } from '../../../../store/hooks';
+  reactivateEmployeeInstitution,
+  selectEmployeeInstitutions,
+  selectEmployeeLoading
+} from '../../../../store/slices/employee/employeeSlice';
+import EmployeeModal from '../components/EmployeeModal';
+import { renderStatusBadge } from './EmployeeOverview';
+import TableToolbar, { matchesSearch, uniqueOptions } from '../../../common/TableToolbar';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
@@ -16,12 +18,14 @@ const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
  * Exact replica of institutions-view from employee.html
  */
 export default function EmployeeInstitutions() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
   const currentUser = useCurrentUser();
 
-  const [institutions, setInstitutions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const institutions = useAppSelector(selectEmployeeInstitutions);
+  const isLoading = useAppSelector(selectEmployeeLoading);
+
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('All');
@@ -29,20 +33,17 @@ export default function EmployeeInstitutions() {
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      setInstitutions(await fetchEmployeeInstitutions(currentUser?.id));
+      await dispatch(fetchEmployeeInstitutions(currentUser?.id)).unwrap();
     } catch (err) {
-      addToast(err.message || 'Failed to load institutions', 'error');
-    } finally {
-      setIsLoading(false);
+      addToast(err?.message || err || 'Failed to load institutions', 'error');
     }
-  };
+  }, [dispatch, currentUser?.id, addToast]);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   const list = institutions.filter((o) =>
     (filter === 'All' || o.status === filter) &&
@@ -54,13 +55,16 @@ export default function EmployeeInstitutions() {
     if (!actionTarget) return;
     const { org, action } = actionTarget;
     try {
-      if (action === 'suspend') await suspendEmployeeInstitution(org.id);
-      else await reactivateEmployeeInstitution(org.id);
+      if (action === 'suspend') {
+        await dispatch(suspendEmployeeInstitution(org.id)).unwrap();
+      } else {
+        await dispatch(reactivateEmployeeInstitution(org.id)).unwrap();
+      }
       addToast(`Institution ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
       setActionTarget(null);
       loadData();
     } catch (err) {
-      addToast('Failed: ' + err.message, 'error');
+      addToast('Failed: ' + (err?.message || err), 'error');
     }
   };
 

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { createOwnerEmployee, bulkCreateOwnerEmployees } from '../../../../services/owner';
+import { useAppDispatch } from '../../../../store/hooks';
+import {
+  createOwnerEmployee,
+  bulkCreateOwnerEmployees
+} from '../../../../store/slices/owner/ownerSlice';
 import DocumentUpload from '../../../common/DocumentUpload';
 import BulkImportModal from '../../../common/BulkImportModal';
 
@@ -13,6 +17,7 @@ const PASSWORD_RULE_MESSAGE =
  * Exact replica of create-employee-view from owner.html
  */
 export default function OwnerCreateEmployee() {
+  const dispatch = useAppDispatch();
   const context = useOutletContext() || {};
   const { addToast = () => {} } = context;
 
@@ -45,7 +50,9 @@ export default function OwnerCreateEmployee() {
 
     setIsSubmitting(true);
     try {
-      const emp = await createOwnerEmployee({ name: name.trim(), email: email.trim(), password, ...document });
+      const emp = await dispatch(
+        createOwnerEmployee({ name: name.trim(), email: email.trim(), password, ...document })
+      ).unwrap();
       addToast(`Employee created! ID: ${emp.id} — ${emp.name}`, 'success');
       setName('');
       setEmail('');
@@ -54,8 +61,9 @@ export default function OwnerCreateEmployee() {
       setDocument(null);
       setResetKey((k) => k + 1);
     } catch (err) {
-      setFormError(err.message);
-      addToast(`Failed to create employee: ${err.message}`, 'error');
+      const msg = err?.message || err;
+      setFormError(msg);
+      addToast(`Failed to create employee: ${msg}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -183,7 +191,7 @@ export default function OwnerCreateEmployee() {
           ['Arjun Mehta', '', 'Welcome@123', 'arjun-id.jpg'],
         ]}
         templateFileName="employees-import-template.csv"
-        onImport={bulkCreateOwnerEmployees}
+        onImport={(rows) => dispatch(bulkCreateOwnerEmployees(rows)).unwrap()}
         onDone={() => addToast('Imported employees are now listed in Employee Management.', 'success')}
       />
     </div>
