@@ -20,6 +20,12 @@ import { renderStatusBadge } from './OwnerOverview';
 
 const smallBtn = { fontSize: '0.75rem', padding: '0.25rem 0.5rem' };
 
+const employeeActions = {
+  suspend: { title: 'Suspend Employee', confirmText: 'Confirm Suspension', pendingText: 'Suspending…' },
+  reactivate: { title: 'Reactivate Employee', confirmText: 'Confirm Reactivation', pendingText: 'Reactivating…' },
+  remove: { title: 'Remove Employee', confirmText: 'Remove', pendingText: 'Removing…' },
+};
+
 /**
  * Exact replica of employees-view from owner.html
  */
@@ -37,6 +43,8 @@ export default function OwnerEmployees() {
 
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { emp, action }
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [actionError, setActionError] = useState('');
   const [editTarget, setEditTarget] = useState(null);
 
   const loadData = useCallback(async () => {
@@ -60,9 +68,17 @@ export default function OwnerEmployees() {
     matchesSearch(search, e.name, e.email, e.id, orgNames(e.id))
   );
 
+  const closeAction = () => {
+    setActionTarget(null);
+    setActionError('');
+  };
+
   const handleConfirmAction = async () => {
-    if (!actionTarget) return;
+    if (!actionTarget || isSubmittingAction) return;
+
     const { emp, action } = actionTarget;
+    setIsSubmittingAction(true);
+    setActionError('');
     try {
       if (action === 'remove') {
         const res = await dispatch(removeOwnerEmployee(emp.id)).unwrap();
@@ -73,17 +89,21 @@ export default function OwnerEmployees() {
           'success'
         );
       } else {
-        if (action === 'suspend') {
-          await dispatch(suspendOwnerEmployee(emp.id)).unwrap();
-        } else {
-          await dispatch(reactivateOwnerEmployee(emp.id)).unwrap();
-        }
-        addToast(`Employee ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
+        const updateStatus = action === 'suspend' ? suspendOwnerEmployee : reactivateOwnerEmployee;
+        const employee = await dispatch(updateStatus(emp.id)).unwrap();
+        addToast(
+          employee.status === 'Active'
+            ? `${employee.email} is active and can sign in again.`
+            : `${employee.email} is suspended.`,
+          'success'
+        );
       }
-      setActionTarget(null);
+      closeAction();
       loadData();
     } catch (err) {
-      addToast('Failed: ' + (err?.message || err), 'error');
+      setActionError(err?.message || err || 'The employee could not be updated.');
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
 
@@ -96,6 +116,7 @@ export default function OwnerEmployees() {
   const removeTargetOrgs = actionTarget?.action === 'remove'
     ? organizations.filter((o) => o.assignedEmployeeId === actionTarget.emp.id)
     : [];
+  const actionDetails = actionTarget && employeeActions[actionTarget.action];
 
   return (
     <div id="employees-view" className="view-section active">
@@ -186,16 +207,14 @@ export default function OwnerEmployees() {
       {/* Suspend / Reactivate / Remove Confirmation Modal */}
       <OwnerModal
         isOpen={Boolean(actionTarget)}
-        title={
-          actionTarget?.action === 'remove'
-            ? 'Remove Employee'
-            : actionTarget?.action === 'suspend' ? 'Suspend Employee' : 'Reactivate Employee'
-        }
-        onClose={() => setActionTarget(null)}
+        title={actionDetails?.title}
+        onClose={closeAction}
         onConfirm={handleConfirmAction}
-        confirmText={actionTarget?.action === 'remove' ? 'Remove' : actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        confirmText={isSubmittingAction ? actionDetails?.pendingText : actionDetails?.confirmText}
         confirmButtonClass={actionTarget?.action === 'remove' ? 'btn-danger' : 'btn-primary'}
+        isSubmitting={isSubmittingAction}
       >
+        {actionError && <p role="alert" style={{ color: '#b91c1c' }}>{actionError}</p>}
         {actionTarget?.action === 'remove' ? (
           <div style={{ color: '#334155', fontSize: '0.9rem' }}>
             <p style={{ margin: 0 }}>
@@ -210,7 +229,8 @@ export default function OwnerEmployees() {
           </div>
         ) : (
           <p style={{ margin: 0, color: '#334155' }}>
-            {actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'} <strong>{actionTarget?.emp.name}</strong>?
+            {actionTarget?.action === 'suspend' ? 'Suspend' : 'Restore sign-in access for'}{' '}
+            <strong>{actionTarget?.emp.name}</strong> ({actionTarget?.emp.email})?
           </p>
         )}
       </OwnerModal>

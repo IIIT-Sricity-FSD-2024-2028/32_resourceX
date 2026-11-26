@@ -144,6 +144,10 @@ export const authSlice = createSlice({
     clearAuthError: (state) => {
       state.error = null;
     },
+    rejectAuthSession: (state, action) => {
+      clearAuthState(state);
+      state.error = action.payload;
+    },
     syncAuthSession: (state, action) => {
       state.user = action.payload || null;
       state.token = action.payload?.token || null;
@@ -248,7 +252,7 @@ export const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, syncAuthSession } = authSlice.actions;
+export const { clearAuthError, rejectAuthSession, syncAuthSession } = authSlice.actions;
 
 export const selectCurrentUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;

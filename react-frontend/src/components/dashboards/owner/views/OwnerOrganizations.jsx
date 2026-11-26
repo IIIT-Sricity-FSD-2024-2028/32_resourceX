@@ -43,6 +43,9 @@ export default function OwnerOrganizations() {
 
   // Suspend / Reactivate Modal state
   const [actionTarget, setActionTarget] = useState(null); // { org, action }
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState('');
+  const isSuspending = actionTarget?.action === 'suspend';
 
   const loadData = useCallback(async () => {
     try {
@@ -90,20 +93,24 @@ export default function OwnerOrganizations() {
     }
   };
 
+  const closeStatusDialog = () => {
+    setActionTarget(null);
+    setStatusError('');
+  };
+
   const handleConfirmAction = async () => {
-    if (!actionTarget) return;
-    const { org, action } = actionTarget;
+    if (!actionTarget || isUpdatingStatus) return;
+    setIsUpdatingStatus(true);
+    setStatusError('');
     try {
-      if (action === 'suspend') {
-        await dispatch(suspendOwnerOrganization(org.id)).unwrap();
-      } else {
-        await dispatch(reactivateOwnerOrganization(org.id)).unwrap();
-      }
-      addToast(`Organization ${action === 'suspend' ? 'suspended' : 'reactivated'}.`, 'success');
-      setActionTarget(null);
-      loadData();
+      const updateStatus = isSuspending ? suspendOwnerOrganization : reactivateOwnerOrganization;
+      const organization = await dispatch(updateStatus(actionTarget.org.id)).unwrap();
+      addToast(`${organization.name} ${isSuspending ? 'suspended' : 'reactivated'}.`, 'success');
+      closeStatusDialog();
     } catch (err) {
-      addToast('Failed: ' + (err?.message || err), 'error');
+      setStatusError(err?.message || err || 'The organization status could not be updated.');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -220,13 +227,19 @@ export default function OwnerOrganizations() {
       {/* Suspend / Reactivate Confirmation Modal */}
       <OwnerModal
         isOpen={Boolean(actionTarget)}
-        title={actionTarget?.action === 'suspend' ? 'Suspend Organization' : 'Reactivate Organization'}
-        onClose={() => setActionTarget(null)}
+        title={isSuspending ? 'Suspend Organization' : 'Reactivate Organization'}
+        onClose={closeStatusDialog}
         onConfirm={handleConfirmAction}
-        confirmText={actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'}
+        confirmText={isSuspending ? 'Confirm Suspension' : 'Confirm Reactivation'}
+        isSubmitting={isUpdatingStatus}
       >
+        {statusError && <p role="alert" style={{ color: '#b91c1c' }}>{statusError}</p>}
         <p style={{ margin: 0, color: '#334155' }}>
-          {actionTarget?.action === 'suspend' ? 'Suspend' : 'Reactivate'} <strong>{actionTarget?.org.name}</strong>?
+          {isSuspending ? 'Suspend' : 'Reactivate'} <strong>{actionTarget?.org.name}</strong>?
+          {' '}
+          {isSuspending
+            ? 'Members will lose access until the organization is reactivated.'
+            : 'Members with active accounts will regain access.'}
         </p>
       </OwnerModal>
     </div>

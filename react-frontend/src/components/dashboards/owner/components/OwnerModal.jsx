@@ -10,6 +10,7 @@ export default function OwnerModal({
   onConfirm,
   confirmText = 'Confirm',
   confirmButtonClass = 'btn-primary',
+  isSubmitting = false,
   children
 }) {
   if (!isOpen) return null;
@@ -31,7 +32,7 @@ export default function OwnerModal({
         alignItems: 'center',
         padding: '1rem'
       }}
-      onClick={onClose}
+      onClick={isSubmitting ? undefined : onClose}
     >
       <div
         className="modal-content"
@@ -55,7 +56,7 @@ export default function OwnerModal({
           {children}
         </div>
         <div id="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </button>
           {onConfirm && (
@@ -64,6 +65,7 @@ export default function OwnerModal({
               className={confirmButtonClass}
               id="modal-confirm-btn"
               onClick={onConfirm}
+              disabled={isSubmitting}
             >
               {confirmText}
             </button>
