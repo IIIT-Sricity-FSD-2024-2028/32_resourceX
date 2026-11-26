@@ -45,6 +45,12 @@ export class AuthService {
     private mailService: MailService
   ) {}
 
+  assertOrganizationAccess(organizationId?: string): void {
+    if (organizationId && this.dataService.getOrganizationById(organizationId)?.status === 'Suspended') {
+      throw new UnauthorizedException('Your organization has been suspended. Please contact support.');
+    }
+  }
+
   async signIn(loginDto: LoginDto) {
     const user = this.dataService.getUserByEmail(loginDto.email);
     if (user?.password !== loginDto.password) {
@@ -58,6 +64,8 @@ export class AuthService {
     if (user.status === 'Suspended') {
       throw new UnauthorizedException('Your account has been suspended. Please contact your administrator.');
     }
+
+    this.assertOrganizationAccess(user.organizationId);
 
     // In our new multi-tenant architecture, the owner and employees might be scoped to 'PLATFORM'
     const payload = {

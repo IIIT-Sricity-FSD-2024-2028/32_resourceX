@@ -70,6 +70,20 @@ export const loginUser = async (email, password, selectedOrgId) => {
   return userObj;
 };
 
+export const getSessionRejection = async (token, signal) => {
+  const response = await fetch(`${API_BASE}/profile/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+    signal,
+  });
+  if (response.status !== 401) return null;
+
+  const { message } = await response.json().catch(() => ({}));
+  return message && message !== 'Unauthorized'
+    ? message
+    : 'Your session has expired. Please sign in again.';
+};
+
 const postPublic = async (path, body) => {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import LandingPage from './components/landing/LandingPage';
 import Login from './components/login';
@@ -19,8 +19,10 @@ import OwnerDashboard from './components/dashboards/owner/OwnerDashboard';
 import EmployeeDashboard from './components/dashboards/employee/EmployeeDashboard';
 
 import { useAppDispatch, useAppSelector } from './store/hooks';
-import { getCurrentUser } from './services/auth';
-import { logout, selectCurrentUser, syncAuthSession } from './store/slices/auth/authSlice';
+import { getCurrentUser, getSessionRejection, logoutUser } from './services/auth';
+import { logout, rejectAuthSession, selectCurrentUser, syncAuthSession } from './store/slices/auth/authSlice';
+
+const SESSION_CHECK_INTERVAL_MS = 15_000;
 
 /**
  * Maps a user's system role to their designated dashboard route.
@@ -83,8 +85,47 @@ function AuthSessionSync() {
  */
 function ProtectedRoute({ children }) {
   const user = useAppSelector(selectCurrentUser);
-  if (!user) {
+  const token = user?.token;
+  const dispatch = useAppDispatch();
+  const [checkedToken, setCheckedToken] = useState(null);
+
+  useEffect(() => {
+    if (!token) return;
+
+    const controller = new AbortController();
+    let checking = false;
+    const checkSession = async () => {
+      if (checking || document.hidden) return;
+      checking = true;
+      try {
+        const message = await getSessionRejection(token, controller.signal);
+        if (!controller.signal.aborted && message && getCurrentUser()?.token === token) {
+          logoutUser();
+          dispatch(rejectAuthSession(message));
+        }
+      } catch {
+        // A network error does not end a session. The next check will retry.
+      } finally {
+        checking = false;
+        if (!controller.signal.aborted) setCheckedToken(token);
+      }
+    };
+
+    checkSession();
+    document.addEventListener('visibilitychange', checkSession);
+    const interval = window.setInterval(checkSession, SESSION_CHECK_INTERVAL_MS);
+    return () => {
+      controller.abort();
+      document.removeEventListener('visibilitychange', checkSession);
+      window.clearInterval(interval);
+    };
+  }, [dispatch, token]);
+
+  if (!token) {
     return <Navigate to="/login" replace />;
+  }
+  if (checkedToken !== token) {
+    return <p role="status">Checking your session…</p>;
   }
   return children;
 }

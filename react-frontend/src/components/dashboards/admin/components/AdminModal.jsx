@@ -48,6 +48,7 @@ export default function AdminModal({
         <div
           id="modal-header"
           style={{
+            flexShrink: 0,
             fontSize: '1.25rem',
             fontWeight: 600,
             marginBottom: '1rem',
@@ -56,12 +57,12 @@ export default function AdminModal({
         >
           {title}
         </div>
-        <div id="modal-body" style={{ marginBottom: '1.5rem' }}>
+        <div id="modal-body" style={{ overflowY: 'auto', marginBottom: '1.5rem' }}>
           {children}
         </div>
         <div
           id="modal-footer"
-          style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}
+          style={{ flexShrink: 0, display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}
         >
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
